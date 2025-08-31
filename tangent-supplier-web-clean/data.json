@@ -1,0 +1,288 @@
+{
+  "platformToken": {
+    "symbol": "TGT",
+    "name": "Tangent Token",
+    "decimals": 2,
+    "peg": "USD (demo)"
+  },
+  "priceFeed": {
+    "DEMO.SUGAR": 650,
+    "DEMO.RICE": 520,
+    "DEMO.WHEAT": 580
+  },
+  "settings": {
+    "defaultDays": 14,
+    "incotermOptions": [
+      "FOB",
+      "CIF",
+      "CFR",
+      "EXW",
+      "DAP",
+      "DDP"
+    ],
+    "depositPct": 30,
+    "financePct": 70,
+    "platformFeeBp": 0,
+    "depositDeadlineHours": 48,
+    "finalPaymentDays": 14,
+    "auctionHours": 48
+  },
+  "docsWhitelist": [
+    "ICE.CARGODOCS",
+    "IQAX",
+    "CARGOX",
+    "BOLERO",
+    "WAVE.BL"
+  ],
+  "users": [
+    {
+      "id": "admin-0001",
+      "role": "admin",
+      "email": "admin@demo.test",
+      "passwordHash": "8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918",
+      "name": "Admin",
+      "apiKey": "demo-admin-key-123",
+      "kyc": {
+        "status": "approved",
+        "profile": {},
+        "docs": []
+      },
+      "wallet": {
+        "address": "demo_admin",
+        "balance": 0
+      }
+    },
+    {
+      "id": "supplier-0001",
+      "role": "supplier",
+      "email": "supplier@demo.test",
+      "passwordHash": "955ed10b73d6265b1adcf768b94f8dd5d91f33309db94b6b3af4efa822f1d9af",
+      "name": "Supplier One",
+      "apiKey": "demo-supplier-key-123",
+      "kyc": {
+        "status": "approved",
+        "profile": {},
+        "docs": []
+      },
+      "wallet": {
+        "address": "demo_supplier",
+        "balance": 0
+      }
+    },
+    {
+      "id": "buyer-0001",
+      "role": "buyer",
+      "email": "buyer@demo.test",
+      "passwordHash": "6dbd0f28d0d97656768b7b4ed96255e67fd11740a44b1c4b575191b06e9e3a35",
+      "name": "Buyer One",
+      "apiKey": "demo-buyer-key-123",
+      "kyc": {
+        "status": "approved",
+        "profile": {},
+        "docs": []
+      },
+      "wallet": {
+        "address": "demo_buyer",
+        "balance": 0
+      }
+    },
+    {
+      "id": "buyer-0002",
+      "role": "buyer",
+      "email": "downstream@demo.test",
+      "passwordHash": "5b64f9747762fbbc80a3a4f86ba83d036872c8073818b74c4ca7ce9d9e4e206b",
+      "name": "Downstream Buyer",
+      "apiKey": "demo-downstream-key-123",
+      "kyc": {
+        "status": "approved",
+        "profile": {},
+        "docs": []
+      },
+      "wallet": {
+        "address": "demo_downstream",
+        "balance": 0
+      }
+    },
+    {
+      "id": "1",
+      "email": "buyer@demo",
+      "passHash": "$2a$10$6VG/aKOOR7Cjr72Lnm.qbO1N/7LthMKeQZqz5gCDwn9tuYeZmiaLS",
+      "role": "buyer",
+      "kyc": {
+        "status": "none",
+        "files": []
+      }
+    },
+    {
+      "id": "2",
+      "email": "supplier@demo",
+      "passHash": "$2a$10$9Vc82/UClf6rLg/g.lmQyuSKm.atDlJLGIIoPpJS1aH8zsAZ30ySy",
+      "role": "supplier",
+      "kyc": {
+        "status": "none",
+        "files": []
+      }
+    }
+  ],
+  "trades": [
+    {
+      "id": "trade_bsuoeqows5",
+      "product": "White Sugar 50kg",
+      "qty": 100,
+      "unitPrice": 7.5,
+      "indexSymbol": "DEMO.SUGAR",
+      "incoterms": "FOB Shanghai",
+      "createdByRole": "supplier",
+      "supplierId": "supplier-0001",
+      "buyerId": "buyer-0001",
+      "confirmations": {
+        "supplier": true,
+        "buyer": true
+      },
+      "paymentTerms": {
+        "depositPct": 30,
+        "financePct": 70,
+        "dueDays": 14
+      },
+      "docs": {
+        "provider": "ICE.CARGODOCS",
+        "status": "accepted",
+        "files": [],
+        "freightPrepaid": false,
+        "boxes": {
+          "BL": null,
+          "INVOICE": null,
+          "PACKING_LIST": null,
+          "COO": null
+        }
+      },
+      "contractPdfs": {
+        "supplier": null,
+        "buyer": null,
+        "merged": null,
+        "compare": {}
+      },
+      "deadlines": {
+        "depositBy": 1755935353589,
+        "finalPayBy": 1756972153590
+      },
+      "escrow": {
+        "depositRequired": 225,
+        "depositPaid": 225,
+        "financeAmount": 525,
+        "financed": 525,
+        "supplierPaid": 750,
+        "finalPayer": "buyer",
+        "downstreamBuyerId": null,
+        "finalPaymentRequired": 525,
+        "finalPaymentPaid": 0
+      },
+      "keys": {
+        "toBuyer": {
+          "status": "issued",
+          "code": "IPI5UT",
+          "verified": false
+        },
+        "defaultKey": null
+      },
+      "status": "AWAITING_PAYMENT_AND_CLAIM",
+      "createdAt": 1755762553589
+    },
+    {
+      "id": "mel5jczn",
+      "product": "White Sugar 50kg",
+      "qty": 100,
+      "unitPrice": 7.5,
+      "indexSymbol": "DEMO.SUGAR",
+      "incoterms": "FOB",
+      "supplierId": "supplier-0001",
+      "buyerId": "buyer-0001",
+      "downstreamBuyerId": null,
+      "depositPaid": true,
+      "financePaid": true,
+      "supplierPaid": true,
+      "finalPaymentPaid": true,
+      "keyIssued": true,
+      "keyClaimed": true,
+      "key": "KEY-w6bml5",
+      "status": "settled",
+      "createdAt": "2025-08-21T08:40:53.891Z",
+      "docs": {
+        "provider": "DOCS.DEMO.ONE",
+        "uploadedAt": "2025-08-21T08:40:53.891Z"
+      }
+    },
+    {
+      "id": "mel7usry",
+      "product": "White Sugar 50kg",
+      "qty": 100,
+      "unitPrice": 7.5,
+      "indexSymbol": "DEMO.SUGAR",
+      "incoterms": "FOB",
+      "supplierId": "supplier-0001",
+      "buyerId": "buyer-0001",
+      "depositPaid": true,
+      "financePaid": true,
+      "supplierPaid": true,
+      "finalPaymentPaid": true,
+      "keyIssued": true,
+      "keyClaimed": true,
+      "key": "KEY-h5xhsw",
+      "status": "settled",
+      "createdAt": "2025-08-21T09:45:46.798Z",
+      "docs": {
+        "provider": "DOCS.DEMO.ONE",
+        "uploadedAt": "2025-08-21T09:45:46.798Z",
+        "fileName": "",
+        "fileUrl": ""
+      }
+    },
+    {
+      "id": "mel7v17p",
+      "product": "White Sugar 50kg",
+      "qty": 100,
+      "unitPrice": 7.5,
+      "indexSymbol": "DEMO.SUGAR",
+      "incoterms": "FOB",
+      "supplierId": "admin-0001",
+      "buyerId": null,
+      "depositPaid": false,
+      "financePaid": false,
+      "supplierPaid": false,
+      "finalPaymentPaid": false,
+      "keyIssued": false,
+      "keyClaimed": false,
+      "status": "created",
+      "createdAt": "2025-08-21T09:45:57.733Z"
+    },
+    {
+      "id": "5",
+      "name": "AutoDemo Rice 25%",
+      "qty": 120,
+      "unitPrice": 4.2,
+      "indexSymbol": "DEMO.RICE",
+      "incoterms": "CIF Hamburg",
+      "buyerId": "1",
+      "supplierId": "2",
+      "creatorRole": "buyer",
+      "buyerDepositPaid": true,
+      "supplierConfirmed": false,
+      "status": "awaiting_supplier_confirm",
+      "insuranceApplied": true,
+      "docsFiles": [],
+      "docsProvider": "",
+      "docsVerified": false,
+      "keyCode": "",
+      "finalPaid": false,
+      "released": false,
+      "createdAt": "2025-08-21T17:40:41.086Z",
+      "amountGross": 504,
+      "depositRequired": 151.2,
+      "platformFee": 0,
+      "insurancePremium": 0,
+      "supplierNetOnDocs": 504
+    }
+  ],
+  "tokens": [],
+  "auctions": []
+}
