@@ -18,6 +18,7 @@ const ADMIN_KEY = process.env.ADMIN_KEY || "demo-admin-key-123";
 const SEPOLIA_RPC_URL = process.env.SEPOLIA_RPC_URL || "";
 const ESCROW_ADDRESS = process.env.ESCROW_ADDRESS || "";
 const TGT_ADDRESS = process.env.TGT_ADDRESS || "";
+const FAUCET_PRIVATE_KEY = process.env.FAUCET_PRIVATE_KEY || "";
 
 // ---- Infra ----
 app.use(cors());
@@ -152,6 +153,11 @@ const ESCROW_ABI = [
   "event Paid70(uint256 indexed tradeId, address indexed from, uint256 amount)",
   "event Released(uint256 indexed tradeId)"
 ];
+// Minimal TGT ABI for faucet
+const TGT_ABI = [
+  "function mint(address to, uint256 amount) external",
+  "function decimals() view returns (uint8)"
+];
 
 // ---- UI (inline theme + inline logo) ----
 function css() {
@@ -191,6 +197,27 @@ function getToken(){try{return localStorage.getItem('authToken')||''}catch(e){re
 async function api(path,opts){opts=opts||{};opts.headers=opts.headers||{};opts.headers['x-auth-token']=getToken(); if(!opts.headers['Content-Type'] && !(opts.body instanceof FormData)) opts.headers['Content-Type']='application/json'; const r=await fetch(path,opts); if(!r.ok){const tx=await r.text(); throw new Error(tx)}; return r.json();}
 async function login(email,pass){const r=await fetch('/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password:pass})});const j=await r.json(); if(j.token){setToken(j.token); alert('Logged in'); location.reload()} else alert(j.error||'login failed')}
 async function register(email,pass,role){const r=await fetch('/auth/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password:pass,role})});const j=await r.json(); if(j.token){setToken(j.token); alert('Registered'); location.reload()} else alert(j.error||'register failed')}
+
+ // ---- Wallet helpers (demo) ----
+ let WALLET_ADDR = '';
+ async function connectWallet(){
+   try{
+     if(!window.ethereum){ alert('MetaMask not found'); return; }
+     const accs = await window.ethereum.request({ method: 'eth_requestAccounts' });
+     WALLET_ADDR = (accs && accs[0])||'';
+     const el = document.getElementById('walletShow');
+     if(el) el.textContent = WALLET_ADDR ? (WALLET_ADDR.slice(0,6)+'…'+WALLET_ADDR.slice(-4)) : 'Not connected';
+   }catch(e){ alert('Wallet connect failed'); }
+ }
+ async function faucet(amount=100){
+   try{
+     if(!WALLET_ADDR){ await connectWallet(); if(!WALLET_ADDR) return; }
+     const r = await fetch('/api/faucet',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ to: WALLET_ADDR, amountTokens: amount }) });
+     const j = await r.json();
+     if(!r.ok){ alert(j.error||'Faucet failed'); return; }
+     alert('Minted '+amount+' TGT. Tx: '+(j.txHash||'-'));
+   }catch(e){ alert('Faucet error'); }
+ }
 </script>
 </head>`;
 }
@@ -247,6 +274,17 @@ ${baseHead("Tangent — Home")}
             <button class="btn ghost" onclick="register(email.value, pass.value, 'supplier')">Register as Supplier</button>
           </div>
           <p class="small">For admin settings use key: <code>${ADMIN_KEY}</code></p>
+        </div>
+        <div class="card">
+          <h3>Wallet</h3>
+          <div class="row">
+            <button class="btn" onclick="connectWallet()">Connect MetaMask</button>
+            <span id="walletShow" class="badge">Not connected</span>
+          </div>
+          <div class="row mt">
+            <button class="btn ghost" onclick="faucet(100)">Get 100 TGT (Sepolia)</button>
+          </div>
+          <p class="small muted">Requires on-chain mode. Uses server faucet if available.</p>
         </div>
       </div>
     </section>
