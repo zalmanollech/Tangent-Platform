@@ -1,5 +1,5 @@
 [phases.install]
-cmd = "npm ci --production=false"
+cmd = "npm install --production=false"
 
 [phases.build]
 cmd = "echo 'No build step required'"
