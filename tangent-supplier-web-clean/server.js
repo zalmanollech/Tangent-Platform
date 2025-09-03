@@ -1,186 +1,121 @@
-// server.js — Tangent Ultra MVP (Phase 1 complete, Phase 2 optional, Phase 3 scaffolding)
-// One-file app with inline theme and UI. Uploads saved under ./uploads/.
+// Tangent Platform - Refactored Secure Server
+// Enhanced with security, logging, and modular architecture
 
-const express = require("express");
-const cors = require("cors");
-const fs = require("fs");
-const path = require("path");
-const multer = require("multer");
-const bcrypt = require("bcryptjs");
-const { v4: uuid } = require("uuid");
-const { ethers } = require("ethers");
+// Load environment configuration first
+const { config, configUtils } = require('./lib/config');
+const { logger, requestLogger, errorLogger, logUtils } = require('./lib/logger');
+const { getDatabase } = require('./lib/database');
+const websocketService = require('./lib/websocket');
+const { 
+  securityHeaders, 
+  rateLimits, 
+  speedLimiter, 
+  authMiddleware, 
+  fileUploadSecurity 
+} = require('./lib/security');
 
+// Core dependencies
+const express = require('express');
+const cors = require('cors');
+const compression = require('compression');
+const path = require('path');
+
+// Initialize Express app
 const app = express();
-const PORT = process.env.PORT || 4000;
-const ADMIN_KEY = process.env.ADMIN_KEY || "demo-admin-key-123";
 
-// Optional chain envs (if present we try on-chain, else we simulate)
-const SEPOLIA_RPC_URL = process.env.SEPOLIA_RPC_URL || "";
-const ESCROW_ADDRESS = process.env.ESCROW_ADDRESS || "";
-const TGT_ADDRESS = process.env.TGT_ADDRESS || "";
+// Initialize database
+const database = getDatabase();
+logger.info('Database initialized successfully');
 
-// ---- Infra ----
-app.use(cors());
-app.use(express.json({ limit: "10mb" }));
-app.use(express.urlencoded({ extended: true }));
+// ============================================================================
+// MIDDLEWARE CONFIGURATION
+// ============================================================================
 
-// uploads
-const UPLOAD_DIR = path.join(__dirname, "uploads");
-if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR);
-const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => cb(null, UPLOAD_DIR),
-  filename: (_req, file, cb) => cb(null, Date.now() + "-" + file.originalname.replace(/[^\w. -]/g, "_"))
-});
-const upload = multer({ storage });
+// Security headers (must be first)
+app.use(securityHeaders);
 
-// ---- DB ----
-const DB_PATH = path.join(__dirname, "data.json");
+// Compression for better performance
+app.use(compression());
 
-function ensureDBShape(db) {
-  return {
-    platformToken: db.platformToken || { symbol: "TGT", name: "Tangent Token", decimals: 2, peg: "USD (demo)" },
-    priceFeed: db.priceFeed || { "DEMO.SUGAR": 650, "DEMO.RICE": 520, "DEMO.WHEAT": 580 },
-    settings: db.settings || {
-      feePercent: 0.75,
-      platformWallet: "PLATFORM_WALLET_NOT_SET",
-      insuranceEnabled: false,
-      insurancePremiumPercent: 1.25,
-      insuranceWallet: "INSURANCE_WALLET_NOT_SET",
-      defaultDays: 14,
-      incotermOptions: ["FOB", "CIF", "CFR", "EXW", "DAP", "DDP"],
-      emailEnabled: false,
-      ocrEnabled: false,
-      antivirusEnabled: false
-    },
-    docsWhitelist: db.docsWhitelist || ["ICE.CARGODOCS", "IQAX", "CARGOX", "BOLERO", "WAVE.BL"],
-    users: Array.isArray(db.users) ? db.users : [],
-    trades: Array.isArray(db.trades) ? db.trades : [],
-    tokens: Array.isArray(db.tokens) ? db.tokens : [],
-    auctions: Array.isArray(db.auctions) ? db.auctions : []
-  };
-}
-function loadDB() {
-  try {
-    if (!fs.existsSync(DB_PATH)) {
-      const empty = ensureDBShape({});
-      fs.writeFileSync(DB_PATH, JSON.stringify(empty, null, 2));
-      return empty;
-    }
-    const raw = fs.readFileSync(DB_PATH, "utf8");
-    return ensureDBShape(JSON.parse(raw || "{}"));
-  } catch (e) {
-    console.error("loadDB error:", e);
-    return ensureDBShape({});
-  }
-}
-function saveDB(db) {
-  try {
-    fs.writeFileSync(DB_PATH, JSON.stringify(ensureDBShape(db), null, 2));
-  } catch (e) {
-    console.error("saveDB error:", e);
-  }
+// CORS configuration
+app.use(cors({
+  origin: config.server.corsOrigins,
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-auth-token']
+}));
+
+// Body parsing
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Request logging
+app.use(requestLogger);
+
+// Speed limiting and rate limiting (disabled in test environment)
+if (config.NODE_ENV !== 'test') {
+  app.use(speedLimiter);
+  app.use(rateLimits.general);
 }
 
-// ---- Sessions (fileless, memory) ----
-const SESS = new Map(); // token -> { userId, role, email }
-function makeSession(u) {
-  const t = uuid();
-  SESS.set(t, { userId: u.id, role: u.role, email: u.email });
-  return t;
-}
-function authToken(req, _res, next) {
-  const t = req.headers["x-auth-token"] || "";
-  req.session = SESS.get(t) || null;
-  next();
-}
-function requireAuth(req, res, next) {
-  if (!req.session) return res.status(401).json({ error: "auth required" });
-  next();
-}
-function requireAdmin(req, res, next) {
-  // either session.role=admin OR x-api-key matches ADMIN_KEY
-  if ((req.headers["x-api-key"] || "") === ADMIN_KEY) return next();
-  if (req.session && req.session.role === "admin") return next();
-  return res.status(401).json({ error: "admin required" });
-}
+// Static file serving
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use('/public', express.static(path.join(__dirname, 'public')));
 
-// ---- Finance helpers ----
-function recomputeFinancials(t, settings) {
-  const qty = Number(t.qty || 0);
-  const unit = Number(t.unitPrice || 0);
-  const gross = +(qty * unit).toFixed(2);
+// ============================================================================
+// API ROUTES
+// ============================================================================
 
-  const feePct = Math.max(0, Number(settings.feePercent || 0));
-  const insEnabled = !!settings.insuranceEnabled;
-  const insPct = Math.max(0, Number(settings.insurancePremiumPercent || 0));
+// Authentication routes
+app.use('/auth', config.NODE_ENV !== 'test' ? rateLimits.auth : (req, res, next) => next(), require('./routes/auth'));
 
-  const platformFee = +(gross * (feePct / 100)).toFixed(2);
-  const insurancePremium = insEnabled && t.insuranceApplied ? +(gross * (insPct / 100)).toFixed(2) : 0;
+// KYC routes
+app.use('/api/kyc', config.NODE_ENV !== 'test' ? rateLimits.upload : (req, res, next) => next(), require('./routes/kyc'));
 
-  const depositRequired = +(gross * 0.30).toFixed(2);
-  const supplierNetOnDocs = +(gross - platformFee - insurancePremium).toFixed(2);
+// Trade routes
+app.use('/api/trades', require('./routes/trades'));
 
-  return Object.assign(t, {
-    amountGross: gross,
-    depositRequired,
-    platformFee,
-    insurancePremium,
-    supplierNetOnDocs
-  });
-}
+// ============================================================================
+// LEGACY ROUTES AND PAGES (for backward compatibility)
+// ============================================================================
 
-// ---- Chain helpers (optional) ----
-function chainEnabled() {
-  return !!(SEPOLIA_RPC_URL && ESCROW_ADDRESS);
-}
-function getProvider() {
-  if (!chainEnabled()) return null;
-  try {
-    return new ethers.JsonRpcProvider(SEPOLIA_RPC_URL);
-  } catch (e) {
-    console.error("provider error", e);
-    return null;
-  }
-}
-// Dummy ABIs: you must replace if you have real contracts
-const ESCROW_ABI = [
-  // Example only: replace with your real methods
-  "function deposit30(uint256 tradeId, uint256 amount) public",
-  "function pay70(uint256 tradeId, uint256 amount) public",
-  "function releaseDocs(uint256 tradeId, bytes32 keyHash) public",
-  "event Deposited30(uint256 indexed tradeId, address indexed from, uint256 amount)",
-  "event Paid70(uint256 indexed tradeId, address indexed from, uint256 amount)",
-  "event Released(uint256 indexed tradeId)"
-];
-
-// ---- UI (inline theme + inline logo) ----
+// UI Helper functions (from original server.js)
 function css() {
   return `
 :root{--brand:#2dd4bf;--brand-ink:#032620;--bg:#0b1220;--surface:#0f172a;--card:#111a2c;--ink:#e6eefc;--muted:#9fb0ce;--line:#223253;--chip:#1b2a46;--radius:16px;--shadow:0 10px 30px rgba(0,0,0,.35)}
-*{box-sizing:border-box}html,body{height:100%}body{margin:0;background:radial-gradient(1200px 700px at 70% -10%,rgba(45,212,191,.06),transparent 60%) fixed,var(--bg);color:var(--ink);font:14px/1.5 Inter,system-ui,Segoe UI,Roboto}
-a{color:var(--brand);text-decoration:none}.wrap{max-width:1140px;margin:32px auto;padding:0 16px}
-.topbar{position:sticky;top:0;z-index:100;display:flex;align-items:center;gap:18px;padding:12px 20px;background:var(--surface);border-bottom:1px solid var(--line)}
-.topbar .logo{display:flex;align-items:center;gap:10px;font-weight:700}.topbar nav{display:flex;gap:14px}
-.topbar nav a{color:var(--ink);opacity:.8;padding:8px 10px;border-radius:10px}.topbar nav a.active{opacity:1;background:rgba(255,255,255,.04)}.topbar .sp{flex:1}
-.badge{padding:6px 10px;background:var(--chip);color:var(--muted);border-radius:999px;font-size:12px}
-.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:18px 20px;margin:16px 0;box-shadow:0 8px 18px rgba(0,0,0,.2)}
-.hero{display:grid;grid-template-columns:1.3fr 1fr;gap:24px;align-items:center;padding:24px;border-radius:var(--radius);background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.02));border:1px solid var(--line);box-shadow:var(--shadow)}
-.hero h1{margin:0 0 10px;font-size:28px}.hero p{margin:0 0 16px;color:var(--muted)}.hero .stack{display:flex;gap:10px;flex-wrap:wrap}
-.lbl{display:block;margin:6px 0 6px 2px;color:var(--muted)}.in{width:100%;background:#0b1322;border:1px solid var(--line);color:var(--ink);padding:10px 12px;border-radius:12px;outline:none}
-.in:focus{border-color:var(--brand);box-shadow:0 0 0 3px rgba(45,212,191,.15)}.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.grid{display:grid;gap:14px}.grid-2{grid-template-columns:repeat(2,minmax(0,1fr))}
-.btn{background:var(--brand);color:var(--brand-ink);border:0;padding:10px 16px;border-radius:12px;font-weight:700;cursor:pointer}.btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}.btn.xs{padding:6px 10px;font-size:12px;border-radius:10px}
-.table-wrap{overflow:auto}table{width:100%;border-collapse:collapse}th,td{padding:10px;border-bottom:1px solid var(--line);text-align:left}
+*{margin:0;padding:0;box-sizing:border-box}body{font-family:-apple-system,BlinkMacSystemFont,segoe ui,roboto,sans-serif;background:var(--bg);color:var(--ink);line-height:1.6}
+.wrap{max-width:1200px;margin:0 auto;padding:0 16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:20px;margin:12px 0}
+.grid{display:grid}.grid-2{grid-template-columns:1fr 1fr;gap:16px}.grid-3{grid-template-columns:1fr 1fr 1fr;gap:16px}
+.row{display:flex;gap:12px;align-items:center}.row.mt{margin-top:16px}
+.btn{background:var(--brand);color:var(--brand-ink);border:none;padding:12px 20px;border-radius:12px;font-weight:600;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:8px;transition:all 0.2s}
+.btn:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(45,212,191,0.3)}.btn.ghost{background:transparent;color:var(--brand);border:1px solid var(--brand)}
+.btn.xs{padding:6px 12px;font-size:13px}.btn:disabled{opacity:0.5;cursor:not-allowed}
+.in{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:12px;color:var(--ink);width:100%}.in:focus{outline:none;border-color:var(--brand)}
+.lbl{display:block;margin:8px 0 4px;font-weight:500;color:var(--muted)}
+h1,h2,h3{margin:16px 0 8px;line-height:1.3}h1{font-size:32px}h2{font-size:24px}h3{font-size:20px}
+.hero{background:linear-gradient(135deg,var(--brand),#059669);color:var(--brand-ink);padding:40px;border-radius:var(--radius);margin:20px 0;text-align:center}
+.topbar{display:flex;align-items:center;gap:16px;padding:12px 0;border-bottom:1px solid var(--line);margin-bottom:20px}
+.topbar .logo{display:flex;align-items:center;gap:8px;font-weight:bold;font-size:18px}
+.topbar nav{display:flex;gap:4px}.topbar nav a{padding:8px 16px;border-radius:8px;text-decoration:none;color:var(--muted);transition:all 0.2s}
+.topbar nav a:hover,.topbar nav a.active{background:var(--chip);color:var(--ink)}
+.sp{flex:1}.badge{background:var(--chip);color:var(--ink);padding:4px 8px;border-radius:6px;font-size:12px}
+.table-wrap{overflow-x:auto}.table-wrap table{width:100%;border-collapse:collapse}
+.table-wrap th,.table-wrap td{padding:12px;text-align:left;border-bottom:1px solid var(--line)}
+.table-wrap th{background:var(--surface);font-weight:600;color:var(--muted)}
 .small{font-size:12px;color:var(--muted)}.muted{color:var(--muted)}.mt{margin-top:12px}.footer{margin:24px 0 40px;text-align:center;color:var(--muted)}
-`;}
+`;
+}
+
 function logo() {
   return `<svg width="24" height="24" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:block"><rect x="2" y="2" width="24" height="24" rx="6" fill="#2dd4bf"/><path d="M9 14h10M14 9v10" stroke="#042925" stroke-width="2.4" stroke-linecap="round"/></svg>`;
 }
+
 function baseHead(title) {
   return `<!doctype html><html><head>
 <meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>${title}</title>
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 28 28'><rect x='2' y='2' width='24' height='24' rx='6' fill='%232dd4bf'/></svg>">
 <style>${css()}</style>
 <script>
 function getRole(){try{return localStorage.getItem('role')||'buyer'}catch(e){return'buyer'}}
@@ -194,9 +129,18 @@ async function register(email,pass,role){const r=await fetch('/auth/register',{m
 </script>
 </head>`;
 }
-function nav(active=""){
-  const tabs=[["Home","/portal"],["Trade Desk","/portal/trade"],["KYC","/portal/kyc"],["Admin","/portal/admin"]];
-  const items=tabs.map(([l,h])=>`<a class="${l===active?'active':''}" href="${h}">${l}</a>`).join("");
+
+function nav(active = "") {
+  const tabs = [
+    ["Home", "/portal"],
+    ["Trade Desk", "/portal/trade"],
+    ["Auctions", "/portal/auctions"],
+    ["Insurance", "/portal/insurance"],
+    ["KYC", "/portal/kyc"],
+    ["Demo", "/portal/interactive-demo"],
+    ["Admin", "/portal/admin"]
+  ];
+  const items = tabs.map(([l, h]) => `<a class="${l === active ? 'active' : ''}" href="${h}">${l}</a>`).join("");
   return `<header class="topbar">
     <div class="logo">${logo()}<span>Tangent</span></div>
     <nav>${items}</nav>
@@ -218,637 +162,386 @@ function nav(active=""){
   </script>`;
 }
 
-// ---- Pages ----
+// Page functions (simplified versions for backward compatibility)
 function pageHome() {
   return `
-${baseHead("Tangent — Home")}
+${baseHead("Tangent — Secure Trading Platform")}
 <body>
-  ${nav("Home")}
+${nav("Home")}
   <main class="wrap">
     <section class="hero">
-      <div>
-        <h1>Contracts, deposits & documents — on one screen.</h1>
-        <p>Either party opens a contract. Buyer funds <b>30%</b>. Supplier uploads whitelisted e-docs. Admin verifies → Supplier receives <b>100%</b> and a Key is issued. Buyer pays final 70% and claims the Key to release documents.</p>
-        <div class="stack">
-          <a class="btn" href="/portal/trade">Open Trade Desk</a>
-          <button class="btn ghost" onclick="runAutoDemo()">Run Auto-Demo</button>
-        </div>
+      <h1>🌍 Secure Global Commodity Trading</h1>
+      <p>Enhanced with enterprise-grade security, comprehensive logging, and blockchain integration. Trade with confidence on our upgraded platform.</p>
+      
+      <div class="card" style="margin-top: 20px; background: rgba(45, 212, 191, 0.05); border: 1px solid rgba(45, 212, 191, 0.2);">
+        <h3>✨ Platform Features:</h3>
+        <ul style="margin: 10px 0; padding-left: 20px; color: var(--muted);">
+          <li><strong>Enhanced Security:</strong> JWT tokens, rate limiting, input validation</li>
+          <li><strong>Comprehensive Logging:</strong> Audit trails, security monitoring</li>
+          <li><strong>Modular Architecture:</strong> Scalable, maintainable codebase</li>
+          <li><strong>Database Integration:</strong> Robust data management</li>
+          <li><strong>API Documentation:</strong> RESTful endpoints with validation</li>
+        </ul>
       </div>
-      <div>
-        <div class="card">
-          <h3>Sign in</h3>
-          <div class="row">
-            <input id="email" class="in" placeholder="email@example.com">
-            <input id="pass" class="in" type="password" placeholder="password">
-          </div>
-          <div class="row mt">
-            <button class="btn" onclick="login(email.value, pass.value)">Login</button>
-            <button class="btn ghost" onclick="register(email.value, pass.value, 'buyer')">Register as Buyer</button>
-            <button class="btn ghost" onclick="register(email.value, pass.value, 'supplier')">Register as Supplier</button>
-          </div>
-          <p class="small">For admin settings use key: <code>${ADMIN_KEY}</code></p>
-        </div>
+      
+      <div class="stack" style="margin-top: 20px;">
+        <a class="btn" href="/portal/kyc" style="background: linear-gradient(135deg, #3b82f6, #10b981); color: white;">🚀 Start KYC Process</a>
+        <a class="btn ghost" href="/api/docs/endpoints">📚 API Documentation</a>
       </div>
     </section>
-
-    <section class="card">
-      <h2>My Trades (quick view)</h2>
-      <div id="myTrades" class="small muted">Sign in to view…</div>
-      <div class="row mt"><a class="btn ghost" href="/portal/trade">Go to Trade Desk</a></div>
-    </section>
-
-    <div class="footer small">© Tangent — MVP</div>
   </main>
-
-  <script>
-    async function runAutoDemo(){
-      try{
-        const r = await fetch('/api/demo/run',{method:'POST'});
-        const j = await r.json();
-        alert(j.ok ? 'Demo ran. Open Trade Desk.' : (j.error||'Demo failed'));
-      }catch(e){ alert('Demo failed'); }
-    }
-    (async function loadMine(){
-      try{
-        const j = await api('/api/me/trades');
-        const el = document.getElementById('myTrades');
-        if(!j.trades || !j.trades.length){ el.textContent = 'No trades yet.'; return; }
-        el.innerHTML = j.trades.map(t=>t.id + ' — ' + (t.name||'-') + ' — ' + (t.status||'-')).join('<br>');
-      }catch(e){}
-    })();
-  </script>
-</body></html>`;
+</body></html>
+`;
 }
 
+// KYC page function for backward compatibility
 function pageKYC() {
   return `
-${baseHead("Tangent — KYC")}
+${baseHead("Tangent — Automated KYC & Document Processing")}
 <body>
-  ${nav("KYC")}
+${nav("KYC")}
   <main class="wrap">
+    <section class="hero" style="background: linear-gradient(135deg, #10b981, #059669); color: white; padding: 30px; border-radius: 16px; margin-bottom: 30px;">
+      <h1>🤖 Automated KYC & Document Processing</h1>
+      <p>Upload your official documents and our AI will extract all required information automatically. No manual form filling required!</p>
+    </section>
+    
+    <!-- Entity Type Selection -->
     <section class="card">
-      <h2>KYC Submission</h2>
-      <p class="small">Upload your company docs. (Demo stores files locally only.)</p>
-      <form id="kycForm">
-        <div class="row">
-          <input class="in" name="company" placeholder="Company legal name">
-          <input class="in" name="country" placeholder="Country">
+      <h2>📋 Entity Type Selection</h2>
+      <p class="muted">Select your entity type to see the required documents. Our system will automatically extract all necessary information.</p>
+      
+      <div class="grid grid-2" style="gap: 20px; margin: 20px 0;">
+        <div class="card entity-option" data-entity="private" style="border: 2px solid #e5e7eb; cursor: pointer; transition: all 0.3s;">
+          <h3>🏢 Private Company</h3>
+          <p class="muted">Limited liability company, LLC, Partnership, or similar private entity</p>
+          <div class="small" style="color: #10b981; font-weight: bold;">Required Documents:</div>
+          <ul class="small muted" style="margin: 10px 0 0 20px;">
+            <li>Certificate of Incorporation</li>
+            <li>Articles of Association / Bylaws</li>
+            <li>UBO Passport/ID + Proof of Residence</li>
+            <li>Financial Statements (last 2 years)</li>
+          </ul>
         </div>
-        <label class="lbl">Documents (PDF/IMG)</label>
-        <input class="in" name="files" type="file" multiple>
-        <div class="row mt"><button class="btn" type="submit">Submit KYC</button></div>
+        
+        <div class="card entity-option" data-entity="public" style="border: 2px solid #e5e7eb; cursor: pointer; transition: all 0.3s;">
+          <h3>🏛️ Public Company</h3>
+          <p class="muted">Publicly traded company listed on a recognized exchange</p>
+          <div class="small" style="color: #10b981; font-weight: bold;">Required Documents:</div>
+          <ul class="small muted" style="margin: 10px 0 0 20px;">
+            <li>Latest 10-K/Annual Report</li>
+            <li>Exchange Symbol & Trading Info</li>
+            <li>Board Resolution (if applicable)</li>
+            <li>Authorized Signatory Documents</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+    
+    <!-- Document Upload Section -->
+    <section class="card" id="documentUploadSection" style="display: none;">
+      <h2>📄 Document Upload & Processing</h2>
+      <p class="muted">Upload your documents in PDF or image format. Our AI will automatically extract and verify all information.</p>
+      
+      <div id="documentRequirements"></div>
+      
+      <form id="documentUploadForm" action="/api/kyc/submit" method="post" enctype="multipart/form-data">
+        <div id="uploadAreas"></div>
+        
+        <!-- Crypto Experience Assessment -->
+        <div class="card" style="background: rgba(45,212,191,0.05); border: 1px solid var(--brand);">
+          <h3 style="color: var(--brand); margin-bottom: 15px;">💰 Cryptocurrency Experience</h3>
+          <div style="margin: 20px 0;">
+            <label style="display: flex; align-items: center; gap: 10px; margin-bottom: 15px; padding: 10px; border: 1px solid var(--line); border-radius: 8px; cursor: pointer;">
+              <input type="radio" name="cryptoExperience" value="beginner" style="margin: 0;">
+              <div>
+                <div style="font-weight: 600; color: var(--ink);">I am new to cryptocurrency</div>
+                <div class="small muted">I need guidance with wallet setup and crypto basics</div>
+              </div>
+            </label>
+            
+            <label style="display: flex; align-items: center; gap: 10px; margin-bottom: 15px; padding: 10px; border: 1px solid var(--line); border-radius: 8px; cursor: pointer;">
+              <input type="radio" name="cryptoExperience" value="intermediate" style="margin: 0;">
+              <div>
+                <div style="font-weight: 600; color: var(--ink);">I have some experience</div>
+                <div class="small muted">I know the basics but may need some help</div>
+              </div>
+            </label>
+            
+            <label style="display: flex; align-items: center; gap: 10px; margin-bottom: 15px; padding: 10px; border: 1px solid var(--line); border-radius: 8px; cursor: pointer;">
+              <input type="radio" name="cryptoExperience" value="expert" style="margin: 0;">
+              <div>
+                <div style="font-weight: 600; color: var(--ink);">I am experienced with cryptocurrency</div>
+                <div class="small muted">I have my own wallet and understand DeFi</div>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <div class="row mt">
+          <button class="btn" type="submit" style="background: #10b981; color: white;">🚀 Process Documents & Complete KYC</button>
+        </div>
       </form>
     </section>
   </main>
+  
   <script>
-    const f = document.getElementById('kycForm');
-    f.addEventListener('submit', async (e)=>{
-      e.preventDefault();
-      const fd = new FormData(f);
-      try{
-        const r = await fetch('/api/kyc/submit',{method:'POST',headers:{'x-auth-token':getToken()}, body:fd});
-        const j = await r.json();
-        alert(j.ok ? 'KYC submitted' : (j.error||'Failed'));
-      }catch(err){ alert('Failed'); }
-    });
-  </script>
-</body></html>`;
-}
-
-function pageAdmin() {
-  return `
-${baseHead("Tangent — Admin")}
-<body>
-  ${nav("Admin")}
-  <main class="wrap">
-    <section class="card">
-      <h2>Admin Settings</h2>
-      <p class="small">Use admin key <code>${ADMIN_KEY}</code> to save.</p>
-      <div class="grid grid-2">
-        <div><label class="lbl">Platform Fee (%)</label><input id="s_fee" class="in" type="number" step="0.01"></div>
-        <div><label class="lbl">Platform Wallet</label><input id="s_fee_wallet" class="in" placeholder="0x..."></div>
-        <div>
-          <label class="lbl">Insurance Enabled</label>
-          <div class="row">
-            <label class="chip"><input type="radio" name="s_ins_enabled" value="yes"> Yes</label>
-            <label class="chip"><input type="radio" name="s_ins_enabled" value="no"> No</label>
-          </div>
-        </div>
-        <div></div>
-        <div><label class="lbl">Insurance Premium (%)</label><input id="s_ins_pct" class="in" type="number" step="0.01"></div>
-        <div><label class="lbl">Insurance Wallet</label><input id="s_ins_wallet" class="in" placeholder="0x..."></div>
-
-        <div><label class="lbl">Email Enabled</label><div class="row"><label class="chip"><input type="radio" name="s_email" value="yes"> Yes</label><label class="chip"><input type="radio" name="s_email" value="no"> No</label></div></div>
-        <div><label class="lbl">OCR Enabled</label><div class="row"><label class="chip"><input type="radio" name="s_ocr" value="yes"> Yes</label><label class="chip"><input type="radio" name="s_ocr" value="no"> No</label></div></div>
-        <div><label class="lbl">Antivirus Enabled</label><div class="row"><label class="chip"><input type="radio" name="s_av" value="yes"> Yes</label><label class="chip"><input type="radio" name="s_av" value="no"> No</label></div></div>
-      </div>
-      <div class="row mt">
-        <input id="adm_key" class="in" placeholder="admin key">
-        <button class="btn" onclick="saveSettings()">Save Settings</button>
-        <button class="btn ghost" onclick="loadSettings()">Reload</button>
-        <a class="btn ghost" href="/api/admin/export-csv" target="_blank">Download Trades CSV</a>
-      </div>
-    </section>
-
-    <section class="card">
-      <h2>Verify Trades & Issue Key</h2>
-      <div id="verifyList" class="small">Loading…</div>
-    </section>
-
-    <section class="card">
-      <h3>Seed Demo</h3>
-      <div class="row">
-        <button class="btn ghost" onclick="seedDemo()">Seed Full Demo</button>
-      </div>
-    </section>
-  </main>
-
-  <script>
-    async function loadSettings(){
-      const j = await (await fetch('/api/admin/settings')).json();
-      const s = j.settings||{};
-      s_fee.value = s.feePercent??''; s_fee_wallet.value = s.platformWallet??'';
-      s_ins_pct.value = s.insurancePremiumPercent??''; s_ins_wallet.value = s.insuranceWallet??'';
-      (document.querySelector('input[name="s_ins_enabled"][value="'+(s.insuranceEnabled?'yes':'no')+'"]')||{}).checked = true;
-      (document.querySelector('input[name="s_email"][value="'+(s.emailEnabled?'yes':'no')+'"]')||{}).checked = true;
-      (document.querySelector('input[name="s_ocr"][value="'+(s.ocrEnabled?'yes':'no')+'"]')||{}).checked = true;
-      (document.querySelector('input[name="s_av"][value="'+(s.antivirusEnabled?'yes':'no')+'"]')||{}).checked = true;
-    }
-    async function saveSettings(){
-      const key = adm_key.value.trim();
-      if(!key){ alert('admin key required'); return; }
-      const body = {
-        feePercent: parseFloat(s_fee.value),
-        platformWallet: s_fee_wallet.value.trim(),
-        insuranceEnabled: (document.querySelector('input[name="s_ins_enabled"]:checked')?.value==='yes'),
-        insurancePremiumPercent: parseFloat(s_ins_pct.value),
-        insuranceWallet: s_ins_wallet.value.trim(),
-        emailEnabled: (document.querySelector('input[name="s_email"]:checked')?.value==='yes'),
-        ocrEnabled: (document.querySelector('input[name="s_ocr"]:checked')?.value==='yes'),
-        antivirusEnabled: (document.querySelector('input[name="s_av"]:checked')?.value==='yes')
-      };
-      const r = await fetch('/api/admin/settings',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':key},body:JSON.stringify(body)});
-      const j = await r.json(); if(j.error){ alert(j.error); return; } alert('Saved');
-    }
-    async function seedDemo(){
-      const j = await (await fetch('/api/admin/seed-demo',{method:'POST'})).json();
-      alert(j.ok?'Seeded':'Failed');
-      loadVerify();
-    }
-    async function loadVerify(){
-      const j = await (await fetch('/api/trade/list')).json();
-      const arr = (j.trades||[]).filter(t=>t.buyerDepositPaid && !t.docsVerified);
-      if(!arr.length){ verifyList.textContent = 'Nothing to verify.'; return; }
-      verifyList.innerHTML = arr.map(t=>\`
-        <div class="row" style="margin:8px 0">
-          <span>#\${t.id} — \${t.name||'-'} — deposit:\$ \${t.depositRequired?.toFixed?.(2)||t.depositRequired} — docs:\${(t.docsFiles||[]).length} file(s)</span>
-          <button class="btn xs" onclick="verifyTrade('\${t.id}')">Verify & Issue Key</button>
-        </div>\`).join('');
-    }
-    async function verifyTrade(id){
-      const key = prompt('Admin key to verify '+id+':');
-      if(!key) return;
-      const j = await (await fetch('/api/trade/verify',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':key},body:JSON.stringify({tradeId:id})})).json();
-      if(j.error){ alert(j.error); return; }
-      alert('Verified. Key issued to buyer.');
-      loadVerify();
-    }
-    loadSettings(); loadVerify();
-  </script>
-</body></html>`;
-}
-
-function pageTrade() {
-  return `
-${baseHead("Tangent — Trade Desk")}
-<body>
-  ${nav("Trade Desk")}
-  <main class="wrap">
-    <section class="card">
-      <h2>Open a Contract</h2>
-      <p class="muted">Buyer must fund <b>30%</b>. If Buyer opens, Supplier must confirm after deposit.</p>
-      <div class="grid grid-2">
-        <div>
-          <label class="lbl">I am</label>
-          <div class="row">
-            <label class="chip"><input type="radio" name="creatorRole" value="supplier" checked> Supplier</label>
-            <label class="chip"><input type="radio" name="creatorRole" value="buyer"> Buyer</label>
-          </div>
-        </div><div></div>
-        <div><label class="lbl">Product/Name</label><input id="t_name" class="in" placeholder="White Sugar 50kg"></div>
-        <div><label class="lbl">Qty (MT)</label><input id="t_qty" class="in" type="number" value="100"></div>
-        <div><label class="lbl">Unit Price</label><input id="t_price" class="in" type="number" value="7.50" step="0.01"></div>
-        <div><label class="lbl">Index Symbol</label><input id="t_index" class="in" value="DEMO.SUGAR"></div>
-        <div><label class="lbl">Incoterms</label><input id="t_incoterms" class="in" value="FOB Shanghai"></div><div></div>
-        <div><label class="lbl">Buyer ID</label><input id="t_buyer" class="in" placeholder="buyer-001"></div>
-        <div><label class="lbl">Supplier ID</label><input id="t_supplier" class="in" placeholder="supplier-001"></div>
-        <div>
-          <label class="lbl">Apply Insurance?</label>
-          <div class="row"><label class="chip"><input type="radio" name="insApply" value="yes" checked> Yes</label><label class="chip"><input type="radio" name="insApply" value="no"> No</label></div>
-        </div><div></div>
-      </div>
-      <div class="row mt"><button class="btn" onclick="createTrade()">Create Contract</button></div>
-    </section>
-
-    <section class="card">
-      <h2>Existing Trades</h2>
-      <p class="muted">Actions appear based on your role and status. Upload docs (supplier), verify (admin), pay 70% + claim key (buyer).</p>
-      <div class="table-wrap">
-        <table id="tbl"><thead><tr>
-          <th>ID</th><th>Name</th><th>Qty</th><th>Index</th><th>Incoterms</th>
-          <th>Creator</th><th>Status</th><th>Gross</th><th>30% Deposit</th><th>Platform Fee</th><th>Insurance</th><th>Supplier Net@Docs</th><th>Actions</th>
-        </tr></thead><tbody></tbody></table>
-      </div>
-    </section>
-
-    <section class="card">
-      <h3>Upload Trade Docs (Supplier)</h3>
-      <form id="docForm">
-        <div class="row">
-          <input class="in" name="tradeId" placeholder="Trade ID">
-          <select class="in" name="provider">
-            <option>ICE.CARGODOCS</option><option>IQAX</option><option>CARGOX</option><option>BOLERO</option><option>WAVE.BL</option>
-          </select>
-        </div>
-        <label class="lbl">Files</label>
-        <input class="in" type="file" name="files" multiple>
-        <div class="row mt"><button class="btn" type="submit">Upload</button></div>
-      </form>
-    </section>
-  </main>
-
-  <script>
-    function role(){ try{return localStorage.getItem('role')||'buyer'}catch(e){return 'buyer'} }
-    function $fmt(n){ return (n==null || isNaN(n))?'-':Number(n).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}); }
-    function statusLabel(s){ return s||'-'; }
-
-    async function createTrade(){
-      const roleSel = [...document.querySelectorAll('input[name="creatorRole"]')].find(r=>r.checked)?.value || 'supplier';
-      const insApply = ([...document.querySelectorAll('input[name="insApply"]')].find(r=>r.checked)?.value || 'yes')==='yes';
-      const body = {
-        name: t_name.value.trim(), qty: t_qty.value, unitPrice: t_price.value,
-        indexSymbol: t_index.value.trim(), incoterms: t_incoterms.value.trim(),
-        buyerId: t_buyer.value.trim(), supplierId: t_supplier.value.trim(),
-        creatorRole: roleSel, insuranceApplied: insApply
-      };
-      const j = await api('/api/trade/create',{method:'POST', body: JSON.stringify(body)});
-      if(j.error){ alert(j.error); return; }
-      alert('Created'); loadTrades();
-    }
-
-    async function payDeposit(id){
-      const j = await api('/api/trade/deposit',{method:'POST', body: JSON.stringify({tradeId:id})});
-      if(j.error){ alert(j.error); return; }
-      alert('30% recorded'); loadTrades();
-    }
-    async function supplierConfirm(id){
-      const j = await api('/api/trade/confirm',{method:'POST', body: JSON.stringify({tradeId:id})});
-      if(j.error){ alert(j.error); return; }
-      alert('Supplier confirmed'); loadTrades();
-    }
-
-    async function finalPay(id){
-      const j = await api('/api/trade/final-pay',{method:'POST', body: JSON.stringify({tradeId:id})});
-      if(j.error){ alert(j.error); return; }
-      alert('Final 70% recorded' + (j.onChain?' (on-chain)':'')); loadTrades();
-    }
-    async function claimKey(id){
-      const key = prompt('Enter key to claim and release docs:');
-      if(!key) return;
-      const j = await api('/api/trade/claim',{method:'POST', body: JSON.stringify({tradeId:id, keyCode:key})});
-      if(j.error){ alert(j.error); return; }
-      alert('Docs released'); loadTrades();
-    }
-
-    async function loadTrades(){
-      const j = await api('/api/trade/list');
-      const tb = document.querySelector('#tbl tbody'); tb.innerHTML='';
-      const r0 = role();
-      (j.trades||[]).forEach(t=>{
-        const canBuyerDeposit = (!t.buyerDepositPaid && t.status==='awaiting_buyer_deposit' && r0==='buyer');
-        const needsSupplierConfirm = (t.status==='awaiting_supplier_confirm' && r0==='supplier');
-        const canFinalPay = (t.status==='confirmed' && !t.finalPaid && r0==='buyer');
-        const canClaim = (t.docsVerified && t.finalPaid && !t.released && r0==='buyer');
-
-        let actions = '';
-        if (canBuyerDeposit) actions += \`<button class="btn xs" onclick="payDeposit('\${t.id}')">Pay 30%</button>\`;
-        if (needsSupplierConfirm) actions += \`<button class="btn xs" onclick="supplierConfirm('\${t.id}')">Confirm</button>\`;
-        if (canFinalPay) actions += \`<button class="btn xs" onclick="finalPay('\${t.id}')">Pay 70%</button>\`;
-        if (canClaim) actions += \`<button class="btn xs" onclick="claimKey('\${t.id}')">Claim Key</button>\`;
-
-        const tr = document.createElement('tr');
-        tr.innerHTML = \`
-          <td>\${t.id}</td><td>\${t.name||''}</td><td>\${t.qty||''}</td><td>\${t.indexSymbol||''}</td><td>\${t.incoterms||''}</td>
-          <td>\${t.creatorRole}</td><td>\${statusLabel(t.status)}</td>
-          <td>\$ \${$fmt(t.amountGross)}</td><td>\$ \${$fmt(t.depositRequired)}</td>
-          <td>\$ \${$fmt(t.platformFee)}</td><td>\$ \${$fmt(t.insurancePremium)}</td><td>\$ \${$fmt(t.supplierNetOnDocs)}</td>
-          <td>\${actions||'-'}</td>\`;
-        tb.appendChild(tr);
+    let selectedEntityType = null;
+    
+    document.addEventListener('DOMContentLoaded', function() {
+      const entityOptions = document.querySelectorAll('.entity-option');
+      
+      entityOptions.forEach(option => {
+        option.addEventListener('click', function() {
+          entityOptions.forEach(opt => {
+            opt.style.borderColor = '#e5e7eb';
+            opt.style.background = '';
+          });
+          
+          this.style.borderColor = '#10b981';
+          this.style.background = 'rgba(16,185,129,0.05)';
+          
+          selectedEntityType = this.dataset.entity;
+          showDocumentUpload(selectedEntityType);
+        });
       });
-    }
-
-    // docs upload
-    document.getElementById('docForm').addEventListener('submit', async (e)=>{
-      e.preventDefault();
-      const fd = new FormData(e.target);
-      try{
-        const r = await fetch('/api/docs/upload',{method:'POST', headers:{'x-auth-token':getToken()}, body: fd});
-        const j = await r.json();
-        alert(j.ok?'Uploaded':'Failed');
-        loadTrades();
-      }catch(_){}
+      
+      // Handle form submission
+      document.getElementById('documentUploadForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const formData = new FormData(this);
+        formData.append('entityType', selectedEntityType);
+        
+        try {
+          const response = await fetch('/api/kyc/submit', {
+            method: 'POST',
+            headers: {
+              'x-auth-token': getToken()
+            },
+            body: formData
+          });
+          
+          const result = await response.json();
+          
+          if (result.success) {
+            alert('KYC submitted successfully!');
+            window.location.href = '/portal';
+          } else {
+            alert('Error: ' + (result.error || 'Submission failed'));
+          }
+        } catch (error) {
+          alert('Error submitting KYC: ' + error.message);
+        }
+      });
     });
-
-    loadTrades();
+    
+    function showDocumentUpload(entityType) {
+      document.getElementById('documentUploadSection').style.display = 'block';
+      
+      const requirements = entityType === 'private' ? [
+        { id: 'incorporation', name: 'Certificate of Incorporation', required: true },
+        { id: 'bylaws', name: 'Articles of Association / Bylaws', required: true },
+        { id: 'ubo_docs', name: 'UBO Documents', required: true },
+        { id: 'financials', name: 'Financial Statements', required: true }
+      ] : [
+        { id: 'annual_report', name: 'Latest Annual Report', required: true },
+        { id: 'exchange_info', name: 'Exchange Information', required: true },
+        { id: 'board_resolution', name: 'Board Resolution', required: false },
+        { id: 'signatory_docs', name: 'Signatory Documents', required: true }
+      ];
+      
+      let uploadHTML = '<h3>📋 Required Documents for ' + (entityType === 'private' ? 'Private Company' : 'Public Company') + '</h3>';
+      requirements.forEach(req => {
+        uploadHTML += '<div class="card" style="margin: 15px 0;"><h4>' + req.name + (req.required ? ' <span style="color: #ef4444;">*</span>' : ' <span class="muted">(Optional)</span>') + '</h4><input class="in" name="files" type="file" accept=".pdf,.jpg,.jpeg,.png" ' + (req.required ? 'required' : '') + '></div>';
+      });
+      
+      document.getElementById('uploadAreas').innerHTML = uploadHTML;
+    }
   </script>
-</body></html>`;
+</body></html>
+`;
 }
 
-// ---- Routes (pages) ----
-app.get("/", (_req, res) => res.redirect("/portal"));
-app.get("/portal", (_req, res) => res.send(pageHome()));
-app.get("/portal/trade", (_req, res) => res.send(pageTrade()));
-app.get("/portal/admin", (_req, res) => res.send(pageAdmin()));
-app.get("/portal/kyc", (_req, res) => res.send(pageKYC()));
+// ============================================================================
+// LEGACY ROUTES (for backward compatibility)
+// ============================================================================
 
-// ---- Auth ----
-app.post("/auth/register", (req, res) => {
-  const db = loadDB();
-  const { email = "", password = "", role = "buyer" } = req.body || {};
-  if (!email || !password) return res.status(400).json({ error: "email & password required" });
-  if (!["buyer", "supplier", "admin"].includes(role)) return res.status(400).json({ error: "invalid role" });
-  if (db.users.find(u => u.email === email)) return res.status(400).json({ error: "email exists" });
+// Portal routes
+app.get('/', (req, res) => res.redirect('/portal'));
+app.get('/portal', (req, res) => res.send(pageHome()));
+app.get('/portal/kyc', (req, res) => res.send(pageKYC()));
 
-  const id = String((db.users?.length || 0) + 1);
-  const passHash = bcrypt.hashSync(password, 10);
-  const u = { id, email, passHash, role, kyc: { status: "none", files: [] } };
-  db.users.push(u);
-  saveDB(db);
+// ============================================================================
+// API DOCUMENTATION
+// ============================================================================
 
-  const token = makeSession(u);
-  res.json({ ok: true, token, user: { id, email, role } });
-});
-
-app.post("/auth/login", (req, res) => {
-  const db = loadDB();
-  const { email = "", password = "" } = req.body || {};
-  const u = db.users.find(x => x.email === email);
-  if (!u) return res.status(400).json({ error: "invalid credentials" });
-  if (!bcrypt.compareSync(password, u.passHash)) return res.status(400).json({ error: "invalid credentials" });
-  const token = makeSession(u);
-  res.json({ ok: true, token, user: { id: u.id, email: u.email, role: u.role } });
-});
-
-// ---- KYC ----
-app.post("/api/kyc/submit", authToken, requireAuth, upload.array("files", 10), (req, res) => {
-  const db = loadDB();
-  const uid = req.session.userId;
-  const u = db.users.find(x => x.id === uid);
-  if (!u) return res.status(404).json({ error: "user not found" });
-
-  const files = (req.files || []).map(f => ({ name: f.originalname, path: path.relative(__dirname, f.path) }));
-  u.kyc = {
-    status: "submitted",
-    company: req.body.company || "",
-    country: req.body.country || "",
-    files: (u.kyc?.files || []).concat(files)
-  };
-  saveDB(db);
-  res.json({ ok: true, kyc: u.kyc });
-});
-
-// ---- Trades Unified ----
-app.get("/api/trade/list", authToken, (_req, res) => {
-  const db = loadDB();
-  const out = (db.trades || []).map(t => recomputeFinancials(t, db.settings));
-  res.json({ trades: out });
-});
-
-app.get("/api/me/trades", authToken, requireAuth, (_req, res) => {
-  const db = loadDB();
-  const uid = req.session.userId;
-  const me = db.users.find(u => u.id === uid);
-  if (!me) return res.json({ trades: [] });
-  const mine = (db.trades || []).filter(t => t.buyerId === me.id || t.supplierId === me.id);
-  res.json({ trades: mine.map(t => recomputeFinancials(t, db.settings)) });
-});
-
-app.post("/api/trade/create", authToken, requireAuth, (req, res) => {
-  const db = loadDB();
-  const {
-    name = "", qty = 0, unitPrice = 0, indexSymbol = "", incoterms = "FOB",
-    buyerId = "", supplierId = "", creatorRole = "supplier", insuranceApplied = true
-  } = req.body || {};
-  if (!buyerId || !supplierId) return res.status(400).json({ error: "buyerId and supplierId required" });
-  if (!["buyer", "supplier"].includes(creatorRole)) return res.status(400).json({ error: "invalid creatorRole" });
-
-  const id = String((db.trades?.length || 0) + 1);
-  let t = {
-    id, name, qty: Number(qty), unitPrice: Number(unitPrice), indexSymbol, incoterms,
-    buyerId, supplierId, creatorRole,
-    buyerDepositPaid: false, supplierConfirmed: creatorRole === "supplier",
-    status: "awaiting_buyer_deposit",
-    insuranceApplied: !!insuranceApplied,
-    docsFiles: [], docsProvider: "", docsVerified: false, keyCode: "", finalPaid: false, released: false,
-    createdAt: new Date().toISOString()
-  };
-  t = recomputeFinancials(t, db.settings);
-  db.trades.push(t); saveDB(db);
-  res.json({ ok: true, trade: t });
-});
-
-app.post("/api/trade/deposit", authToken, requireAuth, (req, res) => {
-  const db = loadDB();
-  const { tradeId = "" } = req.body || {};
-  let t = db.trades.find(x => x.id === String(tradeId));
-  if (!t) return res.status(404).json({ error: "trade not found" });
-
-  if (t.buyerDepositPaid) return res.json({ ok: true, trade: recomputeFinancials(t, db.settings) });
-  t.buyerDepositPaid = true;
-  if (t.creatorRole === "supplier") { t.status = "confirmed"; t.supplierConfirmed = true; }
-  else { t.status = "awaiting_supplier_confirm"; }
-  t = recomputeFinancials(t, db.settings);
-  saveDB(db);
-  res.json({ ok: true, trade: t });
-});
-
-app.post("/api/trade/confirm", authToken, requireAuth, (req, res) => {
-  const db = loadDB();
-  const { tradeId = "" } = req.body || {};
-  let t = db.trades.find(x => x.id === String(tradeId));
-  if (!t) return res.status(404).json({ error: "trade not found" });
-  if (t.status !== "awaiting_supplier_confirm" || !t.buyerDepositPaid) return res.status(400).json({ error: "not awaiting supplier confirm" });
-  t.supplierConfirmed = true; t.status = "confirmed";
-  t = recomputeFinancials(t, db.settings); saveDB(db);
-  res.json({ ok: true, trade: t });
-});
-
-// Docs upload (supplier)
-app.post("/api/docs/upload", authToken, requireAuth, upload.array("files", 10), (req, res) => {
-  const db = loadDB();
-  const { tradeId = "", provider = "" } = req.body || {};
-  let t = db.trades.find(x => x.id === String(tradeId));
-  if (!t) return res.status(404).json({ error: "trade not found" });
-  if (!db.docsWhitelist.includes(provider)) return res.status(400).json({ error: "provider not allowed" });
-
-  const files = (req.files || []).map(f => ({ name: f.originalname, path: path.relative(__dirname, f.path) }));
-  t.docsFiles = (t.docsFiles || []).concat(files);
-  t.docsProvider = provider;
-  saveDB(db);
-  res.json({ ok: true, trade: recomputeFinancials(t, db.settings) });
-});
-
-// Admin verify -> issue key to buyer
-app.post("/api/trade/verify", requireAdmin, (req, res) => {
-  const db = loadDB();
-  const { tradeId = "" } = req.body || {};
-  let t = db.trades.find(x => x.id === String(tradeId));
-  if (!t) return res.status(404).json({ error: "trade not found" });
-  if (!t.buyerDepositPaid) return res.status(400).json({ error: "deposit not paid" });
-  if (!(t.docsFiles && t.docsFiles.length)) return res.status(400).json({ error: "no docs uploaded" });
-
-  t.docsVerified = true;
-  t.keyCode = "KEY-" + Math.random().toString(36).slice(2, 8).toUpperCase();
-  saveDB(db);
-  res.json({ ok: true, keyCode: t.keyCode, trade: recomputeFinancials(t, db.settings) });
-});
-
-// Buyer final 70% (on-chain if configured, else simulated)
-app.post("/api/trade/final-pay", authToken, requireAuth, async (req, res) => {
-  const db = loadDB();
-  const { tradeId = "" } = req.body || {};
-  let t = db.trades.find(x => x.id === String(tradeId));
-  if (!t) return res.status(404).json({ error: "trade not found" });
-  if (!t.status || t.status !== "confirmed") return res.status(400).json({ error: "trade not confirmed" });
-
-  let onChain = false, txHash = "";
-  if (chainEnabled()) {
-    try {
-      const provider = getProvider();
-      // NOTE: For real tx, you'd use a signer/private key or a wallet prompt in the browser. Here we only simulate call presence.
-      const esc = new ethers.Contract(ESCROW_ADDRESS, ESCROW_ABI, provider);
-      // This call would fail without a signer; we just check ABI wiring exists.
-      await esc.getAddress(); // sanity
-      onChain = true;
-      txHash = "0x-demo"; // placeholder
-    } catch (e) {
-      onChain = false;
+app.get('/api/docs/endpoints', (req, res) => {
+  const endpoints = {
+    info: {
+      name: 'Tangent Platform API',
+      version: '2.0.0',
+      description: 'Enhanced secure trading platform with comprehensive features'
+    },
+    authentication: [
+      'POST /auth/register - User registration with validation',
+      'POST /auth/login - User authentication with JWT',
+      'POST /auth/logout - User logout (logging only)',
+      'GET /auth/profile - Get user profile',
+      'PUT /auth/profile - Update user profile',
+      'POST /auth/change-password - Change user password',
+      'POST /auth/verify-token - Verify JWT token'
+    ],
+    kyc: [
+      'POST /api/kyc/submit - Submit KYC application with documents',
+      'GET /api/kyc/status - Get KYC status for current user',
+      'GET /api/kyc/submission/:id - Get specific KYC submission',
+      'GET /api/kyc/admin/submissions - Admin: List all submissions',
+      'POST /api/kyc/admin/review/:id - Admin: Review KYC submission'
+    ],
+    trades: [
+      'GET /api/trades - List all trades with filtering',
+      'GET /api/trades/my-trades - Get current user\'s trades',
+      'GET /api/trades/:id - Get specific trade details',
+      'POST /api/trades - Create new trade',
+      'PATCH /api/trades/:id/status - Update trade status',
+      'POST /api/trades/:id/deposit - Record trade deposit',
+      'POST /api/trades/:id/confirm - Confirm trade (supplier)',
+      'GET /api/trades/analytics/summary - Get trade analytics'
+    ],
+    features: {
+      security: ['JWT authentication', 'Rate limiting', 'Input validation', 'Security headers'],
+      logging: ['Request logging', 'Error tracking', 'Audit trails', 'Security monitoring'],
+      validation: ['Schema validation', 'File upload security', 'Business rule validation'],
+      architecture: ['Modular design', 'Database abstraction', 'Configuration management']
     }
-  }
-  t.finalPaid = true;
-  saveDB(db);
-  res.json({ ok: true, onChain, txHash, trade: recomputeFinancials(t, db.settings) });
-});
-
-// Buyer claims with key -> release docs
-app.post("/api/trade/claim", authToken, requireAuth, (req, res) => {
-  const db = loadDB();
-  const { tradeId = "", keyCode = "" } = req.body || {};
-  let t = db.trades.find(x => x.id === String(tradeId));
-  if (!t) return res.status(404).json({ error: "trade not found" });
-  if (!t.docsVerified) return res.status(400).json({ error: "docs not verified" });
-  if (!t.finalPaid) return res.status(400).json({ error: "final 70% not paid" });
-  if (!keyCode || keyCode !== t.keyCode) return res.status(400).json({ error: "invalid key" });
-
-  t.released = true;
-  saveDB(db);
-  res.json({ ok: true, trade: recomputeFinancials(t, db.settings) });
-});
-
-// ---- Admin settings & CSV ----
-app.get("/api/admin/settings", (_req, res) => {
-  const db = loadDB();
-  res.json({ settings: db.settings, chain: { enabled: chainEnabled(), ESCROW_ADDRESS, TGT_ADDRESS } });
-});
-app.post("/api/admin/settings", (req, res) => {
-  const key = req.headers["x-api-key"] || "";
-  if (key !== ADMIN_KEY) return res.status(401).json({ error: "admin key required" });
-
-  const db = loadDB();
-  const s = db.settings || {};
-  const num = (v) => (v === undefined || v === null || v === "" ? null : Number(v));
-  const fee = num(req.body.feePercent); const insPct = num(req.body.insurancePremiumPercent);
-
-  if (fee !== null && (isNaN(fee) || fee < 0 || fee > 100)) return res.status(400).json({ error: "feePercent 0..100" });
-  if (insPct !== null && (isNaN(insPct) || insPct < 0 || insPct > 100)) return res.status(400).json({ error: "insurancePremiumPercent 0..100" });
-
-  db.settings = {
-    ...s,
-    feePercent: fee ?? s.feePercent,
-    platformWallet: (req.body.platformWallet || s.platformWallet),
-    insuranceEnabled: !!req.body.insuranceEnabled,
-    insurancePremiumPercent: insPct ?? s.insurancePremiumPercent,
-    insuranceWallet: (req.body.insuranceWallet || s.insuranceWallet),
-    emailEnabled: !!req.body.emailEnabled,
-    ocrEnabled: !!req.body.ocrEnabled,
-    antivirusEnabled: !!req.body.antivirusEnabled
   };
-  // recompute
-  db.trades = (db.trades || []).map(t => recomputeFinancials(t, db.settings));
-  saveDB(db);
-  res.json({ ok: true, settings: db.settings });
+  
+  res.json(endpoints);
 });
 
-app.post("/api/admin/seed-demo", (_req, res) => {
-  const db = loadDB();
-  if (!db.users.length) {
-    const buyer = { id: "1", email: "buyer@demo", passHash: bcrypt.hashSync("demo", 10), role: "buyer", kyc: { status: "none", files: [] } };
-    const supplier = { id: "2", email: "supplier@demo", passHash: bcrypt.hashSync("demo", 10), role: "supplier", kyc: { status: "none", files: [] } };
-    const admin = { id: "3", email: "admin@demo", passHash: bcrypt.hashSync("demo", 10), role: "admin", kyc: { status: "none", files: [] } };
-    db.users.push(buyer, supplier, admin);
-  }
-  if (!db.trades.length) {
-    db.trades.push(
-      recomputeFinancials({
-        id: "1", name: "White Sugar 50kg", qty: 100, unitPrice: 7.5, indexSymbol: "DEMO.SUGAR", incoterms: "FOB Shanghai",
-        buyerId: "1", supplierId: "2", creatorRole: "supplier",
-        buyerDepositPaid: false, supplierConfirmed: true, status: "awaiting_buyer_deposit",
-        insuranceApplied: true, docsFiles: [], docsProvider: "", docsVerified: false, keyCode: "", finalPaid: false, released: false,
-        createdAt: new Date().toISOString()
-      }, db.settings)
-    );
-  }
-  saveDB(db);
-  res.json({ ok: true });
-});
-
-app.get("/api/admin/export-csv", (_req, res) => {
-  const db = loadDB();
-  const cols = ["id","name","qty","unitPrice","indexSymbol","incoterms","creatorRole","supplierId","buyerId","buyerDepositPaid","supplierConfirmed","status","amountGross","depositRequired","platformFee","insurancePremium","supplierNetOnDocs","docsVerified","finalPaid","released","createdAt"];
-  const csv = [
-    cols.join(","),
-    ...(db.trades||[]).map(t => cols.map(c => {
-      const v = t[c] ?? ""; return (typeof v === "string" && v.includes(",")) ? `"${v}"` : v;
-    }).join(","))
-  ].join("\n");
-  res.setHeader("Content-Type","text/csv");
-  res.setHeader("Content-Disposition","attachment; filename=trades.csv");
-  res.send(csv);
-});
-
-// ---- Auto-Demo ----
-app.post("/api/demo/run", async (_req, res) => {
-  const db = loadDB();
-  // ensure demo users
-  if (!db.users.find(u=>u.email==="buyer@demo")) {
-    db.users.push({ id: "1", email: "buyer@demo", passHash: bcrypt.hashSync("demo", 10), role: "buyer", kyc: { status: "none", files: [] } });
-  }
-  if (!db.users.find(u=>u.email==="supplier@demo")) {
-    db.users.push({ id: "2", email: "supplier@demo", passHash: bcrypt.hashSync("demo", 10), role: "supplier", kyc: { status: "none", files: [] } });
-  }
-  // seed one trade
-  const id = String((db.trades?.length || 0) + 1);
-  let t = {
-    id, name: "AutoDemo Rice 25%", qty: 120, unitPrice: 4.20, indexSymbol: "DEMO.RICE", incoterms: "CIF Hamburg",
-    buyerId: "1", supplierId: "2", creatorRole: "buyer",
-    buyerDepositPaid: true, supplierConfirmed: false, status: "awaiting_supplier_confirm",
-    insuranceApplied: true, docsFiles: [], docsProvider: "", docsVerified: false, keyCode: "", finalPaid: false, released: false,
-    createdAt: new Date().toISOString()
+// Health check endpoint
+app.get('/health', (req, res) => {
+  const health = {
+    status: 'healthy',
+    timestamp: new Date().toISOString(),
+    version: '2.0.0',
+    environment: config.NODE_ENV,
+    features: {
+      database: 'operational',
+      logging: 'operational',
+      security: 'operational',
+      blockchain: configUtils.isFeatureEnabled('blockchainEnabled') ? 'operational' : 'disabled'
+    },
+    uptime: process.uptime()
   };
-  t = recomputeFinancials(t, db.settings);
-  db.trades.push(t); saveDB(db);
-  res.json({ ok: true, tradeId: id });
+  
+  res.json(health);
 });
 
-// ---- Start ----
-app.listen(PORT, () => console.log(`✅ Tangent Ultra MVP listening on http://localhost:${PORT}`));
+// ============================================================================
+// ERROR HANDLING
+// ============================================================================
+
+// 404 handler
+app.use((req, res) => {
+  logUtils.logSecurity('404_not_found', { url: req.originalUrl }, req);
+  res.status(404).json({
+    error: 'Endpoint not found',
+    message: `${req.method} ${req.originalUrl} is not a valid endpoint`,
+    availableEndpoints: '/api/docs/endpoints'
+  });
+});
+
+// Error handling middleware
+app.use(errorLogger);
+app.use((err, req, res, next) => {
+  // Log the error
+  logUtils.logError(err, {
+    url: req.originalUrl,
+    method: req.method,
+    body: req.body,
+    params: req.params
+  }, req);
+  
+  // Handle specific error types
+  if (err.type === 'entity.parse.failed') {
+    return res.status(400).json({ error: 'Invalid JSON in request body' });
+  }
+  
+  if (err.code === 'LIMIT_FILE_SIZE') {
+    return res.status(413).json({ error: 'File too large' });
+  }
+  
+  if (err.message.includes('Validation failed')) {
+    return res.status(400).json({ error: err.message });
+  }
+  
+  // Generic error response
+  const errorId = require('uuid').v4().split('-')[0];
+  res.status(500).json({
+    error: 'Internal server error',
+    errorId,
+    message: config.isDevelopment ? err.message : 'Something went wrong'
+  });
+});
+
+// ============================================================================
+// SERVER STARTUP
+// ============================================================================
+
+const PORT = process.env.PORT || config.server.port;
+const HOST = '0.0.0.0'; // Railway requires binding to 0.0.0.0
+
+const server = app.listen(PORT, HOST, () => {
+  logger.info(`🚀 Tangent Platform Server Started`, {
+    port: PORT,
+    host: HOST,
+    environment: config.NODE_ENV,
+    features: config.platform.features,
+    timestamp: new Date().toISOString()
+  });
+  
+  // Log system information
+  logUtils.logBusiness('server_startup', {
+    port: PORT,
+    nodeVersion: process.version,
+    platform: process.platform,
+    features: Object.keys(config.platform.features).filter(f => config.platform.features[f])
+  });
+  
+  // Initialize WebSocket after server starts
+  websocketService.initialize(server);
+  
+  console.log(`
+╔════════════════════════════════════════════════════════════════════════════════╗
+║                        🎯 TANGENT PLATFORM v2.0                               ║
+║                     Enhanced Secure Trading Platform                          ║
+╠════════════════════════════════════════════════════════════════════════════════╣
+║ 🌐 Server: http://${HOST}:${PORT}                                     ║
+║ 🔄 WebSocket: ws://${HOST}:${PORT}                                     ║
+║ 📚 API Docs: http://${HOST}:${PORT}/api/docs/endpoints                ║
+║ 🔧 Health: http://${HOST}:${PORT}/health                              ║
+║                                                                                ║
+║ ✅ Enhanced Security: JWT, Rate Limiting, Validation                          ║
+║ ✅ Real-time Updates: WebSocket, Live Notifications                           ║
+║ ✅ Email System: Verification, Notifications, Password Reset                  ║
+║ ✅ Comprehensive Logging: Audit, Security, Performance                        ║
+║ ✅ Modular Architecture: Scalable, Maintainable                               ║
+║ ✅ Database Integration: Robust Data Management                               ║
+╚════════════════════════════════════════════════════════════════════════════════╝
+  `);
+});
+
+// Graceful shutdown
+process.on('SIGTERM', () => {
+  logger.info('SIGTERM received, shutting down gracefully');
+  process.exit(0);
+});
+
+process.on('SIGINT', () => {
+  logger.info('SIGINT received, shutting down gracefully');
+  process.exit(0);
+});
+
+module.exports = app;

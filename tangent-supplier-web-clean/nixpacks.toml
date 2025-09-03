@@ -1,0 +1,12 @@
+[phases.install]
+cmd = "npm ci --production=false"
+
+[phases.build]
+cmd = "echo 'No build step required'"
+
+[phases.start]
+cmd = "npm start"
+
+[variables]
+NODE_ENV = "production"
+
