@@ -1,8 +1,11 @@
+[providers.node]
+version = "18"
+
 [phases.setup]
 nixPkgs = ["nodejs", "npm"]
 
 [phases.install]
-cmd = "npm install --legacy-peer-deps"
+cmd = "rm -f package-lock.json && npm install --legacy-peer-deps"
 
 [phases.build]
 cmd = "echo 'No build step required'"
@@ -12,8 +15,5 @@ cmd = "npm start"
 
 [variables]
 NODE_ENV = "production"
-NIXPACKS_NO_DEFAULT_CACHE_MOUNT = "1"
-
-[providers.node]
-version = "18"
+NPM_CONFIG_LEGACY_PEER_DEPS = "true"
 
