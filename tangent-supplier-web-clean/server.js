@@ -162,34 +162,130 @@ function nav(active = "") {
   </script>`;
 }
 
-// Page functions (simplified versions for backward compatibility)
-function pageHome() {
+// Landing page for new visitors
+function pageLanding() {
   return `
-${baseHead("Tangent — Secure Trading Platform")}
-<body>
-${nav("Home")}
-  <main class="wrap">
-    <section class="hero">
-      <h1>🌍 Secure Global Commodity Trading</h1>
-      <p>Enhanced with enterprise-grade security, comprehensive logging, and blockchain integration. Trade with confidence on our upgraded platform.</p>
-      
-      <div class="card" style="margin-top: 20px; background: rgba(45, 212, 191, 0.05); border: 1px solid rgba(45, 212, 191, 0.2);">
-        <h3>✨ Platform Features:</h3>
-        <ul style="margin: 10px 0; padding-left: 20px; color: var(--muted);">
-          <li><strong>Enhanced Security:</strong> JWT tokens, rate limiting, input validation</li>
-          <li><strong>Comprehensive Logging:</strong> Audit trails, security monitoring</li>
-          <li><strong>Modular Architecture:</strong> Scalable, maintainable codebase</li>
-          <li><strong>Database Integration:</strong> Robust data management</li>
-          <li><strong>API Documentation:</strong> RESTful endpoints with validation</li>
-        </ul>
+${baseHead("Tangent Platform — Global Commodity Trading")}
+<body style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); min-height: 100vh;">
+  <div style="max-width: 1200px; margin: 0 auto; padding: 40px 20px;">
+    
+    <!-- Header -->
+    <header style="text-align: center; margin-bottom: 60px;">
+      <div style="display: flex; align-items: center; justify-content: center; gap: 15px; margin-bottom: 20px;">
+        ${logo()}
+        <h1 style="font-size: 42px; font-weight: 700; background: linear-gradient(135deg, #3b82f6, #06b6d4); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin: 0;">
+          Tangent Platform
+        </h1>
       </div>
+      <p style="font-size: 24px; color: #94a3b8; max-width: 600px; margin: 0 auto; line-height: 1.4;">
+        The Future of Secure Global Commodity Trading
+      </p>
+    </header>
+
+    <!-- Main Value Proposition -->
+    <section style="text-align: center; margin-bottom: 80px;">
+      <h2 style="font-size: 36px; color: #f1f5f9; margin-bottom: 20px; font-weight: 600;">
+        Trade Commodities with Confidence
+      </h2>
+      <p style="font-size: 18px; color: #cbd5e1; max-width: 800px; margin: 0 auto 40px; line-height: 1.6;">
+        Our platform combines cutting-edge security, AI-powered KYC verification, and blockchain technology 
+        to provide the most secure and efficient commodity trading experience available.
+      </p>
       
-      <div class="stack" style="margin-top: 20px;">
-        <a class="btn" href="/portal/kyc" style="background: linear-gradient(135deg, #3b82f6, #10b981); color: white;">🚀 Start KYC Process</a>
-        <a class="btn ghost" href="/api/docs/endpoints">📚 API Documentation</a>
+      <!-- Call to Action Buttons -->
+      <div style="display: flex; gap: 20px; justify-content: center; flex-wrap: wrap; margin-top: 40px;">
+        <button onclick="showSignIn()" style="background: linear-gradient(135deg, #3b82f6, #1d4ed8); color: white; border: none; padding: 16px 32px; border-radius: 12px; font-size: 18px; font-weight: 600; cursor: pointer; box-shadow: 0 10px 30px rgba(59, 130, 246, 0.3); transition: all 0.3s;">
+          📊 Sign In to Dashboard
+        </button>
+        <button onclick="startKYC()" style="background: linear-gradient(135deg, #10b981, #059669); color: white; border: none; padding: 16px 32px; border-radius: 12px; font-size: 18px; font-weight: 600; cursor: pointer; box-shadow: 0 10px 30px rgba(16, 185, 129, 0.3); transition: all 0.3s;">
+          🚀 Start Trading (Sign Up)
+        </button>
+      </div>
+      <p style="margin-top: 15px; color: #64748b; font-size: 14px;">
+        New users will complete KYC verification • Existing users access dashboard immediately
+      </p>
+    </section>
+
+    <!-- Features Grid -->
+    <section style="margin-bottom: 60px;">
+      <h3 style="text-align: center; font-size: 28px; color: #f1f5f9; margin-bottom: 40px;">Why Choose Tangent Platform?</h3>
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 30px;">
+        
+        <div style="background: rgba(30, 41, 59, 0.8); padding: 30px; border-radius: 16px; border: 1px solid #334155;">
+          <h4 style="color: #3b82f6; font-size: 20px; margin-bottom: 15px;">🔒 Enterprise Security</h4>
+          <p style="color: #cbd5e1; line-height: 1.6;">Bank-grade security with JWT authentication, rate limiting, and comprehensive audit trails.</p>
+        </div>
+        
+        <div style="background: rgba(30, 41, 59, 0.8); padding: 30px; border-radius: 16px; border: 1px solid #334155;">
+          <h4 style="color: #10b981; font-size: 20px; margin-bottom: 15px;">🤖 AI-Powered KYC</h4>
+          <p style="color: #cbd5e1; line-height: 1.6;">Automated document processing and verification using advanced AI technology.</p>
+        </div>
+        
+        <div style="background: rgba(30, 41, 59, 0.8); padding: 30px; border-radius: 16px; border: 1px solid #334155;">
+          <h4 style="color: #06b6d4; font-size: 20px; margin-bottom: 15px;">⚡ Real-Time Trading</h4>
+          <p style="color: #cbd5e1; line-height: 1.6;">Live market updates, instant notifications, and seamless trade execution.</p>
+        </div>
+        
       </div>
     </section>
-  </main>
+
+    <!-- Footer -->
+    <footer style="text-align: center; padding: 40px 0; border-top: 1px solid #334155; margin-top: 60px;">
+      <p style="color: #64748b;">© 2024 Tangent Platform. All rights reserved.</p>
+    </footer>
+
+  </div>
+
+  <!-- Modal for Sign In -->
+  <div id="signInModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; align-items: center; justify-content: center;">
+    <div style="background: #1e293b; padding: 40px; border-radius: 16px; max-width: 400px; width: 90%;">
+      <h3 style="color: #f1f5f9; margin-bottom: 20px;">Sign In to Your Account</h3>
+      <input type="email" id="signInEmail" placeholder="Email" style="width: 100%; padding: 12px; margin-bottom: 15px; border-radius: 8px; border: 1px solid #475569; background: #0f172a; color: #f1f5f9;">
+      <input type="password" id="signInPassword" placeholder="Password" style="width: 100%; padding: 12px; margin-bottom: 20px; border-radius: 8px; border: 1px solid #475569; background: #0f172a; color: #f1f5f9;">
+      <div style="display: flex; gap: 10px;">
+        <button onclick="performSignIn()" style="flex: 1; background: #3b82f6; color: white; border: none; padding: 12px; border-radius: 8px; cursor: pointer;">Sign In</button>
+        <button onclick="closeSignIn()" style="background: #64748b; color: white; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer;">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function showSignIn() {
+      document.getElementById('signInModal').style.display = 'flex';
+    }
+    
+    function closeSignIn() {
+      document.getElementById('signInModal').style.display = 'none';
+    }
+    
+    function startKYC() {
+      window.location.href = '/portal/kyc';
+    }
+    
+    async function performSignIn() {
+      const email = document.getElementById('signInEmail').value;
+      const password = document.getElementById('signInPassword').value;
+      
+      try {
+        const response = await fetch('/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
+        });
+        
+        const result = await response.json();
+        
+        if (result.token) {
+          localStorage.setItem('authToken', result.token);
+          window.location.href = '/portal';
+        } else {
+          alert('Login failed: ' + (result.error || 'Invalid credentials'));
+        }
+      } catch (error) {
+        alert('Login error: ' + error.message);
+      }
+    }
+  </script>
 </body></html>
 `;
 }
@@ -368,7 +464,7 @@ ${nav("KYC")}
 // ============================================================================
 
 // Portal routes
-app.get('/', (req, res) => res.redirect('/portal'));
+app.get('/', (req, res) => res.send(pageLanding()));
 app.get('/portal', (req, res) => res.send(pageHome()));
 app.get('/portal/kyc', (req, res) => res.send(pageKYC()));
 
