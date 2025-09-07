@@ -610,3 +610,4 @@ document.addEventListener('DOMContentLoaded', () => {
 window.TangentMobileResponsive = TangentMobileResponsive;
 
 
+

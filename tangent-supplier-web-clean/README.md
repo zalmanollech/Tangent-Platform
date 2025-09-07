@@ -423,3 +423,4 @@ For support and questions:
 **Tangent Platform v2.0** - Built with ❤️ for secure, scalable commodity trading.
 
 
+
