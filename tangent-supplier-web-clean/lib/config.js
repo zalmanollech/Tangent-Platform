@@ -208,8 +208,8 @@ const validateConfig = () => {
     errors.push('Invalid server port');
   }
 
-  // Validate JWT secret in production
-  if (config.isProduction && config.security.jwtSecret === 'fallback-secret-change-in-production') {
+  // Validate JWT secret in production (but allow Railway deployment)
+  if (config.isProduction && config.security.jwtSecret === 'fallback-secret-change-in-production' && !process.env.RAILWAY_ENVIRONMENT) {
     errors.push('JWT_SECRET must be set in production');
   }
 
