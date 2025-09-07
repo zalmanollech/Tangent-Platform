@@ -1,5 +1,9 @@
-[providers.node]
-version = "18"
+providers = ["node"]
+
+[variables]
+NODE_VERSION = "18"
+NODE_ENV = "production"
+NPM_CONFIG_LEGACY_PEER_DEPS = "true"
 
 [phases.setup]
 nixPkgs = ["nodejs", "npm"]
@@ -12,8 +16,4 @@ cmd = "echo 'No build step required'"
 
 [phases.start]
 cmd = "npm start"
-
-[variables]
-NODE_ENV = "production"
-NPM_CONFIG_LEGACY_PEER_DEPS = "true"
 
