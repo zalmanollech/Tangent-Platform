@@ -290,6 +290,42 @@ ${baseHead("Tangent Platform — Global Commodity Trading")}
 `;
 }
 
+// Portal home page for authenticated users
+function pageHome() {
+  return `
+${baseHead("Tangent Platform — Trading Dashboard")}
+<body>
+${nav("Home")}
+  <main class="wrap">
+    <section class="hero">
+      <h1>🌍 Welcome to Tangent Platform</h1>
+      <p>Your secure commodity trading dashboard. Access all platform features below.</p>
+      
+      <div class="grid grid-3" style="margin-top: 30px;">
+        <div class="card">
+          <h3>📋 KYC Verification</h3>
+          <p>Complete your Know Your Customer verification process.</p>
+          <a class="btn" href="/portal/kyc">Start KYC Process</a>
+        </div>
+        
+        <div class="card">
+          <h3>💼 Trade Desk</h3>
+          <p>Access trading features and manage your portfolio.</p>
+          <a class="btn" href="/portal/trade">Open Trade Desk</a>
+        </div>
+        
+        <div class="card">
+          <h3>📊 Analytics</h3>
+          <p>View trading analytics and performance metrics.</p>
+          <a class="btn" href="/portal/analytics">View Analytics</a>
+        </div>
+      </div>
+    </section>
+  </main>
+</body></html>
+`;
+}
+
 // KYC page function for backward compatibility
 function pageKYC() {
   return `
