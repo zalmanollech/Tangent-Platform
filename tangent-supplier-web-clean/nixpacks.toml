@@ -6,7 +6,7 @@ NODE_ENV = "production"
 NPM_CONFIG_LEGACY_PEER_DEPS = "true"
 
 [phases.setup]
-nixPkgs = ["nodejs", "npm"]
+nixPkgs = ["nodejs"]
 
 [phases.install]
 cmd = "rm -f package-lock.json && npm install --legacy-peer-deps"
