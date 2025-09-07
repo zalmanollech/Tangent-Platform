@@ -328,7 +328,6 @@ router.post('/admin/review/:id', authMiddleware.requireAdmin, async (req, res) =
     }, req.user.id);
 
     // Send real-time notification to user
-    const user = db.findById('users', submission.userId);
     if (user) {
       websocketService.notifyKYCUpdate(user.id, status, notes);
       
