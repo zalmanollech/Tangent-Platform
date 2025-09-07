@@ -1,4 +1,8 @@
-require('dotenv').config();
+try {
+  require('dotenv').config();
+} catch (e) {
+  console.log('dotenv not found, using environment variables directly');
+}
 
 // Environment validation
 const requiredEnvVars = {

@@ -2,6 +2,16 @@
 import React, { useState } from 'react'
 import { useWallet } from './wallet'
 import DocumentPanel from './DocumentPanel'
+import EnhancedDocumentPanel from './components/EnhancedDocumentPanel'
+import EnhancedDocumentManager from './components/EnhancedDocumentManager'
+import BlockchainIntegration from './components/BlockchainIntegration'
+import ComplianceDashboard from './components/ComplianceDashboard'
+import AIDocumentDashboard from './components/AIDocumentDashboard'
+import WalletConnect from './components/WalletConnect'
+import EnhancedWalletConnect from './components/EnhancedWalletConnect'
+import WalletStatus from './components/WalletStatus'
+import TransactionStatus from './components/TransactionStatus'
+import TradeManager from './components/TradeManager'
 
 function Btn({ children, onClick, primary }) {
   const base = {
@@ -44,8 +54,44 @@ function Supplier() {
       <Step title="Upload contract & e-docs" desc="Upload sales contract & certified documents."
             done={docsUploaded} onClick={()=>setDocsUploaded(true)} actionLabel="Upload" />
 
-      {/* Your on-chain Document Panel (from src/DocumentPanel.jsx) */}
-      <DocumentPanel />
+      {/* Enhanced Document Panel with Web3.Storage integration */}
+      <EnhancedDocumentPanel />
+      
+      {/* Enhanced Document Manager */}
+      <EnhancedDocumentManager 
+        userRole={role} 
+        onDocumentUpdate={() => {
+          // Refresh any relevant data when documents are updated
+          console.log('Documents updated');
+        }}
+      />
+      
+      {/* Blockchain Integration */}
+      <BlockchainIntegration 
+        userRole={role} 
+        onTransactionUpdate={(transaction) => {
+          // Handle transaction updates
+          console.log('Transaction updated:', transaction);
+        }}
+      />
+      
+      {/* Compliance Dashboard */}
+      <ComplianceDashboard 
+        userRole={role} 
+        onComplianceUpdate={(compliance) => {
+          // Handle compliance updates
+          console.log('Compliance updated:', compliance);
+        }}
+      />
+      
+      {/* AI Document Verification Dashboard */}
+      <AIDocumentDashboard 
+        userRole={role} 
+        onDocumentVerificationUpdate={(verification) => {
+          // Handle document verification updates
+          console.log('Document verification updated:', verification);
+        }}
+      />
 
       <Step title="Request 70% advance" desc="Receive 70% advance after verification."
             done={depositPlaced} onClick={()=>setDepositPlaced(true)} actionLabel="Request" />
@@ -92,6 +138,7 @@ export default function App(){
   const [role, setRole] = useState('Supplier')
   const [authOpen, setAuthOpen] = useState(false)
   const [user, setUser] = useState(null)
+  const [showTxStatus, setShowTxStatus] = useState(false)
 
   return (
     <div style={{fontFamily:'system-ui, Arial', background:'#f6f6f6', minHeight:'100vh'}}>
@@ -103,20 +150,8 @@ export default function App(){
             <strong>TANGENT</strong>
             <span className="badge">{user ? 'Signed in' : 'Guest'}</span>
           </div>
-          <div style={{display:'flex', gap:8, alignItems:'center'}}>
-            {!hasProvider ? (
-              <Btn onClick={()=> window.open('https://metamask.io/download/', '_blank')}>Get MetaMask</Btn>
-            ) : (
-              account ? (
-                <span style={{display:'inline-flex',gap:8,alignItems:'center'}}>
-                  <span style={{width:8,height:8,borderRadius:999, background: isSepolia ? '#16a34a' : '#f59e0b'}} />
-                  <span>{shortAccount} {isSepolia ? '' : `(switch to ${networkName})`}</span>
-                  {!isSepolia && <Btn onClick={connect}>Switch</Btn>}
-                </span>
-              ) : (
-                <Btn onClick={connect} primary>Connect Wallet</Btn>
-              )
-            )}
+          <div style={{display:'flex', gap:12, alignItems:'center'}}>
+            <WalletStatus />
             {user ? (
               <Btn onClick={()=>setUser(null)}>Sign out</Btn>
             ) : (
@@ -146,11 +181,62 @@ export default function App(){
               <div style={{fontWeight:600}}>{user.email}</div>
             </div>
             <div style={{display:'flex', gap:8}}>
-              {['Supplier','Buyer','Trader'].map(r => (
+              {['Supplier','Buyer','Trader','Admin'].map(r => (
                 <Btn key={r} onClick={()=>setRole(r)} primary={role===r}>{r}</Btn>
               ))}
             </div>
           </div>
+          
+          {/* Wallet Connection Status */}
+          {!account && (
+            <div style={{marginBottom: 24}}>
+              <div style={{
+                background: 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)',
+                border: '1px solid #f59e0b',
+                borderRadius: 16,
+                padding: 20,
+                textAlign: 'center'
+              }}>
+                <h3 style={{margin: '0 0 12px', color: '#92400e'}}>
+                  🔌 Connect Your Wallet
+                </h3>
+                <p style={{margin: '0 0 16px', color: '#92400e', fontSize: 14}}>
+                  Connect your MetaMask wallet to access blockchain features and manage trades on-chain.
+                </p>
+                <EnhancedWalletConnect />
+              </div>
+            </div>
+          )}
+
+          {/* Wrong Network Warning */}
+          {account && !isSepolia && (
+            <div style={{marginBottom: 24}}>
+              <div style={{
+                background: 'linear-gradient(135deg, #fecaca 0%, #fca5a5 100%)',
+                border: '1px solid #ef4444',
+                borderRadius: 16,
+                padding: 20,
+                textAlign: 'center'
+              }}>
+                <h3 style={{margin: '0 0 12px', color: '#991b1b'}}>
+                  ⚠️ Wrong Network
+                </h3>
+                <p style={{margin: '0 0 16px', color: '#991b1b', fontSize: 14}}>
+                  Please switch to Sepolia testnet to use blockchain features.
+                </p>
+                <EnhancedWalletConnect />
+              </div>
+            </div>
+          )}
+
+          {/* Blockchain Trade Manager */}
+          {account && isSepolia && (
+            <div style={{marginBottom: 24}}>
+              <TradeManager userRole={role} />
+            </div>
+          )}
+          
+          {/* Original Demo Steps */}
           {role==='Supplier' && <Supplier/>}
           {role==='Buyer' && <Buyer/>}
           {role==='Trader' && <Trader/>}
@@ -194,6 +280,16 @@ export default function App(){
             {error && <div style={{marginTop:8, color:'#b91c1c'}}>{error}</div>}
           </div>
         </div>
+      )}
+
+      {/* Transaction Status */}
+      {showTxStatus && (
+        <TransactionStatus 
+          loading={false}
+          error={error}
+          txHash={null}
+          onClose={() => setShowTxStatus(false)}
+        />
       )}
     </div>
   )
