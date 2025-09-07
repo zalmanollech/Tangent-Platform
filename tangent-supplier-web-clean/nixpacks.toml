@@ -1,5 +1,5 @@
 [phases.install]
-cmd = "npm install --production=false"
+cmd = "npm install --legacy-peer-deps"
 
 [phases.build]
 cmd = "echo 'No build step required'"
