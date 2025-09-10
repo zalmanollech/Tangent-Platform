@@ -127,13 +127,9 @@ const routeHandler = (req, res, next) => {
     return next();
   }
   
-  // Auth routes - allow login/register but restrict to authorized users on registration
+  // Auth routes - allow all authentication operations
   if (path.startsWith('/auth/')) {
-    if (path === '/auth/register') {
-      // Intercept registration to check authorization
-      return requirePlatformAccess(req, res, next);
-    }
-    return next(); // Allow all auth routes including login
+    return next(); // Allow all auth routes including login and register
   }
   
   // TGT and unified registration routes - public access
@@ -141,8 +137,8 @@ const routeHandler = (req, res, next) => {
     return next();
   }
   
-  // Emergency and admin-setup routes - public access
-  if (path.startsWith('/emergency') || path.startsWith('/admin-setup') || path.startsWith('/api/admin')) {
+  // Emergency and setup routes - public access
+  if (path.startsWith('/emergency') || path.startsWith('/admin-setup') || path.startsWith('/api/admin') || path.startsWith('/setup')) {
     return next();
   }
   

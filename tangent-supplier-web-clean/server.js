@@ -91,6 +91,7 @@ app.use('/admin-setup', require('./routes/admin-setup'));
 // Emergency setup routes (backup method)
 app.use('/emergency', require('./routes/emergency-setup'));
 app.use('/api/admin', require('./routes/admin'));
+app.use('/setup', require('./routes/setup'));
 
 // ============================================================================
 // LEGACY ROUTES AND PAGES (for backward compatibility)
