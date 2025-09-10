@@ -83,13 +83,15 @@ router.post('/create-admin', async (req, res) => {
     // Check if user already exists
     const existingUser = db.findUserByEmail(email);
     if (existingUser) {
-      // Update existing user
+      // Update existing user - ensure account is active and admin role
       const passHash = await passwordUtils.hashPassword(password);
       db.update('users', existingUser.id, {
         passHash,
         role: 'admin',
         isActive: true,
-        emailVerified: true
+        emailVerified: true,
+        lastUpdated: new Date().toISOString(),
+        updatedBy: 'setup-script'
       });
       
       return res.json({ 

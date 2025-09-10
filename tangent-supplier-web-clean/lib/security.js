@@ -6,7 +6,7 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 
 // Environment configuration
-const JWT_SECRET = process.env.JWT_SECRET || 'fallback-secret-change-in-production';
+const JWT_SECRET = process.env.JWT_SECRET || 'TGT-Platform-2024-Secure-JWT-Secret-Change-In-Production-' + Math.random().toString(36);
 const JWT_EXPIRY = process.env.JWT_EXPIRY || '24h';
 const BCRYPT_ROUNDS = parseInt(process.env.BCRYPT_ROUNDS) || 12;
 

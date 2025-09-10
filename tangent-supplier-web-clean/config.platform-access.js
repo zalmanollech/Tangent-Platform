@@ -22,7 +22,7 @@ module.exports = {
 
   // Admin override key for emergency access
   // Set this as environment variable: PLATFORM_ACCESS_KEY=your-secret-key
-  adminOverrideKey: process.env.PLATFORM_ACCESS_KEY || 'TGT-ADMIN-2024-SECURE-7h9k2m5p8q1w3e6r',
+  adminOverrideKey: process.env.PLATFORM_ACCESS_KEY || 'TGT-SECURE-' + Date.now() + '-' + Math.random().toString(36),
 
   // Routes that require platform access (in addition to /portal, /admin)
   protectedRoutes: [
