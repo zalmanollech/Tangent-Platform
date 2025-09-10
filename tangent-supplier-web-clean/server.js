@@ -82,6 +82,9 @@ app.use('/api/trades', require('./routes/trades'));
 // TGT Stablecoin routes
 app.use('/api/tgt', require('./routes/tgt'));
 
+// Unified registration routes
+app.use('/api/unified-register', require('./routes/unified-register'));
+
 // ============================================================================
 // LEGACY ROUTES AND PAGES (for backward compatibility)
 // ============================================================================
@@ -204,92 +207,126 @@ ${baseHead("Tangent Platform — Global Commodity Trading")}
     </header>
 
     <!-- Main Value Proposition -->
-    <section style="text-align: center; margin-bottom: 80px;">
+    <section style="text-align: center; margin-bottom: 40px;">
       <h2 style="font-size: 36px; color: #f1f5f9; margin-bottom: 20px; font-weight: 600;">
-        Revolutionary Trade Finance Platform
+        The Future of Commodity Trading & Digital Currency
       </h2>
-      <p style="font-size: 18px; color: #cbd5e1; max-width: 800px; margin: 0 auto 40px; line-height: 1.6;">
-        We're building the next generation of commodity trading infrastructure, combining cutting-edge security, 
-        AI-powered document processing, and blockchain technology to revolutionize global trade finance.
+      <p style="font-size: 18px; color: #cbd5e1; max-width: 900px; margin: 0 auto 50px; line-height: 1.6;">
+        We're building the next generation of commodity trading infrastructure and introducing TGT stablecoin - 
+        revolutionizing both traditional trade finance and digital currency stability.
       </p>
-      
-      <!-- TGT Stablecoin Section -->
-      <div style="background: linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(6, 182, 212, 0.1)); padding: 50px; border-radius: 24px; border: 2px solid rgba(16, 185, 129, 0.3); margin: 60px auto; max-width: 900px; position: relative; overflow: hidden;">
-        <div style="position: absolute; top: -50%; right: -20%; width: 200px; height: 200px; background: radial-gradient(circle, rgba(16, 185, 129, 0.1), transparent); border-radius: 50%;"></div>
-        <div style="position: relative; z-index: 2;">
-          <h3 style="color: #10b981; margin-bottom: 25px; font-size: 32px; font-weight: 700;">
-            💎 Introducing TGT Stablecoin
-          </h3>
-          <p style="color: #e2e8f0; margin-bottom: 35px; font-size: 20px; line-height: 1.6; max-width: 700px; margin-left: auto; margin-right: auto;">
-            The future of stable digital currency designed specifically for commodity trading and global commerce.
-          </p>
-          
-          <!-- TGT Benefits Grid -->
-          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 25px; margin-bottom: 40px;">
-            <div style="background: rgba(15, 23, 42, 0.7); padding: 25px; border-radius: 16px; border: 1px solid rgba(16, 185, 129, 0.2);">
-              <h4 style="color: #10b981; font-size: 18px; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
-                🏦 <span>Price Stability</span>
-              </h4>
-              <p style="color: #cbd5e1; font-size: 14px; line-height: 1.5; margin: 0;">
-                Backed by real commodity reserves, providing unprecedented stability for large-scale trading.
-              </p>
-            </div>
+    </section>
+
+    <!-- Split Layout: Platform & TGT -->
+    <section style="margin-bottom: 60px;">
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 40px; max-width: 1200px; margin: 0 auto;">
+        
+        <!-- Left Side: Trading Platform -->
+        <div style="background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(29, 78, 216, 0.1)); padding: 40px; border-radius: 24px; border: 2px solid rgba(59, 130, 246, 0.3); position: relative; overflow: hidden;">
+          <div style="position: absolute; top: -30%; left: -20%; width: 150px; height: 150px; background: radial-gradient(circle, rgba(59, 130, 246, 0.1), transparent); border-radius: 50%;"></div>
+          <div style="position: relative; z-index: 2;">
+            <h3 style="color: #3b82f6; margin-bottom: 20px; font-size: 28px; font-weight: 700; text-align: center;">
+              🏢 Tangent Trading Platform
+            </h3>
+            <p style="color: #e2e8f0; margin-bottom: 30px; font-size: 16px; line-height: 1.6; text-align: center;">
+              Revolutionary trade finance infrastructure with AI-powered processing and blockchain security.
+            </p>
             
-            <div style="background: rgba(15, 23, 42, 0.7); padding: 25px; border-radius: 16px; border: 1px solid rgba(16, 185, 129, 0.2);">
-              <h4 style="color: #10b981; font-size: 18px; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
-                ⚡ <span>Instant Settlement</span>
-              </h4>
-              <p style="color: #cbd5e1; font-size: 14px; line-height: 1.5; margin: 0;">
-                24/7 global transactions with near-instant settlement, eliminating traditional banking delays.
-              </p>
-            </div>
-            
-            <div style="background: rgba(15, 23, 42, 0.7); padding: 25px; border-radius: 16px; border: 1px solid rgba(16, 185, 129, 0.2);">
-              <h4 style="color: #10b981; font-size: 18px; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
-                🌐 <span>Global Access</span>
-              </h4>
-              <p style="color: #cbd5e1; font-size: 14px; line-height: 1.5; margin: 0;">
-                Cross-border trading without currency conversion fees or regulatory friction.
-              </p>
-            </div>
-            
-            <div style="background: rgba(15, 23, 42, 0.7); padding: 25px; border-radius: 16px; border: 1px solid rgba(16, 185, 129, 0.2);">
-              <h4 style="color: #10b981; font-size: 18px; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
-                🔒 <span>Transparency</span>
-              </h4>
-              <p style="color: #cbd5e1; font-size: 14px; line-height: 1.5; margin: 0;">
-                Blockchain-verified reserves with real-time auditing and complete transaction transparency.
-              </p>
+            <!-- Platform Features -->
+            <div style="display: grid; gap: 20px; margin-bottom: 30px;">
+              <div style="background: rgba(15, 23, 42, 0.7); padding: 20px; border-radius: 12px; border: 1px solid rgba(59, 130, 246, 0.2);">
+                <h4 style="color: #3b82f6; font-size: 16px; margin-bottom: 8px;">🔒 Enterprise Security</h4>
+                <p style="color: #cbd5e1; font-size: 13px; line-height: 1.4; margin: 0;">
+                  Bank-grade security with comprehensive audit trails and enterprise-level access controls.
+                </p>
+      </div>
+              
+              <div style="background: rgba(15, 23, 42, 0.7); padding: 20px; border-radius: 12px; border: 1px solid rgba(59, 130, 246, 0.2);">
+                <h4 style="color: #3b82f6; font-size: 16px; margin-bottom: 8px;">🤖 AI-Powered Processing</h4>
+                <p style="color: #cbd5e1; font-size: 13px; line-height: 1.4; margin: 0;">
+                  Advanced document analysis reducing processing time from days to minutes.
+                </p>
+              </div>
+              
+              <div style="background: rgba(15, 23, 42, 0.7); padding: 20px; border-radius: 12px; border: 1px solid rgba(59, 130, 246, 0.2);">
+                <h4 style="color: #3b82f6; font-size: 16px; margin-bottom: 8px;">⚡ Smart Contracts</h4>
+                <p style="color: #cbd5e1; font-size: 13px; line-height: 1.4; margin: 0;">
+                  Automated escrow and settlement with zero counterparty risk.
+                </p>
+              </div>
             </div>
           </div>
-          
-          <!-- CTA Buttons for TGT -->
-          <div style="display: flex; gap: 20px; justify-content: center; flex-wrap: wrap; margin-top: 35px;">
-            <button onclick="showTGTRegistration()" style="background: linear-gradient(135deg, #10b981, #059669); color: white; border: none; padding: 18px 36px; border-radius: 12px; font-size: 18px; font-weight: 600; cursor: pointer; box-shadow: 0 12px 35px rgba(16, 185, 129, 0.4); transition: all 0.3s; transform: translateY(0px);" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 15px 40px rgba(16, 185, 129, 0.5)'" onmouseout="this.style.transform='translateY(0px)'; this.style.boxShadow='0 12px 35px rgba(16, 185, 129, 0.4)'">
-              🚀 Get Early Access to TGT
-            </button>
-            <button onclick="showTGTInfo()" style="background: linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(6, 182, 212, 0.2)); color: #10b981; border: 2px solid #10b981; padding: 16px 32px; border-radius: 12px; font-size: 18px; font-weight: 600; cursor: pointer; transition: all 0.3s;" onmouseover="this.style.background='linear-gradient(135deg, rgba(16, 185, 129, 0.3), rgba(6, 182, 212, 0.3))'" onmouseout="this.style.background='linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(6, 182, 212, 0.2))'">
-              📖 Learn More About TGT
-            </button>
+        </div>
+        
+        <!-- Right Side: TGT Stablecoin -->
+        <div style="background: linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(6, 182, 212, 0.1)); padding: 40px; border-radius: 24px; border: 2px solid rgba(16, 185, 129, 0.3); position: relative; overflow: hidden;">
+          <div style="position: absolute; top: -30%; right: -20%; width: 150px; height: 150px; background: radial-gradient(circle, rgba(16, 185, 129, 0.1), transparent); border-radius: 50%;"></div>
+          <div style="position: relative; z-index: 2;">
+            <h3 style="color: #10b981; margin-bottom: 20px; font-size: 28px; font-weight: 700; text-align: center;">
+              💎 TGT Stablecoin
+            </h3>
+            <p style="color: #e2e8f0; margin-bottom: 30px; font-size: 16px; line-height: 1.6; text-align: center;">
+              Commodity-backed stable digital currency designed for global trading and commerce.
+            </p>
+            
+            <!-- TGT Features -->
+            <div style="display: grid; gap: 20px; margin-bottom: 30px;">
+              <div style="background: rgba(15, 23, 42, 0.7); padding: 20px; border-radius: 12px; border: 1px solid rgba(16, 185, 129, 0.2);">
+                <h4 style="color: #10b981; font-size: 16px; margin-bottom: 8px;">🏦 Real Asset Backing</h4>
+                <p style="color: #cbd5e1; font-size: 13px; line-height: 1.4; margin: 0;">
+                  Backed by diversified commodity reserves for unprecedented stability.
+                </p>
+              </div>
+              
+              <div style="background: rgba(15, 23, 42, 0.7); padding: 20px; border-radius: 12px; border: 1px solid rgba(16, 185, 129, 0.2);">
+                <h4 style="color: #10b981; font-size: 16px; margin-bottom: 8px;">⚡ Instant Settlement</h4>
+                <p style="color: #cbd5e1; font-size: 13px; line-height: 1.4; margin: 0;">
+                  24/7 global transactions with near-instant settlement capabilities.
+                </p>
+              </div>
+              
+              <div style="background: rgba(15, 23, 42, 0.7); padding: 20px; border-radius: 12px; border: 1px solid rgba(16, 185, 129, 0.2);">
+                <h4 style="color: #10b981; font-size: 16px; margin-bottom: 8px;">🌐 Global Access</h4>
+                <p style="color: #cbd5e1; font-size: 13px; line-height: 1.4; margin: 0;">
+                  Cross-border trading without conversion fees or regulatory friction.
+                </p>
+              </div>
+            </div>
           </div>
         </div>
       </div>
       
-      <!-- Platform Access Section -->
-      <div style="background: rgba(30, 41, 59, 0.8); padding: 40px; border-radius: 20px; border: 1px solid #334155; margin: 40px auto; max-width: 600px;">
-        <h3 style="color: #f1f5f9; margin-bottom: 20px; font-size: 24px;">🏢 Trading Platform Access</h3>
-        <p style="color: #cbd5e1; margin-bottom: 30px; line-height: 1.6;">
-          Our commodity trading platform is currently in private beta. 
-          We're working with select partners to shape the future of global trade.
+      <!-- Mobile Responsive View -->
+      <style>
+        @media (max-width: 768px) {
+          div[style*="grid-template-columns: 1fr 1fr"] {
+            display: block !important;
+          }
+          div[style*="grid-template-columns: 1fr 1fr"] > div {
+            margin-bottom: 30px !important;
+          }
+        }
+      </style>
+    </section>
+
+    <!-- Single Registration CTA -->
+    <section style="text-align: center; margin-bottom: 60px;">
+      <div style="background: rgba(30, 41, 59, 0.8); padding: 50px; border-radius: 24px; border: 1px solid #334155; margin: 40px auto; max-width: 700px;">
+        <h3 style="color: #f1f5f9; margin-bottom: 20px; font-size: 32px; font-weight: 700;">
+          🚀 Join the Revolution
+        </h3>
+        <p style="color: #cbd5e1; margin-bottom: 35px; font-size: 18px; line-height: 1.6;">
+          Be among the first to access our revolutionary trading platform and TGT stablecoin. 
+          Register your interest and we'll notify you when they become available.
         </p>
-        <div style="display: flex; gap: 20px; justify-content: center; flex-wrap: wrap;">
-          <button onclick="showContactForm()" style="background: linear-gradient(135deg, #3b82f6, #1d4ed8); color: white; border: none; padding: 16px 32px; border-radius: 12px; font-size: 18px; font-weight: 600; cursor: pointer; box-shadow: 0 10px 30px rgba(59, 130, 246, 0.3); transition: all 0.3s;">
-            📧 Request Platform Access
-          </button>
-          <button onclick="showTeamSignIn()" style="background: linear-gradient(135deg, #64748b, #475569); color: white; border: none; padding: 16px 32px; border-radius: 12px; font-size: 18px; font-weight: 600; cursor: pointer; transition: all 0.3s;">
-            👥 Team Access
-          </button>
-        </div>
+        
+        <button onclick="showUnifiedRegistration()" style="background: linear-gradient(135deg, #3b82f6, #10b981); color: white; border: none; padding: 20px 40px; border-radius: 16px; font-size: 20px; font-weight: 700; cursor: pointer; box-shadow: 0 15px 40px rgba(59, 130, 246, 0.4); transition: all 0.3s; transform: translateY(0px);" onmouseover="this.style.transform='translateY(-3px)'; this.style.boxShadow='0 20px 50px rgba(59, 130, 246, 0.5)'" onmouseout="this.style.transform='translateY(0px)'; this.style.boxShadow='0 15px 40px rgba(59, 130, 246, 0.4)'">
+          📧 Register Your Interest
+        </button>
+        
+        <p style="color: #64748b; font-size: 14px; margin-top: 20px;">
+          Choose your interests: Trading Platform • TGT Stablecoin • Both
+        </p>
       </div>
     </section>
 
@@ -364,31 +401,98 @@ ${baseHead("Tangent Platform — Global Commodity Trading")}
       </div>
     </section>
 
+    <!-- Team Access Section -->
+    <section style="margin-bottom: 40px;">
+      <div style="text-align: center; padding: 30px; background: rgba(15, 23, 42, 0.5); border-radius: 16px; border: 1px solid #334155; margin: 0 auto; max-width: 500px;">
+        <p style="color: #64748b; font-size: 14px; margin-bottom: 15px;">
+          Team Member Access
+        </p>
+        <button onclick="showTeamSignIn()" style="background: linear-gradient(135deg, #64748b, #475569); color: white; border: none; padding: 12px 24px; border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer; transition: all 0.3s;">
+          Team Portal
+        </button>
+      </div>
+    </section>
+
     <!-- Footer -->
     <footer style="text-align: center; padding: 40px 0; border-top: 1px solid #334155; margin-top: 60px;">
       <p style="color: #64748b;">© 2024 Tangent Platform. All rights reserved.</p>
       <p style="color: #64748b; font-size: 12px; margin-top: 10px;">
-        Platform currently in private beta • Contact us for partnership opportunities
+        Revolutionizing commodity trading and digital currency • Coming Soon
       </p>
     </footer>
 
   </div>
 
-  <!-- Contact Form Modal -->
-  <div id="contactModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; align-items: center; justify-content: center;">
-    <div style="background: #1e293b; padding: 40px; border-radius: 16px; max-width: 500px; width: 90%;">
-      <h3 style="color: #f1f5f9; margin-bottom: 20px;">Request Platform Access</h3>
-      <p style="color: #cbd5e1; margin-bottom: 20px; font-size: 14px;">
-        We're currently onboarding select partners. Please provide your details and we'll get back to you.
+  <!-- Unified Registration Modal -->
+  <div id="unifiedRegistrationModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; align-items: center; justify-content: center; overflow-y: auto;">
+    <div style="background: #1e293b; padding: 40px; border-radius: 16px; max-width: 600px; width: 90%; margin: 20px; max-height: 90vh; overflow-y: auto;">
+      <h3 style="color: #f1f5f9; margin-bottom: 15px; font-size: 28px; text-align: center;">🚀 Register Your Interest</h3>
+      <p style="color: #cbd5e1; margin-bottom: 30px; font-size: 16px; line-height: 1.5; text-align: center;">
+        Be among the first to know when our revolutionary trading platform and TGT stablecoin become available.
       </p>
-      <input type="text" id="contactName" placeholder="Full Name" style="width: 100%; padding: 12px; margin-bottom: 15px; border-radius: 8px; border: 1px solid #475569; background: #0f172a; color: #f1f5f9;">
-      <input type="email" id="contactEmail" placeholder="Business Email" style="width: 100%; padding: 12px; margin-bottom: 15px; border-radius: 8px; border: 1px solid #475569; background: #0f172a; color: #f1f5f9;">
-      <input type="text" id="contactCompany" placeholder="Company Name" style="width: 100%; padding: 12px; margin-bottom: 15px; border-radius: 8px; border: 1px solid #475569; background: #0f172a; color: #f1f5f9;">
-      <textarea id="contactMessage" placeholder="Tell us about your trading needs..." style="width: 100%; padding: 12px; margin-bottom: 20px; border-radius: 8px; border: 1px solid #475569; background: #0f172a; color: #f1f5f9; min-height: 80px; resize: vertical;"></textarea>
-      <div style="display: flex; gap: 10px;">
-        <button onclick="submitContactForm()" style="flex: 1; background: #10b981; color: white; border: none; padding: 12px; border-radius: 8px; cursor: pointer;">Send Request</button>
-        <button onclick="closeContactForm()" style="background: #64748b; color: white; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer;">Cancel</button>
+      
+      <!-- Personal Information -->
+      <div style="margin-bottom: 25px;">
+        <h4 style="color: #f1f5f9; margin-bottom: 15px; font-size: 18px;">📋 Your Information</h4>
+        <input type="text" id="regName" placeholder="Full Name *" style="width: 100%; padding: 12px; margin-bottom: 15px; border-radius: 8px; border: 1px solid #475569; background: #0f172a; color: #f1f5f9;">
+        <input type="email" id="regEmail" placeholder="Email Address *" style="width: 100%; padding: 12px; margin-bottom: 15px; border-radius: 8px; border: 1px solid #475569; background: #0f172a; color: #f1f5f9;">
+        <input type="text" id="regCompany" placeholder="Company/Organization" style="width: 100%; padding: 12px; margin-bottom: 15px; border-radius: 8px; border: 1px solid #475569; background: #0f172a; color: #f1f5f9;">
+        <input type="tel" id="regPhone" placeholder="Phone Number" style="width: 100%; padding: 12px; margin-bottom: 15px; border-radius: 8px; border: 1px solid #475569; background: #0f172a; color: #f1f5f9;">
       </div>
+      
+      <!-- Interest Selection -->
+      <div style="margin-bottom: 25px;">
+        <h4 style="color: #f1f5f9; margin-bottom: 15px; font-size: 18px;">🎯 What interests you? *</h4>
+        <div style="display: grid; gap: 15px;">
+          <label style="display: flex; align-items: center; gap: 12px; padding: 15px; background: rgba(15, 23, 42, 0.7); border-radius: 8px; border: 1px solid #475569; cursor: pointer; transition: all 0.3s;" onmouseover="this.style.borderColor='#3b82f6'" onmouseout="this.style.borderColor='#475569'">
+            <input type="checkbox" id="interestPlatform" value="platform" style="width: 18px; height: 18px; accent-color: #3b82f6;">
+            <div>
+              <div style="color: #3b82f6; font-weight: 600; font-size: 16px;">🏢 Trading Platform</div>
+              <div style="color: #cbd5e1; font-size: 14px;">AI-powered commodity trading infrastructure</div>
+            </div>
+          </label>
+          
+          <label style="display: flex; align-items: center; gap: 12px; padding: 15px; background: rgba(15, 23, 42, 0.7); border-radius: 8px; border: 1px solid #475569; cursor: pointer; transition: all 0.3s;" onmouseover="this.style.borderColor='#10b981'" onmouseout="this.style.borderColor='#475569'">
+            <input type="checkbox" id="interestTGT" value="tgt" style="width: 18px; height: 18px; accent-color: #10b981;">
+            <div>
+              <div style="color: #10b981; font-weight: 600; font-size: 16px;">💎 TGT Stablecoin</div>
+              <div style="color: #cbd5e1; font-size: 14px;">Commodity-backed stable digital currency</div>
+            </div>
+          </label>
+          
+          <label style="display: flex; align-items: center; gap: 12px; padding: 15px; background: rgba(15, 23, 42, 0.7); border-radius: 8px; border: 1px solid #475569; cursor: pointer; transition: all 0.3s;" onmouseover="this.style.borderColor='#8b5cf6'" onmouseout="this.style.borderColor='#475569'">
+            <input type="checkbox" id="interestBoth" value="both" style="width: 18px; height: 18px; accent-color: #8b5cf6;">
+            <div>
+              <div style="color: #8b5cf6; font-weight: 600; font-size: 16px;">🚀 Both Platform & TGT</div>
+              <div style="color: #cbd5e1; font-size: 14px;">Complete ecosystem access</div>
+            </div>
+          </label>
+        </div>
+      </div>
+      
+      <!-- Additional Information -->
+      <div style="margin-bottom: 25px;">
+        <h4 style="color: #f1f5f9; margin-bottom: 15px; font-size: 18px;">💬 Tell us more (Optional)</h4>
+        <textarea id="regMessage" placeholder="What specific aspects interest you most? Any particular use cases or requirements?" style="width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #475569; background: #0f172a; color: #f1f5f9; min-height: 100px; resize: vertical;"></textarea>
+      </div>
+      
+      <!-- Newsletter -->
+      <div style="margin-bottom: 25px;">
+        <label style="display: flex; align-items: center; gap: 10px; color: #cbd5e1; font-size: 14px; cursor: pointer;">
+          <input type="checkbox" id="regNewsletter" checked style="width: 18px; height: 18px; accent-color: #3b82f6;">
+          <span>📧 Keep me updated on platform and TGT developments</span>
+        </label>
+      </div>
+      
+      <!-- Submit Buttons -->
+      <div style="display: flex; gap: 15px;">
+        <button onclick="submitUnifiedRegistration()" style="flex: 1; background: linear-gradient(135deg, #3b82f6, #10b981); color: white; border: none; padding: 16px; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 16px;">🚀 Register Interest</button>
+        <button onclick="closeUnifiedRegistration()" style="background: #64748b; color: white; border: none; padding: 16px 20px; border-radius: 8px; cursor: pointer;">Cancel</button>
+      </div>
+      
+      <p style="color: #64748b; font-size: 12px; margin-top: 15px; text-align: center; line-height: 1.4;">
+        By registering, you agree to receive updates about Tangent Platform and TGT. We respect your privacy and will never share your information.
+      </p>
     </div>
   </div>
 
@@ -550,35 +654,95 @@ ${baseHead("Tangent Platform — Global Commodity Trading")}
   </div>
 
   <script>
-    // Contact Form Functions
-    function showContactForm() {
-      document.getElementById('contactModal').style.display = 'flex';
+    // Unified Registration Functions
+    function showUnifiedRegistration() {
+      document.getElementById('unifiedRegistrationModal').style.display = 'flex';
     }
     
-    function closeContactForm() {
-      document.getElementById('contactModal').style.display = 'none';
+    function closeUnifiedRegistration() {
+      document.getElementById('unifiedRegistrationModal').style.display = 'none';
     }
     
-    async function submitContactForm() {
-      const name = document.getElementById('contactName').value;
-      const email = document.getElementById('contactEmail').value;
-      const company = document.getElementById('contactCompany').value;
-      const message = document.getElementById('contactMessage').value;
+    async function submitUnifiedRegistration() {
+      const name = document.getElementById('regName').value;
+      const email = document.getElementById('regEmail').value;
+      const platformInterest = document.getElementById('interestPlatform').checked;
+      const tgtInterest = document.getElementById('interestTGT').checked;
+      const bothInterest = document.getElementById('interestBoth').checked;
       
-      if (!name || !email || !company) {
-        alert('Please fill in all required fields');
+      if (!name || !email) {
+        alert('Please fill in your name and email address');
         return;
       }
       
-      // Here you would typically send to your backend
-      alert('Thank you for your interest! We will contact you within 24 hours.');
-      closeContactForm();
+      if (!platformInterest && !tgtInterest && !bothInterest) {
+        alert('Please select at least one area of interest');
+        return;
+      }
       
-      // Clear form
-      document.getElementById('contactName').value = '';
-      document.getElementById('contactEmail').value = '';
-      document.getElementById('contactCompany').value = '';
-      document.getElementById('contactMessage').value = '';
+      // Determine interests
+      let interests = [];
+      if (platformInterest || bothInterest) interests.push('platform');
+      if (tgtInterest || bothInterest) interests.push('tgt');
+      if (bothInterest) interests = ['both'];
+      
+      // Collect all form data
+      const formData = {
+        name: name,
+        email: email,
+        company: document.getElementById('regCompany').value,
+        phone: document.getElementById('regPhone').value,
+        interests: interests,
+        message: document.getElementById('regMessage').value,
+        newsletter: document.getElementById('regNewsletter').checked,
+        timestamp: new Date().toISOString(),
+        type: 'unified_registration'
+      };
+      
+      try {
+        // Send to backend API
+        const response = await fetch('/api/unified-register', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(formData)
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok && result.success) {
+          let interestText = '';
+          if (interests.includes('both') || (interests.includes('platform') && interests.includes('tgt'))) {
+            interestText = 'both our Trading Platform and TGT Stablecoin';
+          } else if (interests.includes('platform')) {
+            interestText = 'our Trading Platform';
+          } else if (interests.includes('tgt')) {
+            interestText = 'TGT Stablecoin';
+          }
+          
+          alert('🎉 Thank you ' + name + '!\\n\\nWe have registered your interest in ' + interestText + '. You\\'ll be among the first to know when they become available.\\n\\nWe\\'ll contact you within 48 hours with exclusive early access information.');
+          closeUnifiedRegistration();
+          
+          // Clear form
+          document.getElementById('regName').value = '';
+          document.getElementById('regEmail').value = '';
+          document.getElementById('regCompany').value = '';
+          document.getElementById('regPhone').value = '';
+          document.getElementById('interestPlatform').checked = false;
+          document.getElementById('interestTGT').checked = false;
+          document.getElementById('interestBoth').checked = false;
+          document.getElementById('regMessage').value = '';
+          document.getElementById('regNewsletter').checked = true;
+        } else {
+          const errorMessage = result.message || result.error || 'Registration failed';
+          alert('Registration Error: ' + errorMessage);
+        }
+        
+      } catch (error) {
+        alert('There was an error submitting your registration. Please try again or contact support.');
+        console.error('Registration Error:', error);
+      }
     }
     
     // TGT Registration Functions
@@ -703,19 +867,11 @@ ${baseHead("Tangent Platform — Global Commodity Trading")}
     
     // Close modals when clicking outside
     window.onclick = function(event) {
-      const contactModal = document.getElementById('contactModal');
-      const tgtModal = document.getElementById('tgtRegistrationModal');
-      const tgtInfoModal = document.getElementById('tgtInfoModal');
+      const unifiedModal = document.getElementById('unifiedRegistrationModal');
       const signInModal = document.getElementById('signInModal');
       
-      if (event.target === contactModal) {
-        closeContactForm();
-      }
-      if (event.target === tgtModal) {
-        closeTGTRegistration();
-      }
-      if (event.target === tgtInfoModal) {
-        closeTGTInfo();
+      if (event.target === unifiedModal) {
+        closeUnifiedRegistration();
       }
       if (event.target === signInModal) {
         closeSignIn();
