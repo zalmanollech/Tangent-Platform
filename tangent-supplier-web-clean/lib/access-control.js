@@ -63,8 +63,13 @@ const requirePlatformAccess = (req, res, next) => {
     const decoded = tokenUtils.verifyToken(token);
     req.user = decoded;
     
-    // Check if user is authorized OR if they're an admin
-    if (!isAuthorizedUser(decoded.email, decoded.role) && decoded.role !== 'admin') {
+    // Check if user is authorized - admin users are always allowed
+    if (decoded.role === 'admin') {
+      // Admin users always have access
+      return next();
+    }
+    
+    if (!isAuthorizedUser(decoded.email, decoded.role)) {
       logUtils.logSecurity('unauthorized_platform_access_attempt', {
         email: decoded.email,
         role: decoded.role,
