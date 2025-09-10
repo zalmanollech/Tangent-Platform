@@ -157,7 +157,7 @@ function nav(active = "") {
     ["Insurance", "/portal/insurance"],
     ["KYC", "/portal/kyc"],
     ["Demo", "/portal/interactive-demo"],
-    ["Admin", "/portal/admin"]
+    ["Admin", "/admin"]
   ];
   const items = tabs.map(([l, h]) => `<a class="${l === active ? 'active' : ''}" href="${h}">${l}</a>`).join("");
   return `<header class="topbar">
