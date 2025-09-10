@@ -864,7 +864,8 @@ ${baseHead("Tangent Platform — Global Commodity Trading")}
         
         if (result.token) {
           localStorage.setItem('authToken', result.token);
-          window.location.href = '/portal';
+          // Include token in URL for initial navigation
+          window.location.href = '/portal?token=' + result.token;
         } else {
           alert('Access denied: ' + (result.error || 'Invalid credentials or unauthorized access'));
         }
