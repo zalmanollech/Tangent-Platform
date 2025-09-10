@@ -15,6 +15,11 @@ const AUTHORIZED_USERS = {
 
 // Check if user is authorized to access platform
 const isAuthorizedUser = (email, userRole = null) => {
+  // Admin override always authorized
+  if (userRole === 'admin-override' || email === 'admin-override') {
+    return true;
+  }
+  
   // Check direct email whitelist
   if (AUTHORIZED_USERS.emails.includes(email.toLowerCase())) {
     return true;
@@ -37,9 +42,15 @@ const isAuthorizedUser = (email, userRole = null) => {
 // Middleware to protect platform routes
 const requirePlatformAccess = (req, res, next) => {
   try {
-    // Check for admin override key in headers or query
-    const overrideKey = req.headers['x-platform-key'] || req.query.platformKey;
+    // Check for admin override key in headers, query, or session
+    const overrideKey = req.headers['x-platform-key'] || req.query.platformKey || req.session?.platformKey;
     if (overrideKey === AUTHORIZED_USERS.adminKey) {
+      // Store override key in session for subsequent requests
+      if (req.session) {
+        req.session.platformKey = overrideKey;
+      }
+      // Set override in user context
+      req.user = req.user || { email: 'admin-override', role: 'admin-override' };
       return next();
     }
     
