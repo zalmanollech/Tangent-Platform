@@ -93,6 +93,17 @@ app.use('/emergency', require('./routes/emergency-setup'));
 app.use('/api/admin', require('./routes/admin'));
 app.use('/setup', require('./routes/setup'));
 
+// One-time admin activation endpoint (temporary)
+app.post('/activate-admin', async (req, res) => {
+  try {
+    const { activateAdminAccount } = require('./scripts/activate-admin');
+    const result = await activateAdminAccount();
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // ============================================================================
 // LEGACY ROUTES AND PAGES (for backward compatibility)
 // ============================================================================

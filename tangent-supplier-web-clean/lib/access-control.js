@@ -128,7 +128,7 @@ const routeHandler = (req, res, next) => {
   const path = req.path;
   
   // Public routes - always accessible
-  if (path === '/' || path === '/health' || path.startsWith('/public/') || path === '/admin') {
+  if (path === '/' || path === '/health' || path.startsWith('/public/')) {
     return next();
   }
   
