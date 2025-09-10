@@ -114,9 +114,10 @@ const isPlatformRoute = (path) => {
     '/portal',
     '/admin',
     '/api/trades',
-    '/api/kyc',
+    '/api/kyc', 
     '/api/users',
     '/api/auth/me',
+    '/api/admin', // Admin API requires authentication
     '/uploads'
   ];
   
@@ -142,8 +143,8 @@ const routeHandler = (req, res, next) => {
     return next();
   }
   
-  // Emergency and setup routes - public access
-  if (path.startsWith('/emergency') || path.startsWith('/admin-setup') || path.startsWith('/api/admin') || path.startsWith('/setup')) {
+  // Emergency and setup routes - public access (temporary for initial setup)
+  if (path.startsWith('/emergency') || path.startsWith('/admin-setup') || path.startsWith('/setup') || path === '/activate-admin') {
     return next();
   }
   
