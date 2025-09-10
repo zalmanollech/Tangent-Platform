@@ -97,11 +97,11 @@ router.post('/login', validationRules.auth, handleValidationErrors, async (req, 
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    // Check if user is active
-    if (!user.isActive) {
-      logUtils.logSecurity('login_attempt_inactive_user', { email, userId: user.id }, req);
-      return res.status(401).json({ error: 'Account is deactivated' });
-    }
+    // TEMPORARILY DISABLE ACTIVE CHECK FOR REBUILD
+    // if (!user.isActive) {
+    //   logUtils.logSecurity('login_attempt_inactive_user', { email, userId: user.id }, req);
+    //   return res.status(401).json({ error: 'Account is deactivated' });
+    // }
 
     // Verify password
     const isValidPassword = await passwordUtils.comparePassword(password, user.passHash);
