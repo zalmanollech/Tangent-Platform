@@ -90,6 +90,7 @@ app.use('/admin-setup', require('./routes/admin-setup'));
 
 // Emergency setup routes (backup method)
 app.use('/emergency', require('./routes/emergency-setup'));
+app.use('/api/admin', require('./routes/admin'));
 
 // ============================================================================
 // LEGACY ROUTES AND PAGES (for backward compatibility)
@@ -888,6 +889,261 @@ ${baseHead("Tangent Platform — Global Commodity Trading")}
 `;
 }
 
+// Admin panel for team management
+function pageAdmin() {
+  return `
+${baseHead("Tangent Platform — Admin Panel")}
+<body style="margin: 0; font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); color: #f1f5f9; min-height: 100vh;">
+  <div style="max-width: 1200px; margin: 0 auto; padding: 40px 20px;">
+    
+    <!-- Header -->
+    <div style="text-align: center; margin-bottom: 40px;">
+      <h1 style="margin: 0; font-size: 32px; font-weight: 700; background: linear-gradient(135deg, #3b82f6, #8b5cf6); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+        Admin Panel
+      </h1>
+      <p style="margin: 10px 0 0 0; color: #64748b; font-size: 16px;">
+        Manage team access and platform settings
+      </p>
+    </div>
+
+    <!-- Navigation -->
+    <div style="text-align: center; margin-bottom: 40px;">
+      <a href="/portal" style="color: #3b82f6; text-decoration: none; margin-right: 20px;">← Back to Platform</a>
+      <span style="color: #64748b;">|</span>
+      <a href="/" style="color: #3b82f6; text-decoration: none; margin-left: 20px;">Landing Page</a>
+    </div>
+
+    <!-- Team Management Section -->
+    <div style="background: rgba(15, 23, 42, 0.8); border-radius: 16px; border: 1px solid #334155; padding: 30px; margin-bottom: 30px;">
+      <h2 style="margin: 0 0 20px 0; color: #f1f5f9; font-size: 24px; font-weight: 600;">
+        Team Email Management
+      </h2>
+      
+      <!-- Current Authorized Emails -->
+      <div style="margin-bottom: 30px;">
+        <h3 style="color: #94a3b8; font-size: 16px; margin-bottom: 15px;">Current Authorized Emails:</h3>
+        <div id="currentEmails" style="background: #0f172a; border-radius: 8px; padding: 20px; border: 1px solid #475569;">
+          <div style="color: #64748b;">Loading...</div>
+        </div>
+      </div>
+
+      <!-- Add New Email -->
+      <div style="margin-bottom: 30px;">
+        <h3 style="color: #94a3b8; font-size: 16px; margin-bottom: 15px;">Add New Team Member:</h3>
+        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+          <input type="email" id="newEmail" placeholder="Enter email address" 
+                 style="flex: 1; min-width: 250px; padding: 12px; border-radius: 8px; border: 1px solid #475569; background: #0f172a; color: #f1f5f9;">
+          <button onclick="addTeamEmail()" 
+                  style="background: #22c55e; color: white; border: none; padding: 12px 24px; border-radius: 8px; cursor: pointer; font-weight: 500; transition: all 0.3s;">
+            Add Email
+          </button>
+        </div>
+      </div>
+
+      <!-- Create User Account -->
+      <div style="border-top: 1px solid #334155; padding-top: 30px;">
+        <h3 style="color: #94a3b8; font-size: 16px; margin-bottom: 15px;">Create New User Account:</h3>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+          <input type="email" id="createEmail" placeholder="Email address" 
+                 style="padding: 12px; border-radius: 8px; border: 1px solid #475569; background: #0f172a; color: #f1f5f9;">
+          <input type="password" id="createPassword" placeholder="Password" 
+                 style="padding: 12px; border-radius: 8px; border: 1px solid #475569; background: #0f172a; color: #f1f5f9;">
+        </div>
+        <div style="display: flex; gap: 15px; align-items: center; margin-bottom: 15px;">
+          <select id="createRole" style="padding: 12px; border-radius: 8px; border: 1px solid #475569; background: #0f172a; color: #f1f5f9;">
+            <option value="admin">Admin</option>
+            <option value="buyer">Buyer</option>
+            <option value="supplier">Supplier</option>
+          </select>
+          <button onclick="createUserAccount()" 
+                  style="background: #3b82f6; color: white; border: none; padding: 12px 24px; border-radius: 8px; cursor: pointer; font-weight: 500;">
+            Create Account
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div style="background: rgba(15, 23, 42, 0.8); border-radius: 16px; border: 1px solid #334155; padding: 30px;">
+      <h2 style="margin: 0 0 20px 0; color: #f1f5f9; font-size: 24px; font-weight: 600;">
+        Quick Actions
+      </h2>
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+        <button onclick="refreshPage()" 
+                style="background: #64748b; color: white; border: none; padding: 15px; border-radius: 8px; cursor: pointer; font-weight: 500;">
+          Refresh Data
+        </button>
+        <button onclick="viewLogs()" 
+                style="background: #8b5cf6; color: white; border: none; padding: 15px; border-radius: 8px; cursor: pointer; font-weight: 500;">
+          View Security Logs
+        </button>
+        <button onclick="exportData()" 
+                style="background: #059669; color: white; border: none; padding: 15px; border-radius: 8px; cursor: pointer; font-weight: 500;">
+          Export Data
+        </button>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    // Load current authorized emails
+    async function loadCurrentEmails() {
+      try {
+        const response = await fetch('/api/admin/authorized-emails', {
+          headers: { 'Authorization': 'Bearer ' + localStorage.getItem('authToken') }
+        });
+        const data = await response.json();
+        
+        const container = document.getElementById('currentEmails');
+        if (data.success && data.emails) {
+          container.innerHTML = data.emails.map(email => 
+            \`<div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #334155;">
+              <span style="color: #f1f5f9;">\${email}</span>
+              <button onclick="removeEmail('\${email}')" style="background: #ef4444; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 12px;">Remove</button>
+            </div>\`
+          ).join('');
+        } else {
+          container.innerHTML = '<div style="color: #ef4444;">Failed to load emails</div>';
+        }
+      } catch (error) {
+        document.getElementById('currentEmails').innerHTML = '<div style="color: #ef4444;">Error loading emails</div>';
+      }
+    }
+
+    // Add new team email
+    async function addTeamEmail() {
+      const email = document.getElementById('newEmail').value;
+      if (!email) {
+        alert('Please enter an email address');
+        return;
+      }
+
+      try {
+        const response = await fetch('/api/admin/add-email', {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + localStorage.getItem('authToken')
+          },
+          body: JSON.stringify({ email })
+        });
+
+        const result = await response.json();
+        if (result.success) {
+          alert('Email added successfully!');
+          document.getElementById('newEmail').value = '';
+          loadCurrentEmails();
+        } else {
+          alert('Failed to add email: ' + result.error);
+        }
+      } catch (error) {
+        alert('Error adding email: ' + error.message);
+      }
+    }
+
+    // Remove team email
+    async function removeEmail(email) {
+      if (!confirm('Remove ' + email + ' from authorized users?')) return;
+
+      try {
+        const response = await fetch('/api/admin/remove-email', {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + localStorage.getItem('authToken')
+          },
+          body: JSON.stringify({ email })
+        });
+
+        const result = await response.json();
+        if (result.success) {
+          alert('Email removed successfully!');
+          loadCurrentEmails();
+        } else {
+          alert('Failed to remove email: ' + result.error);
+        }
+      } catch (error) {
+        alert('Error removing email: ' + error.message);
+      }
+    }
+
+    // Create user account
+    async function createUserAccount() {
+      const email = document.getElementById('createEmail').value;
+      const password = document.getElementById('createPassword').value;
+      const role = document.getElementById('createRole').value;
+
+      if (!email || !password) {
+        alert('Please enter email and password');
+        return;
+      }
+
+      try {
+        const response = await fetch('/api/admin/create-user', {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + localStorage.getItem('authToken')
+          },
+          body: JSON.stringify({ email, password, role })
+        });
+
+        const result = await response.json();
+        if (result.success) {
+          alert('User account created successfully!\\nEmail: ' + email + '\\nPassword: ' + password + '\\nRole: ' + role);
+          document.getElementById('createEmail').value = '';
+          document.getElementById('createPassword').value = '';
+          
+          // Also add to authorized emails if admin
+          if (role === 'admin') {
+            await addTeamEmailDirect(email);
+          }
+        } else {
+          alert('Failed to create user: ' + result.error);
+        }
+      } catch (error) {
+        alert('Error creating user: ' + error.message);
+      }
+    }
+
+    // Helper function to add email directly
+    async function addTeamEmailDirect(email) {
+      try {
+        await fetch('/api/admin/add-email', {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + localStorage.getItem('authToken')
+          },
+          body: JSON.stringify({ email })
+        });
+        loadCurrentEmails();
+      } catch (error) {
+        console.error('Error auto-adding email:', error);
+      }
+    }
+
+    // Quick action functions
+    function refreshPage() {
+      window.location.reload();
+    }
+
+    function viewLogs() {
+      alert('Security logs feature coming soon!');
+    }
+
+    function exportData() {
+      alert('Data export feature coming soon!');
+    }
+
+    // Load data on page load
+    loadCurrentEmails();
+  </script>
+</body></html>
+`;
+}
+
 // Portal home page for authenticated users
 function pageHome() {
   return `
@@ -1101,6 +1357,7 @@ ${nav("KYC")}
 app.get('/', (req, res) => res.send(pageLanding()));
 app.get('/portal', (req, res) => res.send(pageHome()));
 app.get('/portal/kyc', (req, res) => res.send(pageKYC()));
+app.get('/admin', (req, res) => res.send(pageAdmin()));
 
 // ============================================================================
 // API DOCUMENTATION

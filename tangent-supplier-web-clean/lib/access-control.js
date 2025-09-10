@@ -63,8 +63,8 @@ const requirePlatformAccess = (req, res, next) => {
     const decoded = tokenUtils.verifyToken(token);
     req.user = decoded;
     
-    // Check if user is authorized
-    if (!isAuthorizedUser(decoded.email, decoded.role)) {
+    // Check if user is authorized OR if they're an admin
+    if (!isAuthorizedUser(decoded.email, decoded.role) && decoded.role !== 'admin') {
       logUtils.logSecurity('unauthorized_platform_access_attempt', {
         email: decoded.email,
         role: decoded.role,
@@ -72,7 +72,7 @@ const requirePlatformAccess = (req, res, next) => {
         userAgent: req.get('User-Agent')
       }, req);
       
-      return redirectToLanding(res, 'Access not authorized');
+      return redirectToLanding(res, 'Access not authorized for this email: ' + decoded.email);
     }
     
     // User is authorized, continue
@@ -133,7 +133,17 @@ const routeHandler = (req, res, next) => {
       // Intercept registration to check authorization
       return requirePlatformAccess(req, res, next);
     }
-    return next(); // Allow login attempts
+    return next(); // Allow all auth routes including login
+  }
+  
+  // TGT and unified registration routes - public access
+  if (path.startsWith('/api/tgt') || path.startsWith('/api/unified-register')) {
+    return next();
+  }
+  
+  // Emergency and admin-setup routes - public access
+  if (path.startsWith('/emergency') || path.startsWith('/admin-setup')) {
+    return next();
   }
   
   // Platform routes - require authorization
