@@ -123,7 +123,7 @@ const routeHandler = (req, res, next) => {
   const path = req.path;
   
   // Public routes - always accessible
-  if (path === '/' || path === '/health' || path.startsWith('/public/')) {
+  if (path === '/' || path === '/health' || path.startsWith('/public/') || path === '/admin') {
     return next();
   }
   
@@ -142,7 +142,7 @@ const routeHandler = (req, res, next) => {
   }
   
   // Emergency and admin-setup routes - public access
-  if (path.startsWith('/emergency') || path.startsWith('/admin-setup')) {
+  if (path.startsWith('/emergency') || path.startsWith('/admin-setup') || path.startsWith('/api/admin')) {
     return next();
   }
   
