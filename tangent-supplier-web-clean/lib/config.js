@@ -38,7 +38,13 @@ const config = {
     corsOrigins: process.env.ALLOWED_ORIGINS 
       ? process.env.ALLOWED_ORIGINS.split(',') 
       : NODE_ENV === 'production' 
-        ? ['https://*.railway.app', 'https://*.up.railway.app', 'https://tangent-platform-production.up.railway.app'] 
+        ? [
+            'https://*.railway.app', 
+            'https://*.up.railway.app', 
+            'https://tangent-platform-production.up.railway.app',
+            'https://tangent-protocol.com',
+            'https://www.tangent-protocol.com'
+          ] 
         : ['http://localhost:3000', 'http://localhost:4000']
   },
 
