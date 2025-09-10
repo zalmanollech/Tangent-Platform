@@ -85,6 +85,9 @@ app.use('/api/tgt', require('./routes/tgt'));
 // Unified registration routes
 app.use('/api/unified-register', require('./routes/unified-register'));
 
+// Admin setup routes (one-time use)
+app.use('/admin-setup', require('./routes/admin-setup'));
+
 // ============================================================================
 // LEGACY ROUTES AND PAGES (for backward compatibility)
 // ============================================================================
