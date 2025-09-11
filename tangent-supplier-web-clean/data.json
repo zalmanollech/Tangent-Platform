@@ -54,26 +54,29 @@
       "id": "2",
       "email": "ollech@gmail.com",
       "passHash": "$2a$10$xCPFxEOSzuMiluZY1WqDeOZeSNOpFKrjKCgO4n4zpJxH7qqzYjzbK",
-      "role": "pending",
+      "role": "admin",
+      "isActive": true,
+      "emailVerified": true,
+      "registrationDate": "2025-09-03T05:39:29.049Z",
+      "lastUpdated": "2025-09-11T21:00:00.000Z",
+      "updatedBy": "database-fix",
       "kyc": {
-        "status": "submitted",
+        "status": "verified",
         "company": "Sadot group inc",
         "country": "Israel",
         "regNumber": "a2345",
         "fullName": "Shmaya Ollech",
-        "cryptoExperience": [
-          "beginner",
-          "beginner"
-        ],
-        "hasWallet": false,
-        "understoodRisks": false,
+        "cryptoExperience": "expert",
+        "hasWallet": true,
+        "understoodRisks": true,
         "files": [
           {
             "name": "Tangent_TGT_Circle_PitchDeck.pdf",
             "path": "uploads\\1756877969040-Tangent_TGT_Circle_PitchDeck.pdf"
           }
         ],
-        "submittedAt": "2025-09-03T05:39:29.049Z"
+        "submittedAt": "2025-09-03T05:39:29.049Z",
+        "verifiedAt": "2025-09-11T21:00:00.000Z"
       }
     },
     {
@@ -116,6 +119,30 @@
         "files": [],
         "cryptoExperience": null,
         "hasWallet": false
+      }
+    },
+    {
+      "id": "5",
+      "email": "dudiollech@gmail.com",
+      "passHash": "$2a$10$xCPFxEOSzuMiluZY1WqDeOZeSNOpFKrjKCgO4n4zpJxH7qqzYjzbK",
+      "role": "admin",
+      "isActive": true,
+      "emailVerified": true,
+      "registrationDate": "2025-09-11T21:00:00.000Z",
+      "lastUpdated": "2025-09-11T21:00:00.000Z",
+      "updatedBy": "database-fix",
+      "kyc": {
+        "status": "verified",
+        "company": "Sadot group inc",
+        "country": "Israel",
+        "regNumber": "a2345",
+        "fullName": "Dudi Ollech",
+        "cryptoExperience": "expert",
+        "hasWallet": true,
+        "understoodRisks": true,
+        "files": [],
+        "submittedAt": "2025-09-11T21:00:00.000Z",
+        "verifiedAt": "2025-09-11T21:00:00.000Z"
       }
     }
   ],
