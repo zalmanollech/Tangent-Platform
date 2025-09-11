@@ -1950,6 +1950,34 @@ ${baseHead("Tangent — Admin Panel")}
     </section>
 
     <section class="card">
+      <h2>Email Configuration</h2>
+      <div class="grid grid-2">
+        <div>
+          <h3>Current Email Settings</h3>
+          <div id="emailStatus" class="small">
+            <div>📧 Email Service: Development Mode (Stub)</div>
+            <div>📬 Registration Emails: Stored in database only</div>
+            <div>🔧 Status: Setup required for production</div>
+          </div>
+        </div>
+        <div>
+          <h3>Recommended Professional Emails</h3>
+          <div class="small">
+            <div>📋 admin@tangent-protocol.com</div>
+            <div>⚖️ legal@tangent-protocol.com</div>
+            <div>📈 marketing@tangent-protocol.com</div>
+            <div>🤝 support@tangent-protocol.com</div>
+            <div>💎 tgt@tangent-protocol.com</div>
+          </div>
+        </div>
+      </div>
+      <div class="row mt">
+        <button class="btn" onclick="viewEmailSetupGuide()">Email Setup Guide</button>
+        <button class="btn ghost" onclick="testEmailConfiguration()">Test Configuration</button>
+      </div>
+    </section>
+
+    <section class="card">
       <h2>Platform Management</h2>
       <div class="row">
         <button class="btn ghost" onclick="exportAllData()">Export All Data</button>
@@ -2151,6 +2179,15 @@ ${baseHead("Tangent — Admin Panel")}
 
     async function viewRegistrationStats() {
       alert('📊 Registration Statistics\\n\\n📈 Platform Interest: 2 registrations\\n💎 TGT Interest: 2 registrations\\n🏢 Companies: 4 unique\\n📅 This Week: 4 new\\n🎯 Conversion Rate: 85%\\n💰 Avg Investment Interest: $150K');
+    }
+
+    // Email Management Functions
+    function viewEmailSetupGuide() {
+      alert('📧 Email Setup Guide\\n\\n🚀 STEP 1: Choose Email Service\\n✅ Google Workspace ($6/user/month) - Recommended\\n✅ Microsoft 365 ($6/user/month)\\n✅ Zoho Mail ($1/user/month)\\n\\n🚀 STEP 2: Set Up Professional Emails\\n📋 admin@tangent-protocol.com\\n⚖️ legal@tangent-protocol.com\\n📈 marketing@tangent-protocol.com\\n🤝 support@tangent-protocol.com\\n💎 tgt@tangent-protocol.com\\n\\n🚀 STEP 3: Configure DNS\\nAdd MX records in Wix DNS settings\\n\\n🚀 STEP 4: Update Platform\\nContact your developer to configure email service');
+    }
+
+    function testEmailConfiguration() {
+      alert('🔧 Email Configuration Test\\n\\n❌ Email Service: Not Configured\\n📬 Current Mode: Development (Stub)\\n📊 Registration Storage: Database Only\\n\\n✅ Registrations are being stored\\n❌ Emails are not being sent\\n\\n🔧 Next Steps:\\n1. Set up professional email service\\n2. Configure SMTP settings\\n3. Update platform configuration');
     }
 
     // Load initial data
