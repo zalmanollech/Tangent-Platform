@@ -53,7 +53,7 @@
     {
       "id": "2",
       "email": "ollech@gmail.com",
-      "passHash": "$2a$10$xCPFxEOSzuMiluZY1WqDeOZeSNOpFKrjKCgO4n4zpJxH7qqzYjzbK",
+      "passHash": "$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi",
       "role": "admin",
       "isActive": true,
       "emailVerified": true,
@@ -124,7 +124,7 @@
     {
       "id": "5",
       "email": "dudiollech@gmail.com",
-      "passHash": "$2a$10$xCPFxEOSzuMiluZY1WqDeOZeSNOpFKrjKCgO4n4zpJxH7qqzYjzbK",
+      "passHash": "$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi",
       "role": "admin",
       "isActive": true,
       "emailVerified": true,

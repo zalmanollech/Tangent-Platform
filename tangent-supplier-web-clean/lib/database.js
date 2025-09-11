@@ -152,7 +152,37 @@ class Database {
     Object.keys(defaultDBSchema).forEach(key => {
       if (data[key] !== undefined) {
         if (Array.isArray(defaultDBSchema[key])) {
-          result[key] = Array.isArray(data[key]) ? data[key] : [];
+          if (key === 'users') {
+            // For users array, merge default admin users with existing users
+            const existingUsers = Array.isArray(data[key]) ? data[key] : [];
+            const defaultUsers = defaultDBSchema[key];
+            
+            // Add default admin users if they don't exist
+            const mergedUsers = [...existingUsers];
+            defaultUsers.forEach(defaultUser => {
+              const existingUser = existingUsers.find(u => u.email === defaultUser.email);
+              if (!existingUser) {
+                mergedUsers.push(defaultUser);
+              } else {
+                // Update existing admin users to ensure they have correct properties
+                if (defaultUser.role === 'admin') {
+                  const userIndex = mergedUsers.findIndex(u => u.email === defaultUser.email);
+                  if (userIndex !== -1) {
+                    mergedUsers[userIndex] = {
+                      ...existingUser,
+                      role: 'admin',
+                      isActive: true,
+                      emailVerified: true,
+                      passHash: defaultUser.passHash // Ensure correct password
+                    };
+                  }
+                }
+              }
+            });
+            result[key] = mergedUsers;
+          } else {
+            result[key] = Array.isArray(data[key]) ? data[key] : [];
+          }
         } else if (typeof defaultDBSchema[key] === 'object') {
           result[key] = { ...defaultDBSchema[key], ...data[key] };
         } else {
