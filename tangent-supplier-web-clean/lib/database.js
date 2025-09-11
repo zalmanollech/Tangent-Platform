@@ -33,7 +33,52 @@ const defaultDBSchema = {
     paymentGraceDays: 7
   },
   docsWhitelist: ["ICE.CARGODOCS", "IQAX", "CARGOX", "BOLERO", "WAVE.BL"],
-  users: [],
+  users: [
+    {
+      "id": "admin_ollech",
+      "email": "ollech@gmail.com",
+      "passHash": "$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi",
+      "role": "admin",
+      "isActive": true,
+      "emailVerified": true,
+      "registrationDate": "2025-09-11T21:00:00.000Z",
+      "kyc": {
+        "status": "verified",
+        "company": "Sadot group inc",
+        "country": "Israel",
+        "regNumber": "a2345",
+        "fullName": "Shmaya Ollech",
+        "cryptoExperience": "expert",
+        "hasWallet": true,
+        "understoodRisks": true,
+        "files": [],
+        "submittedAt": "2025-09-11T21:00:00.000Z",
+        "verifiedAt": "2025-09-11T21:00:00.000Z"
+      }
+    },
+    {
+      "id": "admin_dudi",
+      "email": "dudiollech@gmail.com",
+      "passHash": "$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi",
+      "role": "admin",
+      "isActive": true,
+      "emailVerified": true,
+      "registrationDate": "2025-09-11T21:00:00.000Z",
+      "kyc": {
+        "status": "verified",
+        "company": "Sadot group inc",
+        "country": "Israel",
+        "regNumber": "a2345",
+        "fullName": "Dudi Ollech",
+        "cryptoExperience": "expert",
+        "hasWallet": true,
+        "understoodRisks": true,
+        "files": [],
+        "submittedAt": "2025-09-11T21:00:00.000Z",
+        "verifiedAt": "2025-09-11T21:00:00.000Z"
+      }
+    }
+  ],
   trades: [],
   tokens: [],
   auctions: [],
