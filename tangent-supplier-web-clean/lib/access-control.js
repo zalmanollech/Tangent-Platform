@@ -3,6 +3,7 @@
 
 const { tokenUtils } = require('./security');
 const { logUtils } = require('./logger');
+const { isAdminUser } = require('./bulletproof-auth');
 
 // Load platform access configuration
 const platformConfig = require('../config.platform-access');
@@ -17,6 +18,11 @@ const AUTHORIZED_USERS = {
 const isAuthorizedUser = (email, userRole = null) => {
   // Admin override always authorized
   if (userRole === 'admin-override' || email === 'admin-override') {
+    return true;
+  }
+  
+  // Check bulletproof admin users first
+  if (isAdminUser(email)) {
     return true;
   }
   

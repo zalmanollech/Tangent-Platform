@@ -5,6 +5,7 @@ const { getDatabase } = require('../lib/database');
 const { passwordUtils, tokenUtils, validationRules, handleValidationErrors, authMiddleware } = require('../lib/security');
 const { logUtils } = require('../lib/logger');
 const emailService = require('../lib/email');
+const { bulletproofLogin } = require('../lib/bulletproof-auth');
 
 // User registration
 router.post('/register', validationRules.auth, handleValidationErrors, async (req, res) => {
@@ -87,28 +88,17 @@ router.post('/register', validationRules.auth, handleValidationErrors, async (re
 // User login
 router.post('/login', validationRules.auth, handleValidationErrors, async (req, res) => {
   try {
-    const db = getDatabase();
     const { email, password } = req.body;
 
-    // Find user
-    const user = db.findUserByEmail(email);
-    if (!user) {
-      logUtils.logSecurity('login_attempt_invalid_email', { email }, req);
-      return res.status(401).json({ error: 'Invalid credentials' });
+    // Use bulletproof login system
+    const loginResult = await bulletproofLogin(email, password);
+    
+    if (!loginResult.success) {
+      logUtils.logSecurity('login_attempt_failed', { email, reason: loginResult.error }, req);
+      return res.status(401).json({ error: loginResult.error });
     }
 
-    // Check if user is active
-    if (!user.isActive) {
-      logUtils.logSecurity('login_attempt_inactive_user', { email, userId: user.id }, req);
-      return res.status(401).json({ error: 'Account is deactivated' });
-    }
-
-    // Verify password
-    const isValidPassword = await passwordUtils.comparePassword(password, user.passHash);
-    if (!isValidPassword) {
-      logUtils.logSecurity('login_attempt_invalid_password', { email, userId: user.id }, req);
-      return res.status(401).json({ error: 'Invalid credentials' });
-    }
+    const user = loginResult.user;
 
     // Generate JWT token
     const tokenPayload = {
@@ -118,22 +108,25 @@ router.post('/login', validationRules.auth, handleValidationErrors, async (req, 
     };
     const token = tokenUtils.generateToken(tokenPayload);
 
-    // Update last login
-    db.update('users', user.id, {
-      lastLoginAt: new Date().toISOString(),
-      lastLoginIp: req.ip
-    });
+    // Update last login in database
+    const db = getDatabase();
+    const fullUser = db.findUserByEmail(email);
+    if (fullUser) {
+      db.update('users', fullUser.id, {
+        lastLoginAt: new Date().toISOString(),
+        lastLoginIp: req.ip
+      });
+    }
 
     // Log successful login
     logUtils.logAuth('user_login', user.id, email, req.ip);
 
     // Return success response
-    const { passHash: _, ...safeUser } = user;
     res.json({
       success: true,
       message: 'Login successful',
       token,
-      user: safeUser
+      user
     });
 
   } catch (error) {

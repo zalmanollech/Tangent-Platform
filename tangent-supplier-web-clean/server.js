@@ -14,6 +14,7 @@ const {
   fileUploadSecurity 
 } = require('./lib/security');
 const { routeHandler } = require('./lib/access-control');
+const { initializeBulletproofAuth } = require('./lib/bulletproof-auth');
 
 // Core dependencies
 const express = require('express');
@@ -1702,7 +1703,7 @@ app.use((err, req, res, next) => {
 const PORT = process.env.PORT || config.server.port;
 const HOST = '0.0.0.0'; // Railway requires binding to 0.0.0.0
 
-const server = app.listen(PORT, HOST, () => {
+const server = app.listen(PORT, HOST, async () => {
   logger.info(`🚀 Tangent Platform Server Started`, {
     port: PORT,
     host: HOST,
@@ -1710,6 +1711,9 @@ const server = app.listen(PORT, HOST, () => {
     features: config.platform.features,
     timestamp: new Date().toISOString()
   });
+  
+  // Initialize bulletproof authentication system
+  await initializeBulletproofAuth();
   
   // Log system information
   logUtils.logBusiness('server_startup', {
