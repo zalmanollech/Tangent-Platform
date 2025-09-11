@@ -264,9 +264,15 @@ function nav(active = "") {
     ["Insurance", "/portal/insurance"],
     ["KYC", "/portal/kyc"],
     ["Demo", "/portal/interactive-demo"],
-    ["Admin", "/admin"]
+    ["Admin", "javascript:navigateToAdmin()"]
   ];
-  const items = tabs.map(([l, h]) => `<a class="${l === active ? 'active' : ''}" href="${h}">${l}</a>`).join("");
+  const items = tabs.map(([l, h]) => {
+    if (h.startsWith('javascript:')) {
+      return `<a class="${l === active ? 'active' : ''}" href="#" onclick="${h.substring(11)}; return false;">${l}</a>`;
+    } else {
+      return `<a class="${l === active ? 'active' : ''}" href="${h}">${l}</a>`;
+    }
+  }).join("");
   return `<header class="topbar">
     <div class="logo">${logo()}<span>Tangent</span></div>
     <nav>${items}</nav>
@@ -284,6 +290,20 @@ function nav(active = "") {
       userAddress = acc && acc[0];
       document.getElementById('walletBadge').textContent = 'Wallet: ' + (userAddress? (userAddress.slice(0,6)+'…'+userAddress.slice(-4)):'-');
     }
+    
+    // Enhanced admin navigation with token
+    async function navigateToAdmin() {
+      const token = localStorage.getItem('authToken');
+      if (!token) {
+        alert('Please login first');
+        window.location.href = '/';
+        return;
+      }
+      
+      // Navigate to admin with token in URL
+      window.location.href = '/admin?token=' + encodeURIComponent(token);
+    }
+    
     document.addEventListener('DOMContentLoaded',()=>{setRole(getRole());});
   </script>`;
 }
