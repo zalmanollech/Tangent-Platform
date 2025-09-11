@@ -97,10 +97,16 @@ router.post('/login', validationRules.auth, handleValidationErrors, async (req, 
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    // Check if user is active
-    if (!user.isActive) {
+    // Check if user is active (skip for admin users - they should always be able to login)
+    if (!user.isActive && user.role !== 'admin') {
       logUtils.logSecurity('login_attempt_inactive_user', { email, userId: user.id }, req);
       return res.status(401).json({ error: 'Account is deactivated' });
+    }
+    
+    // Auto-activate admin accounts if they're somehow deactivated
+    if (user.role === 'admin' && !user.isActive) {
+      db.update('users', user.id, { isActive: true });
+      logUtils.logSecurity('admin_account_auto_activated', { email, userId: user.id }, req);
     }
 
     // Verify password
