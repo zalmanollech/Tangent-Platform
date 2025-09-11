@@ -8,6 +8,7 @@ module.exports = {
     // Current team emails (temporary)
     'ollech@gmail.com',             // Your current email
     'dudiollech@gmail.com',         // Your son's current email
+    // 'teammate@gmail.com',        // Add your team member's email here
     
     // Future tangent-protocol.com emails (add when domain is ready)
     // 'admin@tangent-protocol.com',
