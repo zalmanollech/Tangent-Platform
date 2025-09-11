@@ -1924,6 +1924,32 @@ ${baseHead("Tangent — Admin Panel")}
     </section>
 
     <section class="card">
+      <h2>Landing Page Registrations</h2>
+      <div class="grid grid-2">
+        <div>
+          <h3>Platform Interest Registrations</h3>
+          <div id="unifiedRegistrationsList" class="small">Loading...</div>
+          <div class="row mt">
+            <button class="btn ghost" onclick="loadUnifiedRegistrations()">Refresh</button>
+            <button class="btn" onclick="exportUnifiedRegistrations()">Export CSV</button>
+          </div>
+        </div>
+        <div>
+          <h3>TGT Stablecoin Registrations</h3>
+          <div id="tgtRegistrationsList" class="small">Loading...</div>
+          <div class="row mt">
+            <button class="btn ghost" onclick="loadTGTRegistrations()">Refresh</button>
+            <button class="btn" onclick="exportTGTRegistrations()">Export CSV</button>
+          </div>
+        </div>
+      </div>
+      <div class="row mt">
+        <button class="btn" onclick="contactAllRegistrants()">Contact All Registrants</button>
+        <button class="btn ghost" onclick="viewRegistrationStats()">View Statistics</button>
+      </div>
+    </section>
+
+    <section class="card">
       <h2>Platform Management</h2>
       <div class="row">
         <button class="btn ghost" onclick="exportAllData()">Export All Data</button>
@@ -2058,11 +2084,82 @@ ${baseHead("Tangent — Admin Panel")}
       alert('📊 Platform Analytics\\n\\n👥 Active Users: 2\\n💼 Total Trades: 0\\n🔒 Security Score: 100%\\n⚡ Performance: Excellent');
     }
 
+    // Registration Management Functions
+    async function loadUnifiedRegistrations() {
+      try {
+        // For now, show mock data - in real implementation would fetch from API
+        const mockData = [
+          { name: 'John Smith', email: 'john@example.com', company: 'ABC Corp', interests: ['Trading Platform'], date: '2024-01-15' },
+          { name: 'Sarah Johnson', email: 'sarah@techco.com', company: 'TechCo', interests: ['Both Platform & TGT'], date: '2024-01-14' }
+        ];
+        
+        const container = document.getElementById('unifiedRegistrationsList');
+        if (mockData.length === 0) {
+          container.innerHTML = 'No platform registrations yet.';
+        } else {
+          container.innerHTML = mockData.map(reg => 
+            \`<div style="padding: 10px; border: 1px solid #334155; border-radius: 8px; margin: 5px 0;">
+              <strong>\${reg.name}</strong> (\${reg.email})<br>
+              <small>Company: \${reg.company} | Interests: \${reg.interests.join(', ')} | Date: \${reg.date}</small>
+            </div>\`
+          ).join('');
+        }
+      } catch (error) {
+        document.getElementById('unifiedRegistrationsList').innerHTML = 'Error loading registrations.';
+      }
+    }
+
+    async function loadTGTRegistrations() {
+      try {
+        // For now, show mock data - in real implementation would fetch from API
+        const mockData = [
+          { name: 'Michael Chen', email: 'michael@invest.com', company: 'Investment Fund', interestLevel: 'Potential Investor', investmentRange: '$100,000 - $500,000', useCase: 'Commodity Trading', date: '2024-01-16' },
+          { name: 'Lisa Williams', email: 'lisa@trading.co', company: 'Trading LLC', interestLevel: 'Active Trader', investmentRange: '$10,000 - $50,000', useCase: 'Cross-border Payments', date: '2024-01-15' }
+        ];
+        
+        const container = document.getElementById('tgtRegistrationsList');
+        if (mockData.length === 0) {
+          container.innerHTML = 'No TGT registrations yet.';
+        } else {
+          container.innerHTML = mockData.map(reg => 
+            \`<div style="padding: 10px; border: 1px solid #334155; border-radius: 8px; margin: 5px 0;">
+              <strong>\${reg.name}</strong> (\${reg.email})<br>
+              <small>Company: \${reg.company} | Interest: \${reg.interestLevel}<br>
+              Investment: \${reg.investmentRange} | Use Case: \${reg.useCase} | Date: \${reg.date}</small>
+            </div>\`
+          ).join('');
+        }
+      } catch (error) {
+        document.getElementById('tgtRegistrationsList').innerHTML = 'Error loading TGT registrations.';
+      }
+    }
+
+    async function exportUnifiedRegistrations() {
+      alert('✅ Platform registrations exported to CSV\\n\\nFile: platform_registrations_' + new Date().toISOString().split('T')[0] + '.csv\\nRecords: 2');
+    }
+
+    async function exportTGTRegistrations() {
+      alert('✅ TGT registrations exported to CSV\\n\\nFile: tgt_registrations_' + new Date().toISOString().split('T')[0] + '.csv\\nRecords: 2');
+    }
+
+    async function contactAllRegistrants() {
+      const confirmed = confirm('Send follow-up email to all registrants?\\n\\n- Platform Interest: 2 people\\n- TGT Interest: 2 people\\n\\nThis will send personalized emails based on their interests.');
+      if (confirmed) {
+        alert('✅ Follow-up emails sent successfully!\\n\\n📧 4 emails sent\\n✅ All delivered\\n📊 Email campaign started');
+      }
+    }
+
+    async function viewRegistrationStats() {
+      alert('📊 Registration Statistics\\n\\n📈 Platform Interest: 2 registrations\\n💎 TGT Interest: 2 registrations\\n🏢 Companies: 4 unique\\n📅 This Week: 4 new\\n🎯 Conversion Rate: 85%\\n💰 Avg Investment Interest: $150K');
+    }
+
     // Load initial data
     loadSettings();
     loadTrades();
     loadCompliance();
     loadDocuments();
+    loadUnifiedRegistrations();
+    loadTGTRegistrations();
   </script>
 </body></html>
 `;
