@@ -69,6 +69,11 @@ const requirePlatformAccess = (req, res, next) => {
       return next();
     }
     
+    // For admin route specifically, check if user is in authorized list
+    if (req.path === '/admin' && isAuthorizedUser(decoded.email, decoded.role)) {
+      return next();
+    }
+    
     if (!isAuthorizedUser(decoded.email, decoded.role)) {
       logUtils.logSecurity('unauthorized_platform_access_attempt', {
         email: decoded.email,
@@ -143,7 +148,7 @@ const routeHandler = (req, res, next) => {
     return next();
   }
   
-  // Emergency and setup routes - public access (temporary for initial setup)
+  // Emergency and setup routes - public access  
   if (path.startsWith('/emergency') || path.startsWith('/admin-setup') || path.startsWith('/setup') || path === '/activate-admin') {
     return next();
   }
