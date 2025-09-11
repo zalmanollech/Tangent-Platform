@@ -258,12 +258,12 @@ async function register(email,pass,role){const r=await fetch('/auth/register',{m
 
 function nav(active = "") {
   const tabs = [
-    ["Home", "/portal"],
-    ["Trade Desk", "/portal/trade"],
-    ["Auctions", "/portal/auctions"],
-    ["Insurance", "/portal/insurance"],
-    ["KYC", "/portal/kyc"],
-    ["Demo", "/portal/interactive-demo"],
+    ["Home", "javascript:navigateToPortal('/portal')"],
+    ["Trade Desk", "javascript:navigateToPortal('/portal/trade')"],
+    ["Auctions", "javascript:navigateToPortal('/portal/auctions')"],
+    ["Insurance", "javascript:navigateToPortal('/portal/insurance')"],
+    ["KYC", "javascript:navigateToPortal('/portal/kyc')"],
+    ["Demo", "javascript:navigateToPortal('/portal/interactive-demo')"],
     ["Admin", "javascript:navigateToAdmin()"]
   ];
   const items = tabs.map(([l, h]) => {
@@ -291,8 +291,21 @@ function nav(active = "") {
       document.getElementById('walletBadge').textContent = 'Wallet: ' + (userAddress? (userAddress.slice(0,6)+'…'+userAddress.slice(-4)):'-');
     }
     
+    // Enhanced portal navigation with token
+    function navigateToPortal(path) {
+      const token = localStorage.getItem('authToken');
+      if (!token) {
+        alert('Please login first');
+        window.location.href = '/';
+        return;
+      }
+      
+      // Navigate to portal page with token in URL
+      window.location.href = path + '?token=' + encodeURIComponent(token);
+    }
+    
     // Enhanced admin navigation with token
-    async function navigateToAdmin() {
+    function navigateToAdmin() {
       const token = localStorage.getItem('authToken');
       if (!token) {
         alert('Please login first');
@@ -1419,19 +1432,19 @@ ${nav("Home")}
         <div class="card">
           <h3>📋 KYC Verification</h3>
           <p>Complete your Know Your Customer verification process.</p>
-          <a class="btn" href="/portal/kyc">Start KYC Process</a>
+          <button class="btn" onclick="navigateToPortal('/portal/kyc')">Start KYC Process</button>
         </div>
         
         <div class="card">
           <h3>💼 Trade Desk</h3>
           <p>Access trading features and manage your portfolio.</p>
-          <a class="btn" href="/portal/trade">Open Trade Desk</a>
+          <button class="btn" onclick="navigateToPortal('/portal/trade')">Open Trade Desk</button>
         </div>
         
         <div class="card">
           <h3>📊 Analytics</h3>
           <p>View trading analytics and performance metrics.</p>
-          <a class="btn" href="/portal/analytics">View Analytics</a>
+          <button class="btn" onclick="navigateToPortal('/portal/analytics')">View Analytics</button>
         </div>
       </div>
     </section>
