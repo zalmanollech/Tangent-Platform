@@ -125,6 +125,10 @@ function css() {
   --chip:#64748b;
   --radius:16px;
   --shadow:0 15px 40px rgba(59, 130, 246, 0.3);
+  --success:#22c55e;
+  --warning:#f59e0b;
+  --error:#ef4444;
+  --info:#06b6d4;
 }
 *{margin:0;padding:0;box-sizing:border-box}
 body{
@@ -158,12 +162,44 @@ body{
   display:inline-flex;
   align-items:center;
   gap:10px;
-  transition:all 0.3s;
+  transition:all 0.2s ease;
   box-shadow:0 4px 15px rgba(59, 130, 246, 0.3);
+  position:relative;
+  overflow:hidden;
+  user-select:none;
 }
 .btn:hover{transform:translateY(-2px);box-shadow:0 8px 25px rgba(59, 130, 246, 0.4)}
+.btn:active{transform:translateY(0px) scale(0.98);box-shadow:0 2px 10px rgba(59, 130, 246, 0.3)}
 .btn.ghost{background:transparent;color:var(--brand);border:2px solid var(--brand)}
-.btn.xs{padding:8px 16px;font-size:14px}.btn:disabled{opacity:0.5;cursor:not-allowed}
+.btn.ghost:hover{background:rgba(59, 130, 246, 0.1)}
+.btn.xs{padding:8px 16px;font-size:14px}
+.btn:disabled{opacity:0.5;cursor:not-allowed;transform:none}
+.btn.loading{cursor:wait;pointer-events:none}
+.btn.loading::after{
+  content:'';
+  position:absolute;
+  width:16px;
+  height:16px;
+  margin:auto;
+  border:2px solid transparent;
+  border-top-color:var(--brand-ink);
+  border-radius:50%;
+  animation:spin 1s linear infinite;
+}
+.btn.success{background:linear-gradient(135deg,var(--success),#16a34a)}
+.btn.warning{background:linear-gradient(135deg,var(--warning),#d97706)}
+.btn.error{background:linear-gradient(135deg,var(--error),#dc2626)}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.7}}
+.btn-ripple{
+  position:absolute;
+  border-radius:50%;
+  background:rgba(255,255,255,0.3);
+  transform:scale(0);
+  animation:ripple 0.6s linear;
+  pointer-events:none;
+}
+@keyframes ripple{to{transform:scale(4);opacity:0}}
 .in{
   background:var(--surface);
   border:2px solid var(--line);
@@ -230,6 +266,103 @@ h1{font-size:36px}h2{font-size:28px}h3{font-size:24px}
 .muted{color:var(--muted)}
 .mt{margin-top:20px}
 .footer{margin:40px 0;text-align:center;color:var(--muted)}
+.notification{
+  position:fixed;
+  top:20px;
+  right:20px;
+  padding:16px 20px;
+  border-radius:12px;
+  color:white;
+  font-weight:600;
+  box-shadow:0 8px 25px rgba(0,0,0,0.2);
+  z-index:10000;
+  animation:slideIn 0.3s ease-out;
+  max-width:400px;
+}
+.notification.success{background:linear-gradient(135deg,var(--success),#16a34a)}
+.notification.error{background:linear-gradient(135deg,var(--error),#dc2626)}
+.notification.warning{background:linear-gradient(135deg,var(--warning),#d97706)}
+.notification.info{background:linear-gradient(135deg,var(--info),#0284c7)}
+@keyframes slideIn{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}
+@keyframes slideOut{from{transform:translateX(0);opacity:1}to{transform:translateX(100%);opacity:0}}
+.tooltip{
+  position:relative;
+  display:inline-block;
+  cursor:help;
+}
+.tooltip::before{
+  content:attr(data-tooltip);
+  position:absolute;
+  bottom:125%;
+  left:50%;
+  transform:translateX(-50%);
+  background:#1f2937;
+  color:white;
+  padding:8px 12px;
+  border-radius:8px;
+  font-size:12px;
+  white-space:nowrap;
+  opacity:0;
+  pointer-events:none;
+  transition:opacity 0.3s;
+  z-index:1000;
+}
+.tooltip::after{
+  content:'';
+  position:absolute;
+  bottom:120%;
+  left:50%;
+  transform:translateX(-50%);
+  border:5px solid transparent;
+  border-top-color:#1f2937;
+  opacity:0;
+  pointer-events:none;
+  transition:opacity 0.3s;
+}
+.tooltip:hover::before,.tooltip:hover::after{opacity:1}
+.form-error{
+  color:var(--error);
+  font-size:12px;
+  margin-top:5px;
+  display:block;
+  animation:fadeIn 0.3s ease;
+}
+@keyframes fadeIn{from{opacity:0;transform:translateY(-5px)}to{opacity:1;transform:translateY(0)}}
+.loading-overlay{
+  position:fixed;
+  top:0;
+  left:0;
+  width:100%;
+  height:100%;
+  background:rgba(15,23,42,0.8);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  z-index:9999;
+  backdrop-filter:blur(4px);
+}
+.loading-spinner{
+  width:50px;
+  height:50px;
+  border:4px solid rgba(59,130,246,0.2);
+  border-top:4px solid var(--brand);
+  border-radius:50%;
+  animation:spin 1s linear infinite;
+}
+.progress-bar{
+  width:100%;
+  height:6px;
+  background:rgba(255,255,255,0.1);
+  border-radius:3px;
+  overflow:hidden;
+  margin:10px 0;
+}
+.progress-fill{
+  height:100%;
+  background:linear-gradient(90deg,var(--brand),var(--brand-secondary));
+  border-radius:3px;
+  transition:width 0.3s ease;
+}
 `;
 }
 
@@ -469,7 +602,7 @@ ${baseHead("Tangent Platform — Global Commodity Trading")}
           Register your interest and we'll notify you when they become available.
         </p>
         
-        <button onclick="showUnifiedRegistration()" style="background: linear-gradient(135deg, #3b82f6, #10b981); color: white; border: none; padding: 20px 40px; border-radius: 16px; font-size: 20px; font-weight: 700; cursor: pointer; box-shadow: 0 15px 40px rgba(59, 130, 246, 0.4); transition: all 0.3s; transform: translateY(0px);" onmouseover="this.style.transform='translateY(-3px)'; this.style.boxShadow='0 20px 50px rgba(59, 130, 246, 0.5)'" onmouseout="this.style.transform='translateY(0px)'; this.style.boxShadow='0 15px 40px rgba(59, 130, 246, 0.4)'">
+        <button class="btn" onclick="showUnifiedRegistration()" data-tooltip="Join our exclusive early access program" style="background: linear-gradient(135deg, #3b82f6, #10b981); color: white; border: none; padding: 20px 40px; border-radius: 16px; font-size: 20px; font-weight: 700; cursor: pointer; box-shadow: 0 15px 40px rgba(59, 130, 246, 0.4); transition: all 0.3s; transform: translateY(0px);" onmouseover="this.style.transform='translateY(-3px)'; this.style.boxShadow='0 20px 50px rgba(59, 130, 246, 0.5)'" onmouseout="this.style.transform='translateY(0px)'; this.style.boxShadow='0 15px 40px rgba(59, 130, 246, 0.4)'">
           📧 Register Your Interest
         </button>
         
@@ -583,6 +716,11 @@ ${baseHead("Tangent Platform — Global Commodity Trading")}
       <!-- Personal Information -->
       <div style="margin-bottom: 25px;">
         <h4 style="color: #f1f5f9; margin-bottom: 15px; font-size: 18px;">📋 Your Information</h4>
+        <div style="background: rgba(59, 130, 246, 0.1); padding: 12px; border-radius: 8px; margin-bottom: 15px; border-left: 4px solid var(--brand);">
+          <p style="color: #cbd5e1; font-size: 13px; margin: 0;">
+            ℹ️ <strong>Why we need this:</strong> Your contact information helps us send you personalized updates and early access invitations.
+          </p>
+        </div>
         <input type="text" id="regName" placeholder="Full Name *" style="width: 100%; padding: 12px; margin-bottom: 15px; border-radius: 8px; border: 1px solid #475569; background: #0f172a; color: #f1f5f9;">
         <input type="email" id="regEmail" placeholder="Email Address *" style="width: 100%; padding: 12px; margin-bottom: 15px; border-radius: 8px; border: 1px solid #475569; background: #0f172a; color: #f1f5f9;">
         <input type="text" id="regCompany" placeholder="Company/Organization" style="width: 100%; padding: 12px; margin-bottom: 15px; border-radius: 8px; border: 1px solid #475569; background: #0f172a; color: #f1f5f9;">
@@ -635,8 +773,8 @@ ${baseHead("Tangent Platform — Global Commodity Trading")}
       
       <!-- Submit Buttons -->
       <div style="display: flex; gap: 15px;">
-        <button onclick="submitUnifiedRegistration()" style="flex: 1; background: linear-gradient(135deg, #3b82f6, #10b981); color: white; border: none; padding: 16px; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 16px;">🚀 Register Interest</button>
-        <button onclick="closeUnifiedRegistration()" style="background: #64748b; color: white; border: none; padding: 16px 20px; border-radius: 8px; cursor: pointer;">Cancel</button>
+        <button id="submitRegistrationBtn" class="btn" onclick="submitUnifiedRegistration()" data-tooltip="Submit your registration to join our early access program" style="flex: 1; background: linear-gradient(135deg, #3b82f6, #10b981); color: white; border: none; padding: 16px; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 16px;">🚀 Register Interest</button>
+        <button class="btn ghost" onclick="closeUnifiedRegistration()" style="background: #64748b; color: white; border: none; padding: 16px 20px; border-radius: 8px; cursor: pointer;">Cancel</button>
       </div>
       
       <p style="color: #64748b; font-size: 12px; margin-top: 15px; text-align: center; line-height: 1.4;">
@@ -818,14 +956,20 @@ ${baseHead("Tangent Platform — Global Commodity Trading")}
       const platformInterest = document.getElementById('interestPlatform').checked;
       const tgtInterest = document.getElementById('interestTGT').checked;
       const bothInterest = document.getElementById('interestBoth').checked;
+      const button = document.getElementById('submitRegistrationBtn');
       
       if (!name || !email) {
-        alert('Please fill in your name and email address');
+        showNotification('Please fill in your name and email address', 'error');
+        return;
+      }
+      
+      if (!email.includes('@') || !email.includes('.')) {
+        showNotification('Please enter a valid email address', 'error');
         return;
       }
       
       if (!platformInterest && !tgtInterest && !bothInterest) {
-        alert('Please select at least one area of interest');
+        showNotification('Please select at least one area of interest', 'warning');
         return;
       }
       
@@ -858,20 +1002,33 @@ ${baseHead("Tangent Platform — Global Commodity Trading")}
           body: JSON.stringify(formData)
         });
         
-        const result = await response.json();
-        
-        if (response.ok && result.success) {
-          let interestText = '';
-          if (interests.includes('both') || (interests.includes('platform') && interests.includes('tgt'))) {
-            interestText = 'both our Trading Platform and TGT Stablecoin';
-          } else if (interests.includes('platform')) {
-            interestText = 'our Trading Platform';
-          } else if (interests.includes('tgt')) {
-            interestText = 'TGT Stablecoin';
+        await performAsyncAction(
+          async () => {
+            const result = await response.json();
+            
+            if (!response.ok || !result.success) {
+              throw new Error(result.message || 'Registration failed');
+            }
+            
+            let interestText = '';
+            if (interests.includes('both') || (interests.includes('platform') && interests.includes('tgt'))) {
+              interestText = 'both our Trading Platform and TGT Stablecoin';
+            } else if (interests.includes('platform')) {
+              interestText = 'our Trading Platform';
+            } else if (interests.includes('tgt')) {
+              interestText = 'TGT Stablecoin';
+            }
+            
+            setTimeout(() => closeUnifiedRegistration(), 1500);
+            return { interestText, name };
+          },
+          button,
+          {
+            loadingText: 'Registering...',
+            successMessage: \`🎉 Thank you! Your interest has been registered successfully. We'll contact you within 48 hours!\`,
+            errorMessage: 'Registration failed. Please check your details and try again.'
           }
-          
-          alert('🎉 Thank you ' + name + '!\\n\\nWe have registered your interest in ' + interestText + '. You\\'ll be among the first to know when they become available.\\n\\nWe\\'ll contact you within 48 hours with exclusive early access information.');
-          closeUnifiedRegistration();
+        );
           
           // Clear form
           document.getElementById('regName').value = '';
@@ -1424,6 +1581,20 @@ ${baseHead("Tangent Platform — Trading Dashboard")}
 <body>
 ${nav("Home")}
   <main class="wrap">
+    <!-- User Guidance Banner -->
+    <div style="background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(16, 185, 129, 0.1)); padding: 20px; border-radius: 16px; border: 2px solid rgba(59, 130, 246, 0.3); margin-bottom: 30px;">
+      <h3 style="color: var(--brand); margin-bottom: 10px; font-size: 18px;">👋 Getting Started Guide</h3>
+      <p style="color: var(--ink); margin-bottom: 15px; font-size: 14px;">
+        Welcome to your trading dashboard! Follow these steps to get the most out of the platform:
+      </p>
+      <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+        <span style="background: rgba(59, 130, 246, 0.2); color: var(--brand); padding: 6px 12px; border-radius: 8px; font-size: 12px; font-weight: 600;">✅ 1. Complete KYC</span>
+        <span style="background: rgba(148, 163, 184, 0.2); color: var(--muted); padding: 6px 12px; border-radius: 8px; font-size: 12px;">→ 2. Explore Trading</span>
+        <span style="background: rgba(148, 163, 184, 0.2); color: var(--muted); padding: 6px 12px; border-radius: 8px; font-size: 12px;">→ 3. View Analytics</span>
+        <span style="background: rgba(148, 163, 184, 0.2); color: var(--muted); padding: 6px 12px; border-radius: 8px; font-size: 12px;">→ 4. Access Demo</span>
+      </div>
+    </div>
+    
     <section class="hero">
       <h1>🌍 Welcome to Tangent Platform</h1>
       <p>Your secure commodity trading dashboard. Access all platform features below.</p>
@@ -1432,19 +1603,19 @@ ${nav("Home")}
         <div class="card">
           <h3>📋 KYC Verification</h3>
           <p>Complete your Know Your Customer verification process.</p>
-          <button class="btn" onclick="navigateToPortal('/portal/kyc')">Start KYC Process</button>
+          <button class="btn" onclick="navigateToPortal('/portal/kyc')" data-tooltip="Begin your identity verification process - required for trading">Start KYC Process</button>
         </div>
         
         <div class="card">
           <h3>💼 Trade Desk</h3>
           <p>Access trading features and manage your portfolio.</p>
-          <button class="btn" onclick="navigateToPortal('/portal/trade')">Open Trade Desk</button>
+          <button class="btn" onclick="navigateToPortal('/portal/trade')" data-tooltip="Access trading interface with real-time market data">Open Trade Desk</button>
         </div>
         
         <div class="card">
           <h3>📊 Analytics</h3>
           <p>View trading analytics and performance metrics.</p>
-          <button class="btn" onclick="navigateToPortal('/portal/analytics')">View Analytics</button>
+          <button class="btn" onclick="navigateToPortal('/portal/analytics')" data-tooltip="View detailed performance metrics and market insights">View Analytics</button>
         </div>
       </div>
     </section>
@@ -1980,10 +2151,10 @@ ${baseHead("Tangent — Admin Panel")}
     <section class="card">
       <h2>Platform Management</h2>
       <div class="row">
-        <button class="btn ghost" onclick="exportAllData()">Export All Data</button>
-        <button class="btn ghost" onclick="systemStatus()">System Status</button>
-        <button class="btn ghost" onclick="viewSecurityLogs()">Security Logs</button>
-        <button class="btn ghost" onclick="platformAnalytics()">Platform Analytics</button>
+        <button class="btn ghost" onclick="exportAllData()" data-tooltip="Download complete platform data as JSON">Export All Data</button>
+        <button class="btn ghost" onclick="systemStatus()" data-tooltip="View current system health and performance">System Status</button>
+        <button class="btn ghost" onclick="viewSecurityLogs()" data-tooltip="Review authentication and access logs">Security Logs</button>
+        <button class="btn ghost" onclick="platformAnalytics()" data-tooltip="View platform usage and performance metrics">Platform Analytics</button>
       </div>
     </section>
   </main>
@@ -2008,11 +2179,12 @@ ${baseHead("Tangent — Admin Panel")}
 
         const result = await response.json();
         if (result.success || result.token) {
-          alert('✅ User created successfully!\\n\\nEmail: ' + email + '\\nRole: ' + role);
+          showNotification(\`✅ User \${email} created successfully with \${role} role!\`, 'success');
           document.getElementById('userEmail').value = '';
           document.getElementById('userPassword').value = '';
+          document.getElementById('userRole').value = 'user';
         } else {
-          alert('❌ Error: ' + (result.error || 'Creation failed'));
+          showNotification('❌ Error: ' + (result.error || 'Creation failed'), 'error');
         }
       } catch (error) {
         alert('❌ Network error: ' + error.message);
@@ -2188,6 +2360,126 @@ ${baseHead("Tangent — Admin Panel")}
 
     function testEmailConfiguration() {
       alert('🔧 Email Configuration Test\\n\\n❌ Email Service: Not Configured\\n📬 Current Mode: Development (Stub)\\n📊 Registration Storage: Database Only\\n\\n✅ Registrations are being stored\\n❌ Emails are not being sent\\n\\n🔧 Next Steps:\\n1. Set up professional email service\\n2. Configure SMTP settings\\n3. Update platform configuration');
+    }
+
+    // ========================================
+    // ENHANCED UI/UX FUNCTIONS
+    // ========================================
+    
+    // Show notification messages
+    function showNotification(message, type = 'info', duration = 4000) {
+      const notification = document.createElement('div');
+      notification.className = \`notification \${type}\`;
+      notification.innerHTML = \`
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span>\${getNotificationIcon(type)}</span>
+          <span>\${message}</span>
+          <button onclick="this.parentElement.parentElement.remove()" style="background: none; border: none; color: white; font-size: 18px; cursor: pointer; margin-left: auto;">×</button>
+        </div>
+      \`;
+      document.body.appendChild(notification);
+      
+      setTimeout(() => {
+        if (notification.parentElement) {
+          notification.style.animation = 'slideOut 0.3s ease-in forwards';
+          setTimeout(() => notification.remove(), 300);
+        }
+      }, duration);
+    }
+    
+    function getNotificationIcon(type) {
+      const icons = {
+        success: '✅',
+        error: '❌',
+        warning: '⚠️',
+        info: 'ℹ️'
+      };
+      return icons[type] || icons.info;
+    }
+    
+    // Enhanced button interactions
+    function enhanceButton(button, options = {}) {
+      if (!button) return;
+      
+      // Add ripple effect
+      button.addEventListener('click', function(e) {
+        if (this.disabled || this.classList.contains('loading')) return;
+        
+        const ripple = document.createElement('span');
+        const rect = this.getBoundingClientRect();
+        const size = Math.max(rect.width, rect.height);
+        const x = e.clientX - rect.left - size / 2;
+        const y = e.clientY - rect.top - size / 2;
+        
+        ripple.style.width = ripple.style.height = size + 'px';
+        ripple.style.left = x + 'px';
+        ripple.style.top = y + 'px';
+        ripple.classList.add('btn-ripple');
+        
+        this.appendChild(ripple);
+        setTimeout(() => ripple.remove(), 600);
+      });
+      
+      // Add loading state functionality
+      button.showLoading = function(text = 'Loading...') {
+        this.classList.add('loading');
+        this.disabled = true;
+        this.originalText = this.innerHTML;
+        this.innerHTML = text;
+      };
+      
+      button.hideLoading = function() {
+        this.classList.remove('loading');
+        this.disabled = false;
+        if (this.originalText) {
+          this.innerHTML = this.originalText;
+          delete this.originalText;
+        }
+      };
+    }
+    
+    // Enhanced async operations with user feedback
+    async function performAsyncAction(actionFn, button, options = {}) {
+      const {
+        loadingText = 'Processing...',
+        successMessage = 'Action completed successfully!',
+        errorMessage = 'An error occurred. Please try again.'
+      } = options;
+      
+      try {
+        if (button) button.showLoading(loadingText);
+        
+        const result = await actionFn();
+        
+        showNotification(successMessage, 'success');
+        return result;
+        
+      } catch (error) {
+        console.error('Action failed:', error);
+        showNotification(errorMessage, 'error');
+        throw error;
+        
+      } finally {
+        if (button) button.hideLoading();
+      }
+    }
+    
+    // Initialize enhanced UI on page load
+    function initializeEnhancedUI() {
+      // Enhance all buttons
+      document.querySelectorAll('.btn').forEach(enhanceButton);
+      
+      // Add tooltips
+      document.querySelectorAll('[data-tooltip]').forEach(element => {
+        element.classList.add('tooltip');
+      });
+    }
+    
+    // Initialize when DOM is ready
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initializeEnhancedUI);
+    } else {
+      initializeEnhancedUI();
     }
 
     // Load initial data
