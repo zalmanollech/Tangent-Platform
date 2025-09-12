@@ -1142,7 +1142,12 @@ ${baseHead("Tangent Platform — Global Commodity Trading")}
         console.log('Team sign in modal opened');
       } else {
         console.error('Sign in modal not found');
-        showNotification('Unable to open sign in modal', 'error');
+        // Fallback to alert if showNotification isn't available
+        if (typeof showNotification === 'function') {
+          showNotification('Unable to open sign in modal', 'error');
+        } else {
+          alert('Sign in modal not found. Please refresh the page and try again.');
+        }
       }
     }
     
