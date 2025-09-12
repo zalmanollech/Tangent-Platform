@@ -377,6 +377,11 @@ function baseHead(title) {
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 28 28'><rect x='2' y='2' width='24' height='24' rx='6' fill='%232dd4bf'/></svg>">
 <style>${css()}</style>
 <script>
+// ========================================
+// GLOBAL FUNCTIONS FOR ENTIRE SITE
+// ========================================
+
+// Core authentication and storage functions
 function getRole(){try{return localStorage.getItem('role')||'buyer'}catch(e){return'buyer'}}
 function setRole(r){try{localStorage.setItem('role',r)}catch(e){};const el=document.querySelector('#roleShow');if(el)el.textContent=r;}
 function clearKey(){try{localStorage.removeItem('apiKey')}catch(e){}; alert('Cleared'); location.reload()}
@@ -385,6 +390,418 @@ function getToken(){try{return localStorage.getItem('authToken')||''}catch(e){re
 async function api(path,opts){opts=opts||{};opts.headers=opts.headers||{};opts.headers['x-auth-token']=getToken(); if(!opts.headers['Content-Type'] && !(opts.body instanceof FormData)) opts.headers['Content-Type']='application/json'; const r=await fetch(path,opts); if(!r.ok){const tx=await r.text(); throw new Error(tx)}; return r.json();}
 async function login(email,pass){const r=await fetch('/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password:pass})});const j=await r.json(); if(j.token){setToken(j.token); alert('Logged in'); location.reload()} else alert(j.error||'login failed')}
 async function register(email,pass,role){const r=await fetch('/auth/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password:pass,role})});const j=await r.json(); if(j.token){setToken(j.token); alert('Registered'); location.reload()} else alert(j.error||'register failed')}
+
+// Enhanced UI/UX Functions
+function showNotification(message, type = 'info', duration = 4000) {
+  const notification = document.createElement('div');
+  notification.className = \`notification \${type}\`;
+  notification.innerHTML = \`
+    <div style="display: flex; align-items: center; gap: 10px;">
+      <span>\${getNotificationIcon(type)}</span>
+      <span>\${message}</span>
+      <button onclick="this.parentElement.parentElement.remove()" style="background: none; border: none; color: white; font-size: 18px; cursor: pointer; margin-left: auto;">×</button>
+    </div>
+  \`;
+  document.body.appendChild(notification);
+  
+  setTimeout(() => {
+    if (notification.parentElement) {
+      notification.style.animation = 'slideOut 0.3s ease-in forwards';
+      setTimeout(() => notification.remove(), 300);
+    }
+  }, duration);
+}
+
+function getNotificationIcon(type) {
+  const icons = { success: '✅', error: '❌', warning: '⚠️', info: 'ℹ️' };
+  return icons[type] || icons.info;
+}
+
+// Enhanced async operations
+async function performAsyncAction(actionFn, button, options = {}) {
+  const { loadingText = 'Processing...', successMessage = 'Action completed successfully!', errorMessage = 'An error occurred. Please try again.' } = options;
+  
+  try {
+    if (button && button.showLoading) button.showLoading(loadingText);
+    const result = await actionFn();
+    if (typeof showNotification === 'function') showNotification(successMessage, 'success');
+    return result;
+  } catch (error) {
+    console.error('Action failed:', error);
+    if (typeof showNotification === 'function') showNotification(errorMessage, 'error');
+    throw error;
+  } finally {
+    if (button && button.hideLoading) button.hideLoading();
+  }
+}
+
+// Landing Page Functions
+function showUnifiedRegistration() {
+  const modal = document.getElementById('unifiedRegistrationModal');
+  if (modal) modal.style.display = 'flex';
+}
+
+function closeUnifiedRegistration() {
+  const modal = document.getElementById('unifiedRegistrationModal');
+  if (modal) modal.style.display = 'none';
+}
+
+function showTGTRegistration() {
+  const modal = document.getElementById('tgtRegistrationModal');
+  if (modal) modal.style.display = 'flex';
+}
+
+function closeTGTRegistration() {
+  const modal = document.getElementById('tgtRegistrationModal');
+  if (modal) modal.style.display = 'none';
+}
+
+function showTGTInfo() {
+  const modal = document.getElementById('tgtInfoModal');
+  if (modal) modal.style.display = 'flex';
+}
+
+function closeTGTInfo() {
+  const modal = document.getElementById('tgtInfoModal');
+  if (modal) modal.style.display = 'none';
+}
+
+function showTeamSignIn() {
+  const modal = document.getElementById('signInModal');
+  if (modal) modal.style.display = 'flex';
+}
+
+function closeSignIn() {
+  const modal = document.getElementById('signInModal');
+  if (modal) modal.style.display = 'none';
+}
+
+// Form submission functions
+async function submitUnifiedRegistration() {
+  const name = document.getElementById('regName').value;
+  const email = document.getElementById('regEmail').value;
+  const platformInterest = document.getElementById('interestPlatform').checked;
+  const tgtInterest = document.getElementById('interestTGT').checked;
+  const bothInterest = document.getElementById('interestBoth').checked;
+  
+  if (!name || !email) {
+    if (typeof showNotification === 'function') {
+      showNotification('Please fill in your name and email address', 'error');
+    } else {
+      alert('Please fill in your name and email address');
+    }
+    return;
+  }
+  
+  if (!platformInterest && !tgtInterest && !bothInterest) {
+    if (typeof showNotification === 'function') {
+      showNotification('Please select at least one area of interest', 'warning');
+    } else {
+      alert('Please select at least one area of interest');
+    }
+    return;
+  }
+  
+  let interests = [];
+  if (platformInterest || bothInterest) interests.push('platform');
+  if (tgtInterest || bothInterest) interests.push('tgt');
+  if (bothInterest) interests = ['both'];
+  
+  const formData = {
+    name: name,
+    email: email,
+    company: document.getElementById('regCompany').value,
+    phone: document.getElementById('regPhone').value,
+    interests: interests,
+    message: document.getElementById('regMessage').value,
+    newsletter: document.getElementById('regNewsletter').checked,
+    timestamp: new Date().toISOString(),
+    type: 'unified_registration'
+  };
+  
+  try {
+    const response = await fetch('/api/unified-register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(formData)
+    });
+    
+    const result = await response.json();
+    
+    if (response.ok && result.success) {
+      let interestText = '';
+      if (interests.includes('both') || (interests.includes('platform') && interests.includes('tgt'))) {
+        interestText = 'both our Trading Platform and TGT Stablecoin';
+      } else if (interests.includes('platform')) {
+        interestText = 'our Trading Platform';
+      } else if (interests.includes('tgt')) {
+        interestText = 'TGT Stablecoin';
+      }
+      
+      if (typeof showNotification === 'function') {
+        showNotification(\`🎉 Thank you \${name}! Your interest in \${interestText} has been registered successfully.\`, 'success');
+      } else {
+        alert(\`🎉 Thank you \${name}! Your interest in \${interestText} has been registered successfully.\`);
+      }
+      
+      closeUnifiedRegistration();
+      
+      // Clear form
+      document.getElementById('regName').value = '';
+      document.getElementById('regEmail').value = '';
+      document.getElementById('regCompany').value = '';
+      document.getElementById('regPhone').value = '';
+      document.getElementById('interestPlatform').checked = false;
+      document.getElementById('interestTGT').checked = false;
+      document.getElementById('interestBoth').checked = false;
+      document.getElementById('regMessage').value = '';
+      document.getElementById('regNewsletter').checked = true;
+    } else {
+      const errorMessage = result.message || result.error || 'Registration failed';
+      alert('Registration Error: ' + errorMessage);
+    }
+  } catch (error) {
+    alert('There was an error submitting your registration. Please try again or contact support.');
+    console.error('Registration Error:', error);
+  }
+}
+
+async function submitTGTRegistration() {
+  const name = document.getElementById('tgtName').value;
+  const email = document.getElementById('tgtEmail').value;
+  const interestLevel = document.getElementById('tgtInterestLevel').value;
+  const useCase = document.getElementById('tgtUseCase').value;
+  
+  if (!name || !email || !interestLevel || !useCase) {
+    alert('Please fill in all required fields (marked with *)');
+    return;
+  }
+  
+  const formData = {
+    name: name,
+    email: email,
+    company: document.getElementById('tgtCompany').value,
+    phone: document.getElementById('tgtPhone').value,
+    interestLevel: interestLevel,
+    investmentRange: document.getElementById('tgtInvestmentRange').value,
+    useCase: useCase,
+    message: document.getElementById('tgtMessage').value,
+    newsletter: document.getElementById('tgtNewsletter').checked,
+    timestamp: new Date().toISOString(),
+    type: 'tgt_registration'
+  };
+  
+  try {
+    const response = await fetch('/api/tgt/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(formData)
+    });
+    
+    const result = await response.json();
+    
+    if (response.ok && result.success) {
+      if (typeof showNotification === 'function') {
+        showNotification('🎉 Thank you for your interest in TGT! We will contact you within 48 hours.', 'success');
+      } else {
+        alert('🎉 Thank you for your interest in TGT! We will contact you within 48 hours.');
+      }
+      closeTGTRegistration();
+      
+      // Clear form
+      document.getElementById('tgtName').value = '';
+      document.getElementById('tgtEmail').value = '';
+      document.getElementById('tgtCompany').value = '';
+      document.getElementById('tgtPhone').value = '';
+      document.getElementById('tgtInterestLevel').value = '';
+      document.getElementById('tgtInvestmentRange').value = '';
+      document.getElementById('tgtUseCase').value = '';
+      document.getElementById('tgtMessage').value = '';
+      document.getElementById('tgtNewsletter').checked = true;
+    } else {
+      const errorMessage = result.message || result.error || 'Registration failed';
+      alert('Registration Error: ' + errorMessage);
+    }
+  } catch (error) {
+    alert('There was an error submitting your registration. Please try again or contact support.');
+    console.error('TGT Registration Error:', error);
+  }
+}
+
+async function performSignIn() {
+  const email = document.getElementById('signInEmail').value;
+  const password = document.getElementById('signInPassword').value;
+  
+  if (!email || !password) {
+    if (typeof showNotification === 'function') {
+      showNotification('Please enter both email and password', 'error');
+    } else {
+      alert('Please enter both email and password');
+    }
+    return;
+  }
+  
+  try {
+    const response = await fetch('/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password })
+    });
+    
+    const result = await response.json();
+    
+    if (result.token) {
+      localStorage.setItem('authToken', result.token);
+      if (typeof showNotification === 'function') {
+        showNotification('✅ Successfully signed in! Redirecting...', 'success');
+      }
+      setTimeout(() => {
+        window.location.href = '/portal?token=' + result.token;
+      }, 1000);
+    } else {
+      if (typeof showNotification === 'function') {
+        showNotification('Access denied: ' + (result.error || 'Invalid credentials'), 'error');
+      } else {
+        alert('Access denied: ' + (result.error || 'Invalid credentials'));
+      }
+    }
+  } catch (error) {
+    if (typeof showNotification === 'function') {
+      showNotification('Login error: ' + error.message, 'error');
+    } else {
+      alert('Login error: ' + error.message);
+    }
+  }
+}
+
+// Navigation functions
+function navigateToPortal(path = '/portal') {
+  const token = localStorage.getItem('authToken');
+  if (token) {
+    window.location.href = path + '?token=' + encodeURIComponent(token);
+  } else {
+    window.location.href = path;
+  }
+}
+
+function navigateToAdmin() {
+  const token = localStorage.getItem('authToken');
+  if (token) {
+    window.location.href = '/admin?token=' + encodeURIComponent(token);
+  } else {
+    window.location.href = '/admin';
+  }
+}
+
+// Admin panel functions
+async function createUser() {
+  const email = document.getElementById('userEmail').value;
+  const password = document.getElementById('userPassword').value;
+  const role = document.getElementById('userRole').value;
+
+  if (!email || !password) {
+    if (typeof showNotification === 'function') {
+      showNotification('Please enter email and password', 'error');
+    } else {
+      alert('Please enter email and password');
+    }
+    return;
+  }
+
+  try {
+    const response = await fetch('/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password, role })
+    });
+
+    const result = await response.json();
+    if (result.success || result.token) {
+      if (typeof showNotification === 'function') {
+        showNotification(\`✅ User \${email} created successfully with \${role} role!\`, 'success');
+      } else {
+        alert(\`✅ User \${email} created successfully with \${role} role!\`);
+      }
+      document.getElementById('userEmail').value = '';
+      document.getElementById('userPassword').value = '';
+      document.getElementById('userRole').value = 'user';
+    } else {
+      if (typeof showNotification === 'function') {
+        showNotification('❌ Error: ' + (result.error || 'Creation failed'), 'error');
+      } else {
+        alert('❌ Error: ' + (result.error || 'Creation failed'));
+      }
+    }
+  } catch (error) {
+    alert('❌ Network error: ' + error.message);
+  }
+}
+
+// Wallet connection functions  
+async function connectWallet() {
+  if (typeof window.ethereum !== 'undefined') {
+    try {
+      await window.ethereum.request({ method: 'eth_requestAccounts' });
+      if (typeof showNotification === 'function') {
+        showNotification('✅ Wallet connected successfully!', 'success');
+      } else {
+        alert('✅ Wallet connected successfully!');
+      }
+    } catch (error) {
+      if (typeof showNotification === 'function') {
+        showNotification('Failed to connect wallet: ' + error.message, 'error');
+      } else {
+        alert('Failed to connect wallet: ' + error.message);
+      }
+    }
+  } else {
+    if (typeof showNotification === 'function') {
+      showNotification('Please install MetaMask to connect your wallet', 'warning');
+    } else {
+      alert('Please install MetaMask to connect your wallet');
+    }
+  }
+}
+
+// Close modals when clicking outside
+window.onclick = function(event) {
+  const modals = ['unifiedRegistrationModal', 'tgtRegistrationModal', 'tgtInfoModal', 'signInModal'];
+  modals.forEach(modalId => {
+    const modal = document.getElementById(modalId);
+    if (modal && event.target === modal) {
+      modal.style.display = 'none';
+    }
+  });
+}
+
+// Initialize enhanced UI when DOM is ready
+document.addEventListener('DOMContentLoaded', function() {
+  // Enhance all buttons with ripple effects and loading states
+  document.querySelectorAll('.btn').forEach(button => {
+    // Add loading state functionality
+    button.showLoading = function(text = 'Loading...') {
+      this.classList.add('loading');
+      this.disabled = true;
+      this.originalText = this.innerHTML;
+      this.innerHTML = text;
+    };
+    
+    button.hideLoading = function() {
+      this.classList.remove('loading');
+      this.disabled = false;
+      if (this.originalText) {
+        this.innerHTML = this.originalText;
+        delete this.originalText;
+      }
+    };
+  });
+  
+  // Add tooltip class to elements with data-tooltip
+  document.querySelectorAll('[data-tooltip]').forEach(element => {
+    element.classList.add('tooltip');
+  });
+});
+
 </script>
 </head>`;
 }
@@ -941,189 +1358,24 @@ ${baseHead("Tangent Platform — Global Commodity Trading")}
   </div>
 
   <script>
-    // Global Team Sign In Functions (must be global for onclick to work)
-    function showTeamSignIn() {
-      console.log('Team sign in button clicked');
-      const modal = document.getElementById('signInModal');
-      if (modal) {
-        modal.style.display = 'flex';
-        console.log('Team sign in modal opened');
-      } else {
-        console.error('Sign in modal not found');
-        alert('Sign in modal not found. Please refresh the page and try again.');
-      }
-    }
+    // All functions are now global - defined in baseHead()
     
-    function closeSignIn() {
-      const modal = document.getElementById('signInModal');
-      if (modal) {
-        modal.style.display = 'none';
-    }
-    }
+    // Removed duplicate functions - all are now global
     
-    async function performSignIn() {
-      const email = document.getElementById('signInEmail').value;
-      const password = document.getElementById('signInPassword').value;
-      
-      if (!email || !password) {
-        alert('Please enter both email and password');
-        return;
-      }
-      
-      try {
-        const response = await fetch('/auth/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password })
-        });
-        
-        const result = await response.json();
-        
-        if (result.token) {
-          localStorage.setItem('authToken', result.token);
-          window.location.href = '/portal?token=' + result.token;
-        } else {
-          alert('Access denied: ' + (result.error || 'Invalid credentials'));
-        }
-      } catch (error) {
-        alert('Login error: ' + error.message);
-      }
-    }
+    // Landing page script is now clean - all functions moved to global scope
+  </script>
+</body></html>
+\`;
+}
 
-    // Unified Registration Functions
-    function showUnifiedRegistration() {
-      document.getElementById('unifiedRegistrationModal').style.display = 'flex';
-    }
-    
-    function closeUnifiedRegistration() {
-      document.getElementById('unifiedRegistrationModal').style.display = 'none';
-    }
-    
-    async function submitUnifiedRegistration() {
-      const name = document.getElementById('regName').value;
-      const email = document.getElementById('regEmail').value;
-      const platformInterest = document.getElementById('interestPlatform').checked;
-      const tgtInterest = document.getElementById('interestTGT').checked;
-      const bothInterest = document.getElementById('interestBoth').checked;
-      const button = document.getElementById('submitRegistrationBtn');
-      
-      if (!name || !email) {
-        showNotification('Please fill in your name and email address', 'error');
-        return;
-      }
-      
-      if (!email.includes('@') || !email.includes('.')) {
-        showNotification('Please enter a valid email address', 'error');
-        return;
-      }
-      
-      if (!platformInterest && !tgtInterest && !bothInterest) {
-        showNotification('Please select at least one area of interest', 'warning');
-        return;
-      }
-      
-      // Determine interests
-      let interests = [];
-      if (platformInterest || bothInterest) interests.push('platform');
-      if (tgtInterest || bothInterest) interests.push('tgt');
-      if (bothInterest) interests = ['both'];
-      
-      // Collect all form data
-      const formData = {
-        name: name,
-        email: email,
-        company: document.getElementById('regCompany').value,
-        phone: document.getElementById('regPhone').value,
-        interests: interests,
-        message: document.getElementById('regMessage').value,
-        newsletter: document.getElementById('regNewsletter').checked,
-        timestamp: new Date().toISOString(),
-        type: 'unified_registration'
-      };
-      
-      try {
-        // Send to backend API
-        const response = await fetch('/api/unified-register', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(formData)
-        });
-        
-        await performAsyncAction(
-          async () => {
-            const result = await response.json();
-            
-            if (!response.ok || !result.success) {
-              throw new Error(result.message || 'Registration failed');
-            }
-            
-            let interestText = '';
-            if (interests.includes('both') || (interests.includes('platform') && interests.includes('tgt'))) {
-              interestText = 'both our Trading Platform and TGT Stablecoin';
-            } else if (interests.includes('platform')) {
-              interestText = 'our Trading Platform';
-            } else if (interests.includes('tgt')) {
-              interestText = 'TGT Stablecoin';
-            }
-            
-            setTimeout(() => closeUnifiedRegistration(), 1500);
-            return { interestText, name };
-          },
-          button,
-          {
-            loadingText: 'Registering...',
-            successMessage: \`🎉 Thank you! Your interest has been registered successfully. We'll contact you within 48 hours!\`,
-            errorMessage: 'Registration failed. Please check your details and try again.'
-          }
-        );
-          
-          // Clear form
-          document.getElementById('regName').value = '';
-          document.getElementById('regEmail').value = '';
-          document.getElementById('regCompany').value = '';
-          document.getElementById('regPhone').value = '';
-          document.getElementById('interestPlatform').checked = false;
-          document.getElementById('interestTGT').checked = false;
-          document.getElementById('interestBoth').checked = false;
-          document.getElementById('regMessage').value = '';
-          document.getElementById('regNewsletter').checked = true;
-        } else {
-          const errorMessage = result.message || result.error || 'Registration failed';
-          alert('Registration Error: ' + errorMessage);
-        }
-        
-      } catch (error) {
-        alert('There was an error submitting your registration. Please try again or contact support.');
-        console.error('Registration Error:', error);
-      }
-    }
-    
-    // TGT Registration Functions
-    function showTGTRegistration() {
-      document.getElementById('tgtRegistrationModal').style.display = 'flex';
-    }
-    
-    function closeTGTRegistration() {
-      document.getElementById('tgtRegistrationModal').style.display = 'none';
-    }
-    
-    async function submitTGTRegistration() {
-      const name = document.getElementById('tgtName').value;
-      const email = document.getElementById('tgtEmail').value;
-      const interestLevel = document.getElementById('tgtInterestLevel').value;
-      const useCase = document.getElementById('tgtUseCase').value;
-      
-      if (!name || !email || !interestLevel || !useCase) {
-        alert('Please fill in all required fields (marked with *)');
-        return;
-      }
-      
-      // Collect all form data
-      const formData = {
-        name: name,
-        email: email,
+// Admin panel for team management
+// Simple admin panel (replaced by pageCompleteAdmin)
+function pageAdmin() {
+  return pageCompleteAdmin();
+}
+
+// Simple working admin panel (no complex auth)
+function pageSimpleAdmin() {
         company: document.getElementById('tgtCompany').value,
         phone: document.getElementById('tgtPhone').value,
         interestLevel: interestLevel,
