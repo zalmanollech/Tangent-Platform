@@ -941,6 +941,55 @@ ${baseHead("Tangent Platform — Global Commodity Trading")}
   </div>
 
   <script>
+    // Global Team Sign In Functions (must be global for onclick to work)
+    function showTeamSignIn() {
+      console.log('Team sign in button clicked');
+      const modal = document.getElementById('signInModal');
+      if (modal) {
+        modal.style.display = 'flex';
+        console.log('Team sign in modal opened');
+      } else {
+        console.error('Sign in modal not found');
+        alert('Sign in modal not found. Please refresh the page and try again.');
+      }
+    }
+    
+    function closeSignIn() {
+      const modal = document.getElementById('signInModal');
+      if (modal) {
+        modal.style.display = 'none';
+    }
+    }
+    
+    async function performSignIn() {
+      const email = document.getElementById('signInEmail').value;
+      const password = document.getElementById('signInPassword').value;
+      
+      if (!email || !password) {
+        alert('Please enter both email and password');
+        return;
+      }
+      
+      try {
+        const response = await fetch('/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
+        });
+        
+        const result = await response.json();
+        
+        if (result.token) {
+          localStorage.setItem('authToken', result.token);
+          window.location.href = '/portal?token=' + result.token;
+        } else {
+          alert('Access denied: ' + (result.error || 'Invalid credentials'));
+        }
+      } catch (error) {
+        alert('Login error: ' + error.message);
+      }
+    }
+
     // Unified Registration Functions
     function showUnifiedRegistration() {
       document.getElementById('unifiedRegistrationModal').style.display = 'flex';
@@ -1133,71 +1182,7 @@ ${baseHead("Tangent Platform — Global Commodity Trading")}
       document.getElementById('tgtInfoModal').style.display = 'none';
     }
     
-    // Team Sign In Functions
-    function showTeamSignIn() {
-      console.log('Team sign in button clicked');
-      const modal = document.getElementById('signInModal');
-      if (modal) {
-        modal.style.display = 'flex';
-        console.log('Team sign in modal opened');
-      } else {
-        console.error('Sign in modal not found');
-        // Fallback to alert if showNotification isn't available
-        if (typeof showNotification === 'function') {
-          showNotification('Unable to open sign in modal', 'error');
-        } else {
-          alert('Sign in modal not found. Please refresh the page and try again.');
-        }
-      }
-    }
-    
-    function closeSignIn() {
-      document.getElementById('signInModal').style.display = 'none';
-    }
-    
-    async function performSignIn() {
-      const email = document.getElementById('signInEmail').value;
-      const password = document.getElementById('signInPassword').value;
-      const button = document.getElementById('signInBtn');
-      
-      if (!email || !password) {
-        showNotification('Please enter both email and password', 'error');
-        return;
-      }
-      
-      if (!email.includes('@') || !email.includes('.')) {
-        showNotification('Please enter a valid email address', 'error');
-        return;
-      }
-      
-      await performAsyncAction(
-        async () => {
-          const response = await fetch('/auth/login', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, password })
-          });
-          
-          const result = await response.json();
-          
-          if (!result.token) {
-            throw new Error(result.error || 'Invalid credentials or unauthorized access');
-          }
-          
-          localStorage.setItem('authToken', result.token);
-          // Include token in URL for initial navigation
-          window.location.href = '/portal?token=' + result.token;
-          
-          return result;
-        },
-        button,
-        {
-          loadingText: 'Signing In...',
-          successMessage: '✅ Successfully signed in! Redirecting to portal...',
-          errorMessage: 'Sign in failed. Please check your credentials and try again.'
-        }
-      );
-    }
+    // Team Sign In Functions moved to global scope above
     
     // Close modals when clicking outside
     window.onclick = function(event) {
