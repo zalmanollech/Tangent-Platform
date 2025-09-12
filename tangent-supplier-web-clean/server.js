@@ -689,7 +689,7 @@ ${baseHead("Tangent Platform — Global Commodity Trading")}
         <p style="color: #64748b; font-size: 14px; margin-bottom: 15px;">
           Team Member Access
         </p>
-        <button onclick="showTeamSignIn()" style="background: linear-gradient(135deg, #64748b, #475569); color: white; border: none; padding: 12px 24px; border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer; transition: all 0.3s;">
+        <button class="btn" onclick="showTeamSignIn()" data-tooltip="Sign in to access the team dashboard" style="background: linear-gradient(135deg, #64748b, #475569); color: white; border: none; padding: 12px 24px; border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer; transition: all 0.3s;">
           Team Portal
         </button>
       </div>
@@ -934,8 +934,8 @@ ${baseHead("Tangent Platform — Global Commodity Trading")}
       <input type="email" id="signInEmail" placeholder="Team Email" style="width: 100%; padding: 12px; margin-bottom: 15px; border-radius: 8px; border: 1px solid #475569; background: #0f172a; color: #f1f5f9;">
       <input type="password" id="signInPassword" placeholder="Password" style="width: 100%; padding: 12px; margin-bottom: 20px; border-radius: 8px; border: 1px solid #475569; background: #0f172a; color: #f1f5f9;">
       <div style="display: flex; gap: 10px;">
-        <button onclick="performSignIn()" style="flex: 1; background: #3b82f6; color: white; border: none; padding: 12px; border-radius: 8px; cursor: pointer;">Sign In</button>
-        <button onclick="closeSignIn()" style="background: #64748b; color: white; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer;">Cancel</button>
+        <button id="signInBtn" class="btn" onclick="performSignIn()" data-tooltip="Sign in with your team credentials" style="flex: 1; background: #3b82f6; color: white; border: none; padding: 12px; border-radius: 8px; cursor: pointer;">Sign In</button>
+        <button class="btn ghost" onclick="closeSignIn()" style="background: #64748b; color: white; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer;">Cancel</button>
       </div>
     </div>
   </div>
@@ -1135,7 +1135,15 @@ ${baseHead("Tangent Platform — Global Commodity Trading")}
     
     // Team Sign In Functions
     function showTeamSignIn() {
-      document.getElementById('signInModal').style.display = 'flex';
+      console.log('Team sign in button clicked');
+      const modal = document.getElementById('signInModal');
+      if (modal) {
+        modal.style.display = 'flex';
+        console.log('Team sign in modal opened');
+      } else {
+        console.error('Sign in modal not found');
+        showNotification('Unable to open sign in modal', 'error');
+      }
     }
     
     function closeSignIn() {
@@ -1145,31 +1153,45 @@ ${baseHead("Tangent Platform — Global Commodity Trading")}
     async function performSignIn() {
       const email = document.getElementById('signInEmail').value;
       const password = document.getElementById('signInPassword').value;
+      const button = document.getElementById('signInBtn');
       
       if (!email || !password) {
-        alert('Please enter your credentials');
+        showNotification('Please enter both email and password', 'error');
         return;
       }
       
-      try {
-        const response = await fetch('/auth/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password })
-        });
-        
-        const result = await response.json();
-        
-        if (result.token) {
+      if (!email.includes('@') || !email.includes('.')) {
+        showNotification('Please enter a valid email address', 'error');
+        return;
+      }
+      
+      await performAsyncAction(
+        async () => {
+          const response = await fetch('/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password })
+          });
+          
+          const result = await response.json();
+          
+          if (!result.token) {
+            throw new Error(result.error || 'Invalid credentials or unauthorized access');
+          }
+          
           localStorage.setItem('authToken', result.token);
           // Include token in URL for initial navigation
           window.location.href = '/portal?token=' + result.token;
-        } else {
-          alert('Access denied: ' + (result.error || 'Invalid credentials or unauthorized access'));
+          
+          return result;
+        },
+        button,
+        {
+          loadingText: 'Signing In...',
+          successMessage: '✅ Successfully signed in! Redirecting to portal...',
+          errorMessage: 'Sign in failed. Please check your credentials and try again.'
         }
-      } catch (error) {
-        alert('Login error: ' + error.message);
-      }
+      );
     }
     
     // Close modals when clicking outside
