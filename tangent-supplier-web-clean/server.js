@@ -149,6 +149,20 @@ body{
   backdrop-filter:blur(10px);
 }
 .grid{display:grid}.grid-2{grid-template-columns:1fr 1fr;gap:24px}.grid-3{grid-template-columns:1fr 1fr 1fr;gap:24px}
+.demo-steps{display:grid;grid-template-columns:repeat(auto-fit, minmax(300px, 1fr));gap:20px;margin:30px 0}
+.step-card{
+  background:linear-gradient(135deg, rgba(34, 197, 94, 0.1), rgba(59, 130, 246, 0.1));
+  border:1px solid rgba(59, 130, 246, 0.3);
+  border-radius:var(--radius);
+  padding:25px;
+  text-align:center;
+  transition:all 0.3s ease;
+}
+.step-card:hover{
+  transform:translateY(-5px);
+  box-shadow:0 10px 30px rgba(59, 130, 246, 0.2);
+  border-color:var(--brand);
+}
 .row{display:flex;gap:15px;align-items:center}.row.mt{margin-top:20px}
 .btn{
   background:linear-gradient(135deg,var(--brand),var(--brand-secondary));
@@ -2156,13 +2170,117 @@ ${baseHead("Tangent — Interactive Demo")}
         <div class="card">
           <h3>🟢 Crypto Beginner Buyer</h3>
           <p>New to crypto, guided experience from wallet setup to successful trade</p>
-          <a class="btn" href="/demo/buyer-journey">Start Buyer Journey</a>
+          <a class="btn" href="/demo/buyer-journey" data-tooltip="Experience the platform as a new crypto buyer">Start Buyer Journey</a>
         </div>
         <div class="card">
           <h3>🔵 Expert Supplier</h3>
           <p>Crypto experienced, advanced features and business scaling</p>
-          <a class="btn" href="/demo/supplier-journey">Start Supplier Journey</a>
+          <a class="btn" href="/demo/supplier-journey" data-tooltip="Experience the platform as an experienced supplier">Start Supplier Journey</a>
         </div>
+      </div>
+    </section>
+  </main>
+</body></html>`;
+}
+
+// Buyer Demo Journey Page
+function pageBuyerDemo() {
+  return `
+${baseHead("Tangent — Buyer Journey Demo")}
+<body>
+  ${nav("Demo")}
+  <main class="wrap">
+    <section class="hero">
+      <h1>🟢 Buyer Journey Demo</h1>
+      <p>Experience the platform as a crypto beginner making their first trade</p>
+      
+      <div class="demo-steps">
+        <div class="step-card">
+          <h3>Step 1: Account Setup</h3>
+          <p>Create account and complete basic verification</p>
+          <button class="btn" onclick="showNotification('Demo: Account created successfully!', 'success')" data-tooltip="Simulate account creation">Create Account</button>
+        </div>
+        
+        <div class="step-card">
+          <h3>Step 2: Wallet Connection</h3>
+          <p>Connect your crypto wallet for secure transactions</p>
+          <button class="btn" onclick="connectWallet()" data-tooltip="Simulate wallet connection">Connect Wallet</button>
+        </div>
+        
+        <div class="step-card">
+          <h3>Step 3: Browse Products</h3>
+          <p>Explore available commodities and suppliers</p>
+          <button class="btn" onclick="navigateToPortal('/portal/trade')" data-tooltip="View trade opportunities">Browse Trades</button>
+        </div>
+        
+        <div class="step-card">
+          <h3>Step 4: Place Order</h3>
+          <p>Submit your first trade order with escrow protection</p>
+          <button class="btn" onclick="showNotification('Demo: Trade order placed successfully!', 'success')" data-tooltip="Simulate trade placement">Place Order</button>
+        </div>
+        
+        <div class="step-card">
+          <h3>Step 5: Track Progress</h3>
+          <p>Monitor your trade status and shipment</p>
+          <button class="btn" onclick="navigateToPortal('/portal/analytics')" data-tooltip="View trade analytics">Track Orders</button>
+        </div>
+      </div>
+      
+      <div style="margin-top: 40px; text-align: center;">
+        <a href="/demo/interactive" class="btn btn-secondary">← Back to Demo Menu</a>
+        <button class="btn" onclick="navigateToPortal('/portal')" data-tooltip="Access the full platform">Try Full Platform</button>
+      </div>
+    </section>
+  </main>
+</body></html>`;
+}
+
+// Supplier Demo Journey Page  
+function pageSupplierDemo() {
+  return `
+${baseHead("Tangent — Supplier Journey Demo")}
+<body>
+  ${nav("Demo")}
+  <main class="wrap">
+    <section class="hero">
+      <h1>🔵 Supplier Journey Demo</h1>
+      <p>Experience the platform as an expert supplier scaling your business</p>
+      
+      <div class="demo-steps">
+        <div class="step-card">
+          <h3>Step 1: Business Verification</h3>
+          <p>Complete KYC and business documentation</p>
+          <button class="btn" onclick="navigateToPortal('/portal/kyc')" data-tooltip="Complete business verification">Start KYC</button>
+        </div>
+        
+        <div class="step-card">
+          <h3>Step 2: Product Listing</h3>
+          <p>List your commodities with competitive pricing</p>
+          <button class="btn" onclick="showNotification('Demo: Products listed successfully!', 'success')" data-tooltip="Simulate product listing">List Products</button>
+        </div>
+        
+        <div class="step-card">
+          <h3>Step 3: Auction Management</h3>
+          <p>Create and manage commodity auctions</p>
+          <button class="btn" onclick="navigateToPortal('/portal/auctions')" data-tooltip="Manage your auctions">Manage Auctions</button>
+        </div>
+        
+        <div class="step-card">
+          <h3>Step 4: Insurance & Risk</h3>
+          <p>Protect your shipments with comprehensive coverage</p>
+          <button class="btn" onclick="navigateToPortal('/portal/insurance')" data-tooltip="Explore insurance options">Setup Insurance</button>
+        </div>
+        
+        <div class="step-card">
+          <h3>Step 5: Business Analytics</h3>
+          <p>Track performance and optimize operations</p>
+          <button class="btn" onclick="navigateToPortal('/portal/analytics')" data-tooltip="View business insights">View Analytics</button>
+        </div>
+      </div>
+      
+      <div style="margin-top: 40px; text-align: center;">
+        <a href="/demo/interactive" class="btn btn-secondary">← Back to Demo Menu</a>
+        <button class="btn" onclick="navigateToPortal('/portal')" data-tooltip="Access the full platform">Try Full Platform</button>
       </div>
     </section>
   </main>
@@ -2772,6 +2890,10 @@ app.get('/portal/insurance', (req, res) => res.send(pageInsurance()));
 app.get('/portal/interactive-demo', (req, res) => res.send(pageInteractiveDemo()));
 app.get('/portal/analytics', (req, res) => res.send(pageAnalytics()));
 app.get('/admin', (req, res) => res.send(pageCompleteAdmin()));
+
+// Demo routes (public access)
+app.get('/demo/buyer-journey', (req, res) => res.send(pageBuyerDemo()));
+app.get('/demo/supplier-journey', (req, res) => res.send(pageSupplierDemo()));
 
 // ============================================================================
 // API DOCUMENTATION
