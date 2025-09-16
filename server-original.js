@@ -1949,14 +1949,14 @@ app.get('/login', (req, res) => {
 <body>
   <div class="container">
     <h1>🔐 Team Portal Login</h1>
-    <form id="loginForm">
+    <form id="loginForm" autocomplete="off">
       <div class="form-group">
         <label for="email">Email</label>
-        <input type="email" id="email" name="email" required>
+        <input type="email" id="email" name="email" required autocomplete="off">
       </div>
       <div class="form-group">
         <label for="password">Password</label>
-        <input type="password" id="password" name="password" required>
+        <input type="password" id="password" name="password" required autocomplete="new-password">
       </div>
       <button type="submit" class="btn">Login to Portal</button>
       <div id="error" class="error"></div>
