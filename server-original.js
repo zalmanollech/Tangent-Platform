@@ -350,7 +350,7 @@ app.get('/', (req, res) => {
       <p><strong>Server:</strong> ✅ Online and Running</p>
       <p><strong>DNS Routing:</strong> ✅ Working</p>
       <p><strong>SSL Certificates:</strong> ✅ Active</p>
-      <p><strong>Version:</strong> 2.0.1-FORCED-DEPLOY-${Date.now()}</p>
+      <p><strong>Version:</strong> 2.0.2-WORKING-BUTTONS-${Date.now()}</p>
       <p><strong>Last Updated:</strong> ${new Date().toISOString()}</p>
     </div>
     
