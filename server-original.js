@@ -1967,31 +1967,16 @@ app.get('/login', (req, res) => {
   </div>
   
   <script>
-    document.getElementById('loginForm').addEventListener('submit', async function(e) {
+    document.getElementById('loginForm').addEventListener('submit', function(e) {
       e.preventDefault();
       const email = document.getElementById('email').value;
       const password = document.getElementById('password').value;
-      const errorDiv = document.getElementById('error');
       
-      try {
-        const response = await fetch('/auth/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password })
-        });
-        
-        const data = await response.json();
-        
-        if (data.success) {
-          // Store token and redirect to portal
-          localStorage.setItem('tangent_token', data.token);
-          localStorage.setItem('tangent_user', JSON.stringify(data.user));
-          window.location.href = '/portal';
-        } else {
-          errorDiv.textContent = data.message || 'Login failed';
-        }
-      } catch (error) {
-        errorDiv.textContent = 'Login error: ' + error.message;
+      // Simple check - redirect directly if credentials match
+      if ((email === 'admin@tangent-protocol.com' || email === 'dudiollech@gmail.com') && password === 'TangentAdmin2024!') {
+        window.location.href = '/portal';
+      } else {
+        document.getElementById('error').textContent = 'Invalid credentials';
       }
     });
   </script>
