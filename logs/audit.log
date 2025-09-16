@@ -1,0 +1,6 @@
+{"event":"server_startup","features":["kycEnabled"],"level":"info","message":"Business Event","nodeVersion":"v20.16.0","platform":"win32","port":4000,"timestamp":"2025-09-03 17:21:54","userId":null}
+{"email":"test@example.com","event":"user_registered","ip":"::ffff:127.0.0.1","level":"info","message":"Authentication Event","timestamp":"2025-09-03 17:21:55","userId":"148cd31d-3182-49e7-926d-3cd7dd8c6865"}
+{"event":"user_registration","level":"info","message":"Business Event","role":"buyer","timestamp":"2025-09-03 17:21:55","userId":"148cd31d-3182-49e7-926d-3cd7dd8c6865"}
+{"email":"test@example.com","event":"user_registered","ip":"::ffff:127.0.0.1","level":"info","message":"Authentication Event","timestamp":"2025-09-03 17:21:56","userId":"7ef7cc1c-36fd-44e2-8f92-c78a0bce841f"}
+{"event":"user_registration","level":"info","message":"Business Event","role":"buyer","timestamp":"2025-09-03 17:21:56","userId":"7ef7cc1c-36fd-44e2-8f92-c78a0bce841f"}
+{"event":"server_startup","features":["kycEnabled"],"level":"info","message":"Business Event","nodeVersion":"v20.16.0","platform":"win32","port":4000,"timestamp":"2025-09-03 17:36:01","userId":null}

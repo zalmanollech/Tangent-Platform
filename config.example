@@ -1,0 +1,69 @@
+# Tangent Platform Environment Configuration
+
+# Server Configuration
+NODE_ENV=development
+PORT=4000
+HOST=localhost
+
+# Database Configuration
+DB_TYPE=json
+DB_PATH=./data.json
+# For production use PostgreSQL:
+# DB_TYPE=postgres
+# DATABASE_URL=postgresql://username:password@localhost:5432/tangent_platform
+
+# Security Configuration
+ADMIN_KEY=your-super-secure-admin-key-here
+JWT_SECRET=your-jwt-secret-key-minimum-32-characters
+JWT_EXPIRY=24h
+SESSION_SECRET=your-session-secret-key-minimum-32-characters
+BCRYPT_ROUNDS=12
+
+# Blockchain Configuration
+SEPOLIA_RPC_URL=https://sepolia.infura.io/v3/YOUR_PROJECT_ID
+MAINNET_RPC_URL=https://mainnet.infura.io/v3/YOUR_PROJECT_ID
+ESCROW_ADDRESS=0xdCFC79c81901903D59eEb4d548661C8CD0c98f87
+TGT_ADDRESS=0xe91899Be4C9BDa5816DB885966a29cf90732bb9B
+PRIVATE_KEY=your-private-key-for-deployment-only
+
+# External Service APIs
+# AI Document Processing
+OPENAI_API_KEY=your-openai-api-key
+GOOGLE_VISION_API_KEY=your-google-vision-api-key
+AWS_ACCESS_KEY_ID=your-aws-access-key
+AWS_SECRET_ACCESS_KEY=your-aws-secret-key
+AWS_REGION=us-east-1
+
+# Compliance Services
+REFINITIV_API_KEY=your-refinitiv-api-key
+DOWJONES_API_KEY=your-dowjones-api-key
+COMPLYADVANTAGE_API_KEY=your-complyadvantage-api-key
+
+# Email Configuration
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=your-email@gmail.com
+SMTP_PASS=your-app-password
+FROM_EMAIL=noreply@tangentplatform.com
+
+# File Storage
+STORAGE_TYPE=local
+# For production use cloud storage:
+# STORAGE_TYPE=s3
+# AWS_S3_BUCKET=tangent-platform-documents
+# AWS_S3_REGION=us-east-1
+
+# Monitoring & Logging
+LOG_LEVEL=info
+SENTRY_DSN=your-sentry-dsn-for-error-tracking
+
+# Rate Limiting
+RATE_LIMIT_WINDOW_MS=900000
+RATE_LIMIT_MAX_REQUESTS=100
+
+# CORS Configuration
+ALLOWED_ORIGINS=http://localhost:3000,http://localhost:4000
+
+# Redis Configuration (for sessions in production)
+REDIS_URL=redis://localhost:6379
+
