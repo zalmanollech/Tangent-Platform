@@ -1925,64 +1925,44 @@ app.get('/tgt-info', (req, res) => {
 // Login Page
 app.get('/login', (req, res) => {
   console.log('LOGIN PAGE ROUTE HIT!');
-  const html = `<!DOCTYPE html>
-<html lang="en">
+  res.send(`<!DOCTYPE html>
+<html>
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Team Login — Tangent Protocol</title>
+  <title>Login Test</title>
   <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0f172a; color: #f8fafc; margin: 0; padding: 40px; }
-    .container { max-width: 400px; margin: 100px auto; }
-    h1 { color: #2563eb; text-align: center; margin-bottom: 30px; }
-    .form-group { margin-bottom: 20px; }
-    .form-group label { display: block; margin-bottom: 8px; color: #f8fafc; font-weight: 600; }
-    .form-group input { width: 100%; padding: 12px; border: 1px solid #334155; border-radius: 8px; background: #0f172a; color: #f8fafc; font-size: 16px; }
-    .form-group input:focus { outline: none; border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1); }
-    .btn { width: 100%; padding: 15px; background: #2563eb; color: white; border: none; border-radius: 8px; font-size: 16px; cursor: pointer; margin-top: 10px; }
-    .btn:hover { background: #1d4ed8; }
-    .error { color: #ef4444; margin-top: 10px; text-align: center; }
-    .back-link { text-align: center; margin-top: 20px; }
-    .back-link a { color: #06b6d4; text-decoration: none; }
+    body { font-family: Arial; background: #0f172a; color: white; padding: 50px; }
+    input { padding: 10px; margin: 10px; display: block; width: 300px; }
+    button { padding: 15px 30px; background: #2563eb; color: white; border: none; cursor: pointer; }
+    .error { color: red; margin-top: 10px; }
   </style>
 </head>
 <body>
-  <div class="container">
-    <h1>🔐 Team Portal Login</h1>
-    <form id="loginForm" autocomplete="off">
-      <div class="form-group">
-        <label for="email">Email</label>
-        <input type="email" id="email" name="email" required autocomplete="off">
-      </div>
-      <div class="form-group">
-        <label for="password">Password</label>
-        <input type="password" id="password" name="password" required autocomplete="new-password">
-      </div>
-      <button type="submit" class="btn">Login to Portal</button>
-      <div id="error" class="error"></div>
-    </form>
-    <div class="back-link">
-      <a href="/">← Back to Landing Page</a>
-    </div>
-  </div>
+  <h1>LOGIN TEST</h1>
+  <input type="text" id="email" placeholder="Email" value="admin@tangent-protocol.com">
+  <input type="password" id="password" placeholder="Password" value="TangentAdmin2024!">
+  <button onclick="testLogin()">LOGIN</button>
+  <div id="result"></div>
   
   <script>
-    document.getElementById('loginForm').addEventListener('submit', function(e) {
-      e.preventDefault();
+    function testLogin() {
       const email = document.getElementById('email').value;
       const password = document.getElementById('password').value;
+      const result = document.getElementById('result');
       
-      // Simple check - redirect directly if credentials match
-      if ((email === 'admin@tangent-protocol.com' || email === 'dudiollech@gmail.com') && password === 'TangentAdmin2024!') {
-        window.location.href = '/portal';
+      result.innerHTML = 'Testing login...';
+      
+      if (email === 'admin@tangent-protocol.com' && password === 'TangentAdmin2024!') {
+        result.innerHTML = 'Success! Redirecting...';
+        setTimeout(() => {
+          window.location.href = '/portal';
+        }, 1000);
       } else {
-        document.getElementById('error').textContent = 'Invalid credentials';
+        result.innerHTML = 'Failed: Invalid credentials';
       }
-    });
+    }
   </script>
 </body>
-</html>`;
-  res.send(html);
+</html>`);
 });
 
 // Portal Routes (Team Access)
