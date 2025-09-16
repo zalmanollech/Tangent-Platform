@@ -22,7 +22,7 @@ app.use('/admin', (req, res, next) => {
 app.use((req, res, next) => {
   res.setHeader('Content-Security-Policy', [
     "default-src 'self'",
-    "script-src 'self' 'unsafe-inline' https://www.googletagmanager.com",
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com",
     "connect-src 'self' https://www.google-analytics.com https://www.googletagmanager.com",
     "img-src 'self' data: https://www.google-analytics.com",
     "style-src 'self' 'unsafe-inline'",
