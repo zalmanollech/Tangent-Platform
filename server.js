@@ -292,11 +292,11 @@ function baseHead(title = "Tangent Platform") {
     function showTeamSignIn() {
       document.getElementById('signInModal').style.display = 'flex';
     }
-
+    
     function closeSignIn() {
       document.getElementById('signInModal').style.display = 'none';
     }
-
+    
     function showTGTRegistration() {
       document.getElementById('tgtRegistrationModal').style.display = 'flex';
     }
@@ -359,7 +359,7 @@ function baseHead(title = "Tangent Platform") {
         console.error('Registration Error:', error);
       }
     }
-
+    
     async function performSignIn() {
       const email = document.getElementById('signInEmail').value;
       const password = document.getElementById('signInPassword').value;
@@ -368,14 +368,14 @@ function baseHead(title = "Tangent Platform") {
         showNotification('Please enter both email and password', 'error');
         return;
       }
-
+      
       try {
         const response = await fetch('/auth/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email, password })
         });
-
+        
         const result = await response.json();
         if (response.ok && result.success && result.token) {
           localStorage.setItem('authToken', result.token);
@@ -385,7 +385,7 @@ function baseHead(title = "Tangent Platform") {
           // Navigate based on user role
           if (result.user && result.user.role === 'admin') {
             setTimeout(() => navigateToAdmin(), 1000);
-          } else {
+        } else {
             setTimeout(() => navigateToPortal(), 1000);
           }
         } else {
@@ -459,7 +459,7 @@ function pageLanding() {
     </section>
 
     <section class="grid grid-2" style="margin: 80px 0;">
-      <div class="card">
+        <div class="card">
         <h2>🚀 Trading Platform</h2>
         <p>Advanced trading tools with real-time market data, sophisticated order types, and institutional-grade execution.</p>
         <ul style="margin: 20px 0; padding-left: 20px;">
@@ -469,9 +469,9 @@ function pageLanding() {
           <li>Portfolio analytics</li>
         </ul>
         <button class="btn" onclick="showUnifiedRegistration()">Learn More</button>
-      </div>
-
-      <div class="card">
+        </div>
+        
+        <div class="card">
         <h2>💎 TGT Stablecoin</h2>
         <p>Discover the benefits of our innovative TGT stablecoin - designed for stability, transparency, and seamless integration.</p>
         <ul style="margin: 20px 0; padding-left: 20px;">
@@ -481,7 +481,7 @@ function pageLanding() {
           <li>DeFi integration</li>
         </ul>
         <button class="btn" onclick="showTGTRegistration()">Get TGT Info</button>
-      </div>
+        </div>
     </section>
   </main>
 
@@ -510,7 +510,7 @@ function pageLanding() {
           <input type="checkbox" name="interests" value="both" style="margin-right: 10px;">
           Both Platform & TGT
         </label>
-      </div>
+        </div>
       
       <textarea id="unifiedMessage" placeholder="Additional message (optional)" class="in" rows="3"></textarea>
       
@@ -665,7 +665,7 @@ ${nav("KYC")}
       <h1>KYC Verification</h1>
       <p>Complete your Know Your Customer verification to access all platform features.</p>
     </section>
-
+    
     <section class="card">
       <h2>Document Upload</h2>
       <p>Please upload the required documents for verification:</p>
@@ -684,7 +684,7 @@ ${nav("KYC")}
         <div style="margin-bottom: 20px;">
           <label style="display: block; margin-bottom: 10px; font-weight: 500;">Business Registration (if applicable)</label>
           <input type="file" accept=".pdf,.jpg,.jpeg,.png" class="in">
-        </div>
+      </div>
       </div>
       
       <button class="btn" onclick="submitKYC()">Submit Documents</button>
@@ -790,7 +790,7 @@ ${nav("Demo")}
         <div class="card">
           <h3>1. Registration</h3>
           <p>Quick and secure account setup</p>
-        </div>
+              </div>
         <div class="card">
           <h3>2. KYC Verification</h3>
           <p>Streamlined compliance process</p>
@@ -821,7 +821,7 @@ ${nav("Demo")}
         <div class="card">
           <h3>Market Access</h3>
           <p>Connect with global buyers and expand your reach</p>
-        </div>
+              </div>
         <div class="card">
           <h3>Efficient Trading</h3>
           <p>Streamlined processes and automated workflows</p>
@@ -840,7 +840,7 @@ function pageCompleteAdmin() {
     <section class="card">
       <h2>Platform Management</h2>
       <div class="grid grid-2">
-        <div>
+              <div>
           <h3>User Management</h3>
           <input type="email" id="userEmail" placeholder="Email" class="in">
           <input type="password" id="userPassword" placeholder="Password" class="in">
@@ -850,24 +850,24 @@ function pageCompleteAdmin() {
             <option value="supplier">Supplier</option>
           </select>
           <button onclick="createUser()" class="btn">Create User</button>
-        </div>
+              </div>
         <div>
           <h3>Quick Actions</h3>
           <button onclick="testLogin()" class="btn ghost">Test Login System</button>
           <button onclick="goToPortal()" class="btn">Go to Portal</button>
           <button onclick="viewRegistrations()" class="btn">View Registrations</button>
+          </div>
         </div>
-      </div>
     </section>
 
     <section class="card">
       <h2>Landing Page Registrations</h2>
       <div id="registrationsList">
         <p>Loading registrations...</p>
-      </div>
+        </div>
     </section>
   </main>
-
+  
   <script>
     async function createUser() {
       const email = document.getElementById('userEmail').value;
@@ -905,19 +905,19 @@ function pageCompleteAdmin() {
       
       try {
         const response = await fetch('/auth/login', {
-          method: 'POST',
+            method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email, password })
-        });
-
-        const result = await response.json();
+          });
+          
+          const result = await response.json();
         if (result.success && result.token) {
           showNotification('Login test successful!', 'success');
           localStorage.setItem('authToken', result.token);
-        } else {
+          } else {
           showNotification('Login test failed: ' + JSON.stringify(result), 'error');
-        }
-      } catch (error) {
+          }
+        } catch (error) {
         showNotification('Login test error: ' + error.message, 'error');
       }
     }
@@ -1039,7 +1039,7 @@ app.get('/test', (req, res) => {
 // Health check
 app.get('/health', (req, res) => {
   res.json({ 
-    status: 'healthy', 
+    status: 'healthy',
     timestamp: new Date().toISOString(),
     version: '1.0.0'
   });
