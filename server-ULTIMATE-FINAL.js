@@ -2983,38 +2983,436 @@ app.get('/dashboard/trader', (req, res) => {
   <title>Trader Dashboard — Tangent Protocol</title>
   <style>
     body { font-family: system-ui; background: #0f172a; color: #f8fafc; margin: 0; padding: 20px; }
-    .header { background: #1e293b; padding: 20px; border-radius: 12px; margin-bottom: 30px; border: 1px solid #334155; }
-    .header h1 { color: #f59e0b; margin: 0; font-size: 2.5rem; }
-    .dashboard-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 20px; }
-    .dashboard-card { background: #1e293b; padding: 25px; border-radius: 12px; border: 1px solid #334155; }
-    .dashboard-card h3 { color: #06b6d4; margin-top: 0; }
-    .btn { display: inline-block; padding: 12px 24px; background: #f59e0b; color: white; text-decoration: none; border-radius: 8px; margin: 8px 8px 8px 0; font-weight: 500; }
+    .container { max-width: 1400px; margin: 0 auto; }
+    .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 40px; }
+    .header h1 { color: #f59e0b; font-size: 2.5rem; margin: 0; }
+    .user-info { text-align: right; color: #94a3b8; }
+    .nav { margin-bottom: 30px; padding-bottom: 20px; border-bottom: 1px solid #334155; }
+    .nav a { color: #06b6d4; text-decoration: none; margin-right: 20px; padding: 8px 16px; border-radius: 6px; transition: all 0.3s; }
+    .nav a:hover { background: #06b6d4; color: white; }
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-bottom: 40px; }
+    .stat-card { background: #1e293b; padding: 20px; border-radius: 12px; border: 1px solid #334155; text-align: center; }
+    .stat-number { font-size: 2rem; font-weight: bold; color: #f59e0b; }
+    .stat-label { color: #94a3b8; margin-top: 5px; }
+    .main-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-bottom: 30px; }
+    .section { background: #1e293b; padding: 25px; border-radius: 12px; border: 1px solid #334155; }
+    .section h3 { color: #06b6d4; margin-bottom: 20px; }
+    .btn { display: inline-block; padding: 12px 24px; background: #f59e0b; color: white; text-decoration: none; border-radius: 8px; margin: 5px; border: none; cursor: pointer; font-size: 14px; }
     .btn:hover { background: #d97706; }
-    .logout { position: fixed; top: 20px; right: 20px; background: #ef4444; }
+    .btn.success { background: #10b981; }
+    .btn.success:hover { background: #059669; }
+    .btn.primary { background: #2563eb; }
+    .btn.primary:hover { background: #1d4ed8; }
+    .btn.danger { background: #ef4444; }
+    .trade-item { background: #0f172a; padding: 15px; border-radius: 8px; margin: 10px 0; border: 1px solid #334155; }
+    .trade-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+    .trade-id { font-weight: bold; color: #f8fafc; }
+    .profit-badge { padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 500; }
+    .profit-positive { background: #10b981; color: white; }
+    .profit-negative { background: #ef4444; color: white; }
+    .trade-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+    .contract-side { background: #1e293b; padding: 15px; border-radius: 8px; }
+    .contract-side h4 { margin: 0 0 10px 0; color: #06b6d4; }
+    .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; }
+    .modal-content { background: #1e293b; padding: 30px; border-radius: 12px; max-width: 800px; margin: 50px auto; border: 1px solid #334155; }
+    .close { float: right; font-size: 28px; font-weight: bold; color: #94a3b8; cursor: pointer; }
+    .close:hover { color: #f8fafc; }
+    .form-group { margin-bottom: 15px; }
+    .form-group label { display: block; margin-bottom: 5px; color: #f8fafc; font-weight: 500; }
+    .form-group input, .form-group select { width: 100%; padding: 10px; border: 1px solid #334155; border-radius: 6px; background: #0f172a; color: #f8fafc; }
+    .dual-form { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; }
+    .form-section { background: #0f172a; padding: 20px; border-radius: 8px; border: 1px solid #334155; }
+    .form-section h4 { color: #06b6d4; margin-top: 0; }
+    .profit-calculator { background: #0f172a; padding: 15px; border-radius: 8px; margin: 15px 0; border: 1px solid #334155; }
   </style>
 </head>
 <body>
-  <a href="/" class="btn logout">Logout</a>
-  
-  <div class="header">
-    <h1>📈 Trader Dashboard</h1>
-    <p>Manage your buy and sell contracts</p>
-  </div>
-  
-  <div class="dashboard-grid">
-    <div class="dashboard-card">
-      <h3>🔗 Link Contracts</h3>
-      <p>Link your buying and selling contracts for trade execution</p>
-      <a href="#" class="btn">Link Contracts</a>
+  <div class="container">
+    <div class="nav">
+      <a href="/">Home</a>
+      <a href="/dashboard/trader">Dashboard</a>
+      <a href="#" onclick="showDualContractModal()">Create Dual Contract</a>
+      <a href="#" onclick="showDocumentTransferModal()">Transfer Documents</a>
+      <a href="/landing-two">Sign Out</a>
     </div>
     
-    <div class="dashboard-card">
-      <h3>📊 Trading Portfolio</h3>
-      <p>Active Trades: 5</p>
-      <p>Profit/Loss: +$125,000</p>
-      <a href="#" class="btn">View Portfolio</a>
+    <div class="header">
+      <h1>📈 Trader Dashboard</h1>
+      <div class="user-info">
+        <div><strong>Company:</strong> Strategic Trading Partners</div>
+        <div><strong>Email:</strong> trader@example.com</div>
+        <div><strong>License:</strong> TR-001-2024</div>
+      </div>
+    </div>
+    
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-number" id="activeTrades">4</div>
+        <div class="stat-label">Active Trades</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-number" id="totalProfit">+$285,400</div>
+        <div class="stat-label">Total Profit</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-number" id="successRate">87%</div>
+        <div class="stat-label">Success Rate</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-number" id="volumeTraded">$12.5M</div>
+        <div class="stat-label">Volume Traded</div>
+      </div>
+    </div>
+    
+    <div class="main-grid">
+      <div class="section">
+        <h3>🔄 Active Dual Contracts</h3>
+        <div style="margin-bottom: 20px;">
+          <button class="btn" onclick="showDualContractModal()">+ Create Dual Contract</button>
+          <button class="btn primary" onclick="refreshTrades()">🔄 Refresh</button>
+        </div>
+        <div id="tradesList">
+          <div class="trade-item">
+            <div class="trade-header">
+              <span class="trade-id">TRADE-2024-001</span>
+              <span class="profit-badge profit-positive">+$45,200 Projected</span>
+            </div>
+            <div class="trade-pair">
+              <div class="contract-side">
+                <h4>🔵 BUY CONTRACT</h4>
+                <div style="color: #94a3b8; font-size: 0.9rem;">
+                  <div><strong>From:</strong> Oil Suppliers LLC</div>
+                  <div><strong>Product:</strong> Crude Oil</div>
+                  <div><strong>Quantity:</strong> 1,000 barrels</div>
+                  <div><strong>Buy Price:</strong> $73.50/barrel</div>
+                  <div><strong>Status:</strong> Documents Received</div>
+                </div>
+              </div>
+              <div class="contract-side">
+                <h4>🔴 SELL CONTRACT</h4>
+                <div style="color: #94a3b8; font-size: 0.9rem;">
+                  <div><strong>To:</strong> Energy Corp International</div>
+                  <div><strong>Product:</strong> Crude Oil</div>
+                  <div><strong>Quantity:</strong> 1,000 barrels</div>
+                  <div><strong>Sell Price:</strong> $78.70/barrel</div>
+                  <div><strong>Status:</strong> Awaiting Transfer</div>
+                </div>
+              </div>
+            </div>
+            <div style="margin-top: 15px; text-align: center;">
+              <button class="btn success" onclick="transferDocuments('TRADE-2024-001')">Transfer Documents</button>
+              <button class="btn primary" onclick="viewTradeDetails('TRADE-2024-001')">View Details</button>
+            </div>
+          </div>
+          
+          <div class="trade-item">
+            <div class="trade-header">
+              <span class="trade-id">TRADE-2024-002</span>
+              <span class="profit-badge profit-positive">+$125,800 Projected</span>
+            </div>
+            <div class="trade-pair">
+              <div class="contract-side">
+                <h4>🔵 BUY CONTRACT</h4>
+                <div style="color: #94a3b8; font-size: 0.9rem;">
+                  <div><strong>From:</strong> Grain Masters Co</div>
+                  <div><strong>Product:</strong> Wheat</div>
+                  <div><strong>Quantity:</strong> 2,000 tons</div>
+                  <div><strong>Buy Price:</strong> $240.00/ton</div>
+                  <div><strong>Status:</strong> Confirmed</div>
+                </div>
+              </div>
+              <div class="contract-side">
+                <h4>🔴 SELL CONTRACT</h4>
+                <div style="color: #94a3b8; font-size: 0.9rem;">
+                  <div><strong>To:</strong> Food Processing Inc</div>
+                  <div><strong>Product:</strong> Wheat</div>
+                  <div><strong>Quantity:</strong> 2,000 tons</div>
+                  <div><strong>Sell Price:</strong> $302.90/ton</div>
+                  <div><strong>Status:</strong> Pending Confirmation</div>
+                </div>
+              </div>
+            </div>
+            <div style="margin-top: 15px; text-align: center;">
+              <button class="btn" onclick="linkContracts('TRADE-2024-002')">Link Contracts</button>
+              <button class="btn primary" onclick="viewTradeDetails('TRADE-2024-002')">View Details</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="section">
+        <h3>📊 Trade Analytics</h3>
+        <div style="background: #0f172a; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+          <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+            <span>Current Month P&L:</span>
+            <span style="color: #10b981; font-weight: bold;">+$185,400</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+            <span>Pending Profits:</span>
+            <span style="color: #f59e0b; font-weight: bold;">+$171,000</span>
+          </div>
+          <div style="display: flex; justify-content: space-between;">
+            <span>Risk Exposure:</span>
+            <span style="color: #2563eb; font-weight: bold;">$2.4M</span>
+          </div>
+        </div>
+        
+        <div style="background: #0f172a; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+          <h4 style="color: #06b6d4; margin-top: 0;">Top Performing Products</h4>
+          <div style="margin-bottom: 8px;">1. Crude Oil - +15.2% margin</div>
+          <div style="margin-bottom: 8px;">2. Wheat - +12.8% margin</div>
+          <div style="margin-bottom: 8px;">3. Copper - +8.4% margin</div>
+        </div>
+        
+        <button class="btn" style="width: 100%; margin-bottom: 10px;" onclick="showDualContractModal()">Create New Trade</button>
+        <button class="btn primary" style="width: 100%;" onclick="viewReports()">Detailed Reports</button>
+      </div>
+    </div>
+    
+    <div class="section">
+      <h3>🚀 Quick Actions</h3>
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+        <button class="btn" onclick="showDualContractModal()">Create Dual Contract</button>
+        <button class="btn success" onclick="showDocumentTransferModal()">Transfer Documents</button>
+        <button class="btn primary" onclick="viewMarketData()">Market Data</button>
+        <button class="btn" onclick="contactSupport()">Support</button>
+      </div>
     </div>
   </div>
+  
+  <!-- Dual Contract Modal -->
+  <div id="dualContractModal" class="modal">
+    <div class="modal-content">
+      <span class="close" onclick="closeModal('dualContractModal')">&times;</span>
+      <h3 style="color: #f59e0b;">Create Dual Trading Contract</h3>
+      <form id="dualContractForm">
+        <div class="dual-form">
+          <div class="form-section">
+            <h4>🔵 BUY CONTRACT (From Supplier)</h4>
+            <div class="form-group">
+              <label>Supplier Email</label>
+              <input type="email" id="buySupplierEmail" required>
+            </div>
+            <div class="form-group">
+              <label>Product Type</label>
+              <select id="buyProductType" required onchange="calculateProfit()">
+                <option value="">Select product...</option>
+                <option value="crude_oil">Crude Oil</option>
+                <option value="wheat">Wheat</option>
+                <option value="copper">Copper</option>
+                <option value="gold">Gold</option>
+                <option value="silver">Silver</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Quantity</label>
+              <input type="number" id="buyQuantity" required onchange="calculateProfit()">
+            </div>
+            <div class="form-group">
+              <label>Buy Price Per Unit ($)</label>
+              <input type="number" id="buyPricePerUnit" step="0.01" required onchange="calculateProfit()">
+            </div>
+            <div class="form-group">
+              <label>Delivery Date</label>
+              <input type="date" id="buyDeliveryDate" required>
+            </div>
+          </div>
+          
+          <div class="form-section">
+            <h4>🔴 SELL CONTRACT (To Buyer)</h4>
+            <div class="form-group">
+              <label>Buyer Email</label>
+              <input type="email" id="sellBuyerEmail" required>
+            </div>
+            <div class="form-group">
+              <label>Product Type</label>
+              <select id="sellProductType" required>
+                <option value="">Will match buy contract</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Quantity</label>
+              <input type="number" id="sellQuantity" required onchange="calculateProfit()">
+            </div>
+            <div class="form-group">
+              <label>Sell Price Per Unit ($)</label>
+              <input type="number" id="sellPricePerUnit" step="0.01" required onchange="calculateProfit()">
+            </div>
+            <div class="form-group">
+              <label>Delivery Date</label>
+              <input type="date" id="sellDeliveryDate" required>
+            </div>
+          </div>
+        </div>
+        
+        <div class="profit-calculator" id="profitCalculator" style="display: none;">
+          <h4 style="color: #f59e0b; margin-top: 0;">Profit Analysis</h4>
+          <div style="display: flex; justify-content: space-between; margin: 8px 0;">
+            <span>Buy Contract Value:</span>
+            <span id="buyValue">$0</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; margin: 8px 0;">
+            <span>Sell Contract Value:</span>
+            <span id="sellValue">$0</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; margin: 8px 0; font-weight: bold; color: #10b981;">
+            <span>Projected Profit:</span>
+            <span id="projectedProfit">$0</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; margin: 8px 0;">
+            <span>Profit Margin:</span>
+            <span id="profitMargin">0%</span>
+          </div>
+        </div>
+        
+        <button type="submit" class="btn success">Create Dual Contract</button>
+      </form>
+    </div>
+  </div>
+  
+  <!-- Document Transfer Modal -->
+  <div id="documentTransferModal" class="modal">
+    <div class="modal-content">
+      <span class="close" onclick="closeModal('documentTransferModal')">&times;</span>
+      <h3 style="color: #f59e0b;">Transfer Documents Between Contracts</h3>
+      <form id="documentTransferForm">
+        <div class="form-group">
+          <label>Trade ID</label>
+          <input type="text" id="transferTradeId" required>
+        </div>
+        <div class="form-group">
+          <label>Transfer Direction</label>
+          <select id="transferDirection" required>
+            <option value="">Select direction...</option>
+            <option value="buy_to_sell">From Buy Contract to Sell Contract</option>
+            <option value="sell_to_buy">From Sell Contract to Buy Contract</option>
+          </select>
+        </div>
+        <div style="background: #0f172a; padding: 15px; border-radius: 8px; margin: 15px 0; color: #94a3b8;">
+          <div><strong>Note:</strong> Document transfer allows seamless commodity flow</div>
+          <div>Documents will be automatically validated and forwarded</div>
+        </div>
+        <button type="submit" class="btn success">Transfer Documents</button>
+      </form>
+    </div>
+  </div>
+  
+  <script>
+    function showDualContractModal() {
+      document.getElementById('dualContractModal').style.display = 'block';
+    }
+    
+    function showDocumentTransferModal() {
+      document.getElementById('documentTransferModal').style.display = 'block';
+    }
+    
+    function closeModal(modalId) {
+      document.getElementById(modalId).style.display = 'none';
+    }
+    
+    function calculateProfit() {
+      const buyQuantity = parseFloat(document.getElementById('buyQuantity').value) || 0;
+      const buyPrice = parseFloat(document.getElementById('buyPricePerUnit').value) || 0;
+      const sellQuantity = parseFloat(document.getElementById('sellQuantity').value) || 0;
+      const sellPrice = parseFloat(document.getElementById('sellPricePerUnit').value) || 0;
+      
+      if (buyQuantity > 0 && buyPrice > 0 && sellQuantity > 0 && sellPrice > 0) {
+        const buyValue = buyQuantity * buyPrice;
+        const sellValue = sellQuantity * sellPrice;
+        const profit = sellValue - buyValue;
+        const margin = (profit / buyValue) * 100;
+        
+        document.getElementById('buyValue').textContent = '$' + buyValue.toLocaleString();
+        document.getElementById('sellValue').textContent = '$' + sellValue.toLocaleString();
+        document.getElementById('projectedProfit').textContent = '$' + profit.toLocaleString();
+        document.getElementById('profitMargin').textContent = margin.toFixed(2) + '%';
+        
+        // Update sell product to match buy
+        const buyProduct = document.getElementById('buyProductType').value;
+        if (buyProduct) {
+          document.getElementById('sellProductType').innerHTML = '<option value="' + buyProduct + '">Same as buy contract (' + buyProduct.replace('_', ' ').toUpperCase() + ')</option>';
+          document.getElementById('sellProductType').value = buyProduct;
+        }
+        
+        document.getElementById('profitCalculator').style.display = 'block';
+      } else {
+        document.getElementById('profitCalculator').style.display = 'none';
+      }
+    }
+    
+    // Dual contract form submission
+    document.getElementById('dualContractForm').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      
+      const formData = {
+        traderEmail: 'trader@example.com',
+        buyContractData: {
+          supplierEmail: document.getElementById('buySupplierEmail').value,
+          productType: document.getElementById('buyProductType').value,
+          quantity: parseFloat(document.getElementById('buyQuantity').value),
+          pricePerUnit: parseFloat(document.getElementById('buyPricePerUnit').value),
+          deliveryDate: document.getElementById('buyDeliveryDate').value
+        },
+        sellContractData: {
+          buyerEmail: document.getElementById('sellBuyerEmail').value,
+          productType: document.getElementById('buyProductType').value,
+          quantity: parseFloat(document.getElementById('sellQuantity').value),
+          pricePerUnit: parseFloat(document.getElementById('sellPricePerUnit').value),
+          deliveryDate: document.getElementById('sellDeliveryDate').value
+        },
+        tradeMargin: parseFloat(document.getElementById('profitMargin').textContent)
+      };
+      
+      try {
+        const response = await fetch('/api/create-dual-contract', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(formData)
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+          alert('✅ Dual contract created successfully!\\nBuy Contract: ' + result.buyContractId + '\\nSell Contract: ' + result.sellContractId + '\\nProjected Profit: $' + result.expectedProfit.toLocaleString());
+          closeModal('dualContractModal');
+          refreshTrades();
+        } else {
+          alert('❌ Error: ' + result.message);
+        }
+      } catch (error) {
+        alert('❌ Error creating dual contract: ' + error.message);
+      }
+    });
+    
+    function transferDocuments(tradeId) {
+      document.getElementById('transferTradeId').value = tradeId;
+      showDocumentTransferModal();
+    }
+    
+    function viewTradeDetails(tradeId) {
+      alert('📋 Viewing trade details for: ' + tradeId);
+    }
+    
+    function linkContracts(tradeId) {
+      alert('🔗 Linking contracts for trade: ' + tradeId);
+    }
+    
+    function refreshTrades() {
+      location.reload();
+    }
+    
+    function viewMarketData() {
+      alert('📊 Market data feature - Real-time commodity prices');
+    }
+    
+    function viewReports() {
+      alert('📈 Detailed trading reports and analytics');
+    }
+    
+    function contactSupport() {
+      alert('📞 Trading Support: Email us at trading@tangent-protocol.com');
+    }
+  </script>
 </body>
 </html>`;
   res.send(html);
