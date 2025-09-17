@@ -10,7 +10,21 @@ app.use(express.static('public'));
 // Root route
 app.get('/', (req, res) => {
   console.log('✅ Root route accessed');
-  res.send('🚀 TANGENT PROTOCOL IS WORKING! 🎉');
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.status(200).send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tangent Protocol - Working!</title>
+</head>
+<body style="font-family: Arial, sans-serif; background: #0f172a; color: white; text-align: center; padding: 50px;">
+    <h1 style="color: #2563eb; font-size: 3rem;">🚀 TANGENT PROTOCOL IS WORKING! 🎉</h1>
+    <p style="font-size: 1.2rem;">Deployment successful! Server is running properly.</p>
+    <p style="font-size: 1rem; color: #64748b;">Ready to restore full platform functionality.</p>
+</body>
+</html>`);
 });
 
 // Health check for Railway
