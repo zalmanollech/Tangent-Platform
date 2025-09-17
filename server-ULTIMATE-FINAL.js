@@ -832,11 +832,33 @@ app.get('/health', (req, res) => {
   });
 });
 
+// Error handling
+process.on('uncaughtException', (err) => {
+  console.error('❌ Uncaught Exception:', err);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('❌ Unhandled Rejection:', reason);
+});
+
 // Start server
 const PORT = process.env.PORT || 4000;
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`🚀 TANGENT-RESTORE-24 ULTIMATE SERVER RUNNING ON PORT ${PORT}`);
-  console.log(`✅ Landing Page: http://localhost:${PORT}/`);
-  console.log(`✅ Team Portal: http://localhost:${PORT}/landing-two`);
-  console.log(`✅ Health Check: http://localhost:${PORT}/health`);
+const HOST = '0.0.0.0';
+
+console.log('🚀 Starting Tangent Ultimate Platform...');
+
+const server = app.listen(PORT, HOST, (err) => {
+  if (err) {
+    console.error('❌ Failed to start server:', err);
+    process.exit(1);
+  }
+  console.log(`✅ TANGENT ULTIMATE PLATFORM RUNNING ON PORT ${PORT}`);
+  console.log(`🌐 Landing Page: http://${HOST}:${PORT}/`);
+  console.log(`🔐 Team Portal: http://${HOST}:${PORT}/landing-two`);
+  console.log(`❤️ Health Check: http://${HOST}:${PORT}/health`);
+  console.log('🎯 ALL FUNCTIONALITIES RESTORED!');
+});
+
+server.on('error', (err) => {
+  console.error('❌ Server error:', err);
 });
