@@ -49,6 +49,187 @@ const platformSettings = {
   insuranceRate: 0.5
 };
 
+// JWT Authentication System
+const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
+
+const JWT_SECRET = process.env.JWT_SECRET || 'tangent-protocol-secret-key-2024';
+
+// Demo users for testing (in production, load from database)
+const demoUsers = [
+  { email: 'admin@tangent-protocol.com', password: 'admin123', role: 'admin', company: 'Tangent Protocol' },
+  { email: 'supplier@example.com', password: 'supplier123', role: 'supplier', company: 'Sample Trading LLC' },
+  { email: 'buyer@example.com', password: 'buyer123', role: 'buyer', company: 'Global Trading Corp' },
+  { email: 'trader@example.com', password: 'trader123', role: 'trader', company: 'Strategic Trading Partners' },
+  { email: 'insurer@example.com', password: 'insurer123', role: 'insurer', company: 'Global Insurance Partners' }
+];
+
+// Initialize demo users with hashed passwords
+async function initializeDemoUsers() {
+  for (const user of demoUsers) {
+    const hashedPassword = await bcrypt.hash(user.password, 10);
+    users.set(user.email, {
+      ...user,
+      password: hashedPassword,
+      id: user.email.split('@')[0],
+      createdAt: new Date(),
+      isVerified: true
+    });
+  }
+  console.log('✅ Demo users initialized');
+}
+
+// JWT Middleware
+function authenticateToken(req, res, next) {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+
+  if (!token) {
+    return res.status(401).json({ error: 'Access token required' });
+  }
+
+  jwt.verify(token, JWT_SECRET, (err, user) => {
+    if (err) {
+      return res.status(403).json({ error: 'Invalid or expired token' });
+    }
+    req.user = user;
+    next();
+  });
+}
+
+// Role-based access control middleware
+function requireRole(roles) {
+  return (req, res, next) => {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+    
+    const userRoles = Array.isArray(roles) ? roles : [roles];
+    if (!userRoles.includes(req.user.role)) {
+      return res.status(403).json({ error: 'Insufficient permissions' });
+    }
+    
+    next();
+  };
+}
+
+// Authentication Routes
+app.post('/auth/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    
+    if (!email || !password) {
+      return res.status(400).json({ success: false, message: 'Email and password required' });
+    }
+    
+    const user = users.get(email);
+    if (!user) {
+      return res.status(401).json({ success: false, message: 'Invalid credentials' });
+    }
+    
+    const isValidPassword = await bcrypt.compare(password, user.password);
+    if (!isValidPassword) {
+      return res.status(401).json({ success: false, message: 'Invalid credentials' });
+    }
+    
+    // Generate JWT token
+    const token = jwt.sign(
+      { 
+        email: user.email, 
+        role: user.role, 
+        company: user.company,
+        id: user.id 
+      },
+      JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+    
+    console.log('✅ User logged in:', email, 'Role:', user.role);
+    
+    res.json({
+      success: true,
+      message: 'Login successful',
+      token,
+      user: {
+        email: user.email,
+        role: user.role,
+        company: user.company,
+        id: user.id
+      }
+    });
+  } catch (error) {
+    console.error('Login error:', error);
+    res.status(500).json({ success: false, message: 'Login failed' });
+  }
+});
+
+app.post('/auth/register', async (req, res) => {
+  try {
+    const { email, password, firstName, lastName, company, role, phone } = req.body;
+    
+    if (!email || !password || !firstName || !lastName || !company || !role) {
+      return res.status(400).json({ success: false, message: 'All fields required' });
+    }
+    
+    if (users.has(email)) {
+      return res.status(409).json({ success: false, message: 'Email already registered' });
+    }
+    
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const newUser = {
+      email,
+      password: hashedPassword,
+      firstName,
+      lastName,
+      company,
+      role,
+      phone,
+      id: email.split('@')[0],
+      createdAt: new Date(),
+      isVerified: false // Will be verified after KYC
+    };
+    
+    users.set(email, newUser);
+    
+    console.log('✅ User registered:', email, 'Role:', role);
+    
+    res.json({
+      success: true,
+      message: 'Registration successful',
+      redirectTo: `/kyc?email=${encodeURIComponent(email)}&role=${role}`
+    });
+  } catch (error) {
+    console.error('Registration error:', error);
+    res.status(500).json({ success: false, message: 'Registration failed' });
+  }
+});
+
+app.post('/auth/logout', (req, res) => {
+  // In a production app, you might want to blacklist the token
+  res.json({ success: true, message: 'Logged out successfully' });
+});
+
+// Protected route for getting user profile
+app.get('/auth/profile', authenticateToken, (req, res) => {
+  const user = users.get(req.user.email);
+  if (!user) {
+    return res.status(404).json({ error: 'User not found' });
+  }
+  
+  res.json({
+    email: user.email,
+    firstName: user.firstName,
+    lastName: user.lastName,
+    company: user.company,
+    role: user.role,
+    phone: user.phone,
+    isVerified: user.isVerified
+  });
+});
+
+// Initialize demo users on startup
+initializeDemoUsers();
+
 // Helper functions for compliance checking and notifications
 async function performComplianceCheck(userData) {
   // Simulate compliance check with external agencies
@@ -765,12 +946,33 @@ app.get('/sign-in', (req, res) => {
         const data = await response.json();
         
         if (data.success) {
+          // Store JWT token in localStorage
+          localStorage.setItem('authToken', data.token);
+          localStorage.setItem('userRole', data.user.role);
+          localStorage.setItem('userEmail', data.user.email);
+          localStorage.setItem('userCompany', data.user.company);
+          
           successDiv.textContent = 'Login successful! Redirecting to your dashboard...';
           setTimeout(() => {
-            if (data.user.role === 'admin') {
-              window.location.href = '/admin';
-            } else {
-              window.location.href = '/dashboard';
+            // Redirect based on user role
+            switch(data.user.role) {
+              case 'admin':
+                window.location.href = '/dashboard/admin';
+                break;
+              case 'supplier':
+                window.location.href = '/dashboard/supplier';
+                break;
+              case 'buyer':
+                window.location.href = '/dashboard/buyer';
+                break;
+              case 'trader':
+                window.location.href = '/dashboard/trader';
+                break;
+              case 'insurer':
+                window.location.href = '/dashboard/insurer';
+                break;
+              default:
+                window.location.href = '/landing-two';
             }
           }, 1000);
         } else {
@@ -3839,37 +4041,432 @@ app.get('/dashboard/insurer', (req, res) => {
   <title>Insurer Dashboard — Tangent Protocol</title>
   <style>
     body { font-family: system-ui; background: #0f172a; color: #f8fafc; margin: 0; padding: 20px; }
-    .header { background: #1e293b; padding: 20px; border-radius: 12px; margin-bottom: 30px; border: 1px solid #334155; }
-    .header h1 { color: #8b5cf6; margin: 0; font-size: 2.5rem; }
-    .dashboard-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 20px; }
-    .dashboard-card { background: #1e293b; padding: 25px; border-radius: 12px; border: 1px solid #334155; }
-    .dashboard-card h3 { color: #06b6d4; margin-top: 0; }
-    .btn { display: inline-block; padding: 12px 24px; background: #8b5cf6; color: white; text-decoration: none; border-radius: 8px; margin: 8px 8px 8px 0; font-weight: 500; }
+    .container { max-width: 1400px; margin: 0 auto; }
+    .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 40px; }
+    .header h1 { color: #8b5cf6; font-size: 2.5rem; margin: 0; }
+    .user-info { text-align: right; color: #94a3b8; }
+    .nav { margin-bottom: 30px; padding-bottom: 20px; border-bottom: 1px solid #334155; }
+    .nav a { color: #06b6d4; text-decoration: none; margin-right: 20px; padding: 8px 16px; border-radius: 6px; transition: all 0.3s; }
+    .nav a:hover { background: #06b6d4; color: white; }
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-bottom: 40px; }
+    .stat-card { background: #1e293b; padding: 20px; border-radius: 12px; border: 1px solid #334155; text-align: center; }
+    .stat-number { font-size: 2rem; font-weight: bold; color: #8b5cf6; }
+    .stat-label { color: #94a3b8; margin-top: 5px; }
+    .main-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 30px; }
+    .section { background: #1e293b; padding: 25px; border-radius: 12px; border: 1px solid #334155; }
+    .section h3 { color: #06b6d4; margin-bottom: 20px; }
+    .btn { display: inline-block; padding: 12px 24px; background: #8b5cf6; color: white; text-decoration: none; border-radius: 8px; margin: 5px; border: none; cursor: pointer; font-size: 14px; }
     .btn:hover { background: #7c3aed; }
-    .logout { position: fixed; top: 20px; right: 20px; background: #ef4444; }
+    .btn.success { background: #10b981; }
+    .btn.success:hover { background: #059669; }
+    .btn.warning { background: #f59e0b; }
+    .btn.danger { background: #ef4444; }
+    .trade-item { background: #0f172a; padding: 15px; border-radius: 8px; margin: 10px 0; border: 1px solid #334155; }
+    .trade-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+    .trade-id { font-weight: bold; color: #f8fafc; }
+    .risk-badge { padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 500; }
+    .risk-low { background: #10b981; color: white; }
+    .risk-medium { background: #f59e0b; color: black; }
+    .risk-high { background: #ef4444; color: white; }
+    .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; }
+    .modal-content { background: #1e293b; padding: 30px; border-radius: 12px; max-width: 600px; margin: 50px auto; border: 1px solid #334155; }
+    .close { float: right; font-size: 28px; font-weight: bold; color: #94a3b8; cursor: pointer; }
+    .close:hover { color: #f8fafc; }
+    .form-group { margin-bottom: 15px; }
+    .form-group label { display: block; margin-bottom: 5px; color: #f8fafc; font-weight: 500; }
+    .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 10px; border: 1px solid #334155; border-radius: 6px; background: #0f172a; color: #f8fafc; }
+    .quote-calculator { background: #0f172a; padding: 15px; border-radius: 8px; margin: 15px 0; border: 1px solid #334155; }
+    .risk-factors { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
   </style>
 </head>
 <body>
-  <a href="/" class="btn logout">Logout</a>
-  
-  <div class="header">
-    <h1>🛡️ Insurer Dashboard</h1>
-    <p>Provide insurance quotes and risk assessment</p>
-  </div>
-  
-  <div class="dashboard-grid">
-    <div class="dashboard-card">
-      <h3>📋 Active Trades</h3>
-      <p>View all platform trades available for insurance</p>
-      <a href="#" class="btn">View Trades</a>
+  <div class="container">
+    <div class="nav">
+      <a href="/">Home</a>
+      <a href="/dashboard/insurer">Dashboard</a>
+      <a href="#" onclick="showQuoteModal()">Create Quote</a>
+      <a href="#" onclick="showRiskModal()">Risk Assessment</a>
+      <a href="/landing-two">Sign Out</a>
     </div>
     
-    <div class="dashboard-card">
-      <h3>💼 Insurance Quotes</h3>
-      <p>Provide quotes for performance insurance</p>
-      <a href="#" class="btn">Create Quote</a>
+    <div class="header">
+      <h1>🛡️ Insurer Dashboard</h1>
+      <div class="user-info">
+        <div><strong>Company:</strong> Global Insurance Partners</div>
+        <div><strong>Email:</strong> insurer@example.com</div>
+        <div><strong>License:</strong> INS-001-2024</div>
+      </div>
+    </div>
+    
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-number" id="activeQuotes">12</div>
+        <div class="stat-label">Active Quotes</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-number" id="totalCoverage">$45.2M</div>
+        <div class="stat-label">Total Coverage</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-number" id="premiumsEarned">$285,400</div>
+        <div class="stat-label">Premiums Earned</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-number" id="riskScore">7.2</div>
+        <div class="stat-label">Avg Risk Score</div>
+      </div>
+    </div>
+    
+    <div class="main-grid">
+      <div class="section">
+        <h3>📊 Available Contracts for Insurance</h3>
+        <div style="margin-bottom: 20px;">
+          <button class="btn" onclick="showQuoteModal()">+ Create Quote</button>
+          <button class="btn success" onclick="refreshTrades()">🔄 Refresh</button>
+        </div>
+        <div id="tradesList">
+          <div class="trade-item">
+            <div class="trade-header">
+              <span class="trade-id">CONTRACT-1234567890</span>
+              <span class="risk-badge risk-medium">MEDIUM RISK</span>
+            </div>
+            <div style="color: #94a3b8;">
+              <div><strong>Parties:</strong> Global Trading Corp ↔ Energy Solutions Inc</div>
+              <div><strong>Product:</strong> Crude Oil | <strong>Quantity:</strong> 2,000 barrels</div>
+              <div><strong>Value:</strong> $151,000 | <strong>Route:</strong> Gulf Coast → Europe</div>
+              <div><strong>Delivery:</strong> 45 days | <strong>Coverage Needed:</strong> Performance Insurance</div>
+            </div>
+            <div style="margin-top: 10px;">
+              <button class="btn" onclick="createQuote('CONTRACT-1234567890', 151000)">Provide Quote</button>
+              <button class="btn success" onclick="assessRisk('CONTRACT-1234567890')">Risk Assessment</button>
+            </div>
+          </div>
+          
+          <div class="trade-item">
+            <div class="trade-header">
+              <span class="trade-id">CONTRACT-0987654321</span>
+              <span class="risk-badge risk-low">LOW RISK</span>
+            </div>
+            <div style="color: #94a3b8;">
+              <div><strong>Parties:</strong> Grain Masters LLC ↔ Food Processing Inc</div>
+              <div><strong>Product:</strong> Wheat | <strong>Quantity:</strong> 1,000 tons</div>
+              <div><strong>Value:</strong> $245,300 | <strong>Route:</strong> Midwest → East Coast</div>
+              <div><strong>Delivery:</strong> 30 days | <strong>Coverage Needed:</strong> Delivery Guarantee</div>
+            </div>
+            <div style="margin-top: 10px;">
+              <button class="btn" onclick="createQuote('CONTRACT-0987654321', 245300)">Provide Quote</button>
+              <button class="btn success" onclick="assessRisk('CONTRACT-0987654321')">Risk Assessment</button>
+            </div>
+          </div>
+          
+          <div class="trade-item">
+            <div class="trade-header">
+              <span class="trade-id">AUCTION-001</span>
+              <span class="risk-badge risk-high">HIGH RISK</span>
+            </div>
+            <div style="color: #94a3b8;">
+              <div><strong>Type:</strong> Auction Contract | <strong>Status:</strong> Active Bidding</div>
+              <div><strong>Product:</strong> Copper | <strong>Quantity:</strong> 25 tons</div>
+              <div><strong>Current Bid:</strong> $198,750 | <strong>Time Left:</strong> 18h 32m</div>
+              <div><strong>Coverage Needed:</strong> Auction Performance Insurance</div>
+            </div>
+            <div style="margin-top: 10px;">
+              <button class="btn warning" onclick="createQuote('AUCTION-001', 198750)">Emergency Quote</button>
+              <button class="btn danger" onclick="assessRisk('AUCTION-001')">High Risk Assessment</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div>
+        <div class="section" style="margin-bottom: 20px;">
+          <h3>📈 Risk Analytics</h3>
+          <div style="background: #0f172a; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+              <span>Portfolio Risk Score:</span>
+              <span style="color: #f59e0b; font-weight: bold;">7.2/10</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+              <span>Claims Ratio:</span>
+              <span style="color: #10b981; font-weight: bold;">2.3%</span>
+            </div>
+            <div style="display: flex; justify-content: space-between;">
+              <span>Avg Premium Rate:</span>
+              <span style="color: #8b5cf6; font-weight: bold;">1.2%</span>
+            </div>
+          </div>
+          
+          <div style="background: #0f172a; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+            <h4 style="color: #06b6d4; margin-top: 0;">Risk Factors</h4>
+            <div style="margin-bottom: 8px;">• Geographic: Moderate</div>
+            <div style="margin-bottom: 8px;">• Commodity: Low-Medium</div>
+            <div style="margin-bottom: 8px;">• Counterparty: Low</div>
+            <div>• Market Volatility: Medium</div>
+          </div>
+          
+          <button class="btn" style="width: 100%;" onclick="showRiskModal()">Full Risk Analysis</button>
+        </div>
+        
+        <div class="section">
+          <h3>🚀 Quick Actions</h3>
+          <button class="btn" style="width: 100%; margin-bottom: 10px;" onclick="showQuoteModal()">Create Quote</button>
+          <button class="btn success" style="width: 100%; margin-bottom: 10px;" onclick="showRiskModal()">Risk Assessment</button>
+          <button class="btn warning" style="width: 100%; margin-bottom: 10px;" onclick="viewReports()">Performance Reports</button>
+          <button class="btn" style="width: 100%;" onclick="contactSupport()">Support</button>
+        </div>
+      </div>
     </div>
   </div>
+  
+  <!-- Insurance Quote Modal -->
+  <div id="quoteModal" class="modal">
+    <div class="modal-content">
+      <span class="close" onclick="closeModal('quoteModal')">&times;</span>
+      <h3 style="color: #8b5cf6;">Create Insurance Quote</h3>
+      <form id="quoteForm">
+        <div class="form-group">
+          <label>Contract ID</label>
+          <input type="text" id="contractId" required>
+        </div>
+        <div class="form-group">
+          <label>Contract Value ($)</label>
+          <input type="number" id="contractValue" required readonly>
+        </div>
+        <div class="form-group">
+          <label>Coverage Type</label>
+          <select id="coverageType" required onchange="calculatePremium()">
+            <option value="">Select coverage...</option>
+            <option value="performance">Performance Insurance</option>
+            <option value="delivery">Delivery Guarantee</option>
+            <option value="quality">Quality Assurance</option>
+            <option value="payment">Payment Protection</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Coverage Percentage (%)</label>
+          <input type="number" id="coveragePercentage" value="80" min="50" max="100" required onchange="calculatePremium()">
+        </div>
+        <div class="form-group">
+          <label>Risk Assessment</label>
+          <select id="riskLevel" required onchange="calculatePremium()">
+            <option value="">Select risk level...</option>
+            <option value="low">Low Risk (0.5% premium)</option>
+            <option value="medium">Medium Risk (1.2% premium)</option>
+            <option value="high">High Risk (2.5% premium)</option>
+          </select>
+        </div>
+        
+        <div class="quote-calculator" id="quoteCalculator" style="display: none;">
+          <h4 style="color: #8b5cf6; margin-top: 0;">Quote Calculation</h4>
+          <div style="display: flex; justify-content: space-between; margin: 8px 0;">
+            <span>Contract Value:</span>
+            <span id="calcContractValue">$0</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; margin: 8px 0;">
+            <span>Coverage Amount:</span>
+            <span id="calcCoverageAmount">$0</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; margin: 8px 0;">
+            <span>Premium Rate:</span>
+            <span id="calcPremiumRate">0%</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; margin: 8px 0; font-weight: bold; color: #8b5cf6;">
+            <span>Total Premium:</span>
+            <span id="calcTotalPremium">$0</span>
+          </div>
+        </div>
+        
+        <div class="form-group">
+          <label>Additional Terms</label>
+          <textarea id="additionalTerms" rows="3" placeholder="Special conditions or requirements..."></textarea>
+        </div>
+        
+        <button type="submit" class="btn">Generate Quote</button>
+      </form>
+    </div>
+  </div>
+  
+  <!-- Risk Assessment Modal -->
+  <div id="riskModal" class="modal">
+    <div class="modal-content">
+      <span class="close" onclick="closeModal('riskModal')">&times;</span>
+      <h3 style="color: #8b5cf6;">Risk Assessment Tool</h3>
+      <form id="riskForm">
+        <div class="form-group">
+          <label>Contract ID</label>
+          <input type="text" id="riskContractId" required>
+        </div>
+        
+        <div class="risk-factors">
+          <div>
+            <h4 style="color: #06b6d4;">Geographic Risk</h4>
+            <div class="form-group">
+              <label>Origin Country</label>
+              <select id="originCountry" required>
+                <option value="low">USA/EU (Low Risk)</option>
+                <option value="medium">Emerging Markets (Medium)</option>
+                <option value="high">High Risk Jurisdictions</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Shipping Route</label>
+              <select id="shippingRoute" required>
+                <option value="low">Established Routes (Low)</option>
+                <option value="medium">Regional Routes (Medium)</option>
+                <option value="high">New/Complex Routes (High)</option>
+              </select>
+            </div>
+          </div>
+          
+          <div>
+            <h4 style="color: #06b6d4;">Operational Risk</h4>
+            <div class="form-group">
+              <label>Commodity Type</label>
+              <select id="commodityRisk" required>
+                <option value="low">Stable Commodities (Low)</option>
+                <option value="medium">Volatile Commodities (Medium)</option>
+                <option value="high">High-Risk Materials (High)</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Counterparty Rating</label>
+              <select id="counterpartyRating" required>
+                <option value="low">A+ Rated (Low Risk)</option>
+                <option value="medium">B Rated (Medium Risk)</option>
+                <option value="high">Unrated/New (High Risk)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        
+        <div style="background: #0f172a; padding: 15px; border-radius: 8px; margin: 15px 0;">
+          <h4 style="color: #f59e0b; margin-top: 0;">Risk Score: <span id="riskScore">Not Calculated</span></h4>
+          <div id="riskRecommendation" style="color: #94a3b8;">Complete assessment to see recommendation</div>
+        </div>
+        
+        <button type="submit" class="btn">Calculate Risk</button>
+      </form>
+    </div>
+  </div>
+  
+  <script>
+    function showQuoteModal() {
+      document.getElementById('quoteModal').style.display = 'block';
+    }
+    
+    function showRiskModal() {
+      document.getElementById('riskModal').style.display = 'block';
+    }
+    
+    function closeModal(modalId) {
+      document.getElementById(modalId).style.display = 'none';
+    }
+    
+    function createQuote(contractId, value) {
+      document.getElementById('contractId').value = contractId;
+      document.getElementById('contractValue').value = value;
+      showQuoteModal();
+    }
+    
+    function assessRisk(contractId) {
+      document.getElementById('riskContractId').value = contractId;
+      showRiskModal();
+    }
+    
+    function calculatePremium() {
+      const contractValue = parseFloat(document.getElementById('contractValue').value) || 0;
+      const coveragePercentage = parseFloat(document.getElementById('coveragePercentage').value) || 0;
+      const riskLevel = document.getElementById('riskLevel').value;
+      
+      if (contractValue > 0 && coveragePercentage > 0 && riskLevel) {
+        const coverageAmount = contractValue * (coveragePercentage / 100);
+        
+        let premiumRate = 0;
+        switch(riskLevel) {
+          case 'low': premiumRate = 0.5; break;
+          case 'medium': premiumRate = 1.2; break;
+          case 'high': premiumRate = 2.5; break;
+        }
+        
+        const totalPremium = coverageAmount * (premiumRate / 100);
+        
+        document.getElementById('calcContractValue').textContent = '$' + contractValue.toLocaleString();
+        document.getElementById('calcCoverageAmount').textContent = '$' + coverageAmount.toLocaleString();
+        document.getElementById('calcPremiumRate').textContent = premiumRate + '%';
+        document.getElementById('calcTotalPremium').textContent = '$' + totalPremium.toLocaleString();
+        document.getElementById('quoteCalculator').style.display = 'block';
+      } else {
+        document.getElementById('quoteCalculator').style.display = 'none';
+      }
+    }
+    
+    // Quote form submission
+    document.getElementById('quoteForm').addEventListener('submit', function(e) {
+      e.preventDefault();
+      
+      const quoteData = {
+        contractId: document.getElementById('contractId').value,
+        contractValue: parseFloat(document.getElementById('contractValue').value),
+        coverageType: document.getElementById('coverageType').value,
+        coveragePercentage: parseFloat(document.getElementById('coveragePercentage').value),
+        riskLevel: document.getElementById('riskLevel').value,
+        premium: parseFloat(document.getElementById('calcTotalPremium').textContent.replace('$', '').replace(',', '')),
+        terms: document.getElementById('additionalTerms').value
+      };
+      
+      alert('✅ Insurance quote generated successfully!\\nContract: ' + quoteData.contractId + '\\nPremium: $' + quoteData.premium.toLocaleString() + '\\nCoverage: $' + (quoteData.contractValue * quoteData.coveragePercentage / 100).toLocaleString());
+      closeModal('quoteModal');
+    });
+    
+    // Risk assessment form
+    document.getElementById('riskForm').addEventListener('submit', function(e) {
+      e.preventDefault();
+      
+      const riskFactors = {
+        geographic: document.getElementById('originCountry').value,
+        shipping: document.getElementById('shippingRoute').value,
+        commodity: document.getElementById('commodityRisk').value,
+        counterparty: document.getElementById('counterpartyRating').value
+      };
+      
+      // Calculate risk score
+      let score = 0;
+      Object.values(riskFactors).forEach(factor => {
+        switch(factor) {
+          case 'low': score += 2; break;
+          case 'medium': score += 5; break;
+          case 'high': score += 8; break;
+        }
+      });
+      
+      const avgScore = score / 4;
+      let riskLevel = 'Low';
+      let recommendation = 'Standard coverage recommended';
+      
+      if (avgScore > 6) {
+        riskLevel = 'High';
+        recommendation = 'Requires enhanced due diligence and higher premiums';
+      } else if (avgScore > 3) {
+        riskLevel = 'Medium';
+        recommendation = 'Standard coverage with additional monitoring';
+      }
+      
+      document.getElementById('riskScore').textContent = avgScore.toFixed(1) + '/10 (' + riskLevel + ' Risk)';
+      document.getElementById('riskRecommendation').textContent = recommendation;
+    });
+    
+    function refreshTrades() {
+      location.reload();
+    }
+    
+    function viewReports() {
+      alert('📊 Performance reports and analytics dashboard');
+    }
+    
+    function contactSupport() {
+      alert('📞 Insurance Support: Email us at insurance@tangent-protocol.com');
+    }
+  </script>
 </body>
 </html>`;
   res.send(html);
