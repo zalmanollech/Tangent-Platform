@@ -49,7 +49,7 @@ const platformSettings = {
   insuranceRate: 0.5
 };
 
-// Helper function for compliance checking
+// Helper functions for compliance checking and notifications
 async function performComplianceCheck(userData) {
   // Simulate compliance check with external agencies
   const riskScore = Math.random() * 100;
@@ -71,6 +71,291 @@ async function performComplianceCheck(userData) {
     finalStatus: flags.length === 0 ? 'approved' : 'flagged'
   };
 }
+
+// Email notification system (simulated - replace with real email service)
+function sendEmail(to, subject, message, type = 'info') {
+  const emailLog = {
+    timestamp: new Date().toISOString(),
+    to,
+    subject,
+    message,
+    type,
+    status: 'sent'
+  };
+  
+  console.log(`📧 EMAIL SENT [${type.toUpperCase()}]:`, emailLog);
+  
+  // In production, integrate with SendGrid, AWS SES, or similar
+  return Promise.resolve(emailLog);
+}
+
+// Wallet creation system
+function createTGTWallet(userEmail) {
+  // Simulate wallet creation with blockchain integration
+  const walletAddress = '0x' + Math.random().toString(16).substring(2, 42).padStart(40, '0');
+  const walletInfo = {
+    address: walletAddress,
+    balance: 0,
+    created: new Date(),
+    email: userEmail,
+    type: 'TGT_WALLET'
+  };
+  
+  // Store wallet info
+  users.set(userEmail + '_wallet', walletInfo);
+  
+  console.log('💰 WALLET CREATED:', walletInfo);
+  return walletInfo;
+}
+
+// TGT Pool management
+const tgtPool = {
+  totalBalance: 1000000, // Starting with 1M TGT
+  deposits: new Map(),
+  withdrawals: new Map(),
+  
+  deposit(amount, from, contractId) {
+    const depositId = 'DEP-' + Date.now();
+    const deposit = {
+      id: depositId,
+      amount,
+      from,
+      contractId,
+      timestamp: new Date(),
+      status: 'confirmed'
+    };
+    
+    this.deposits.set(depositId, deposit);
+    this.totalBalance += amount;
+    
+    console.log('💰 TGT POOL DEPOSIT:', deposit);
+    return deposit;
+  },
+  
+  withdraw(amount, to, contractId) {
+    if (this.totalBalance < amount) {
+      throw new Error('Insufficient funds in TGT pool');
+    }
+    
+    const withdrawalId = 'WITH-' + Date.now();
+    const withdrawal = {
+      id: withdrawalId,
+      amount,
+      to,
+      contractId,
+      timestamp: new Date(),
+      status: 'confirmed'
+    };
+    
+    this.withdrawals.set(withdrawalId, withdrawal);
+    this.totalBalance -= amount;
+    
+    console.log('💸 TGT POOL WITHDRAWAL:', withdrawal);
+    return withdrawal;
+  }
+};
+
+// ADMIN MANAGEMENT SYSTEM
+app.post('/api/admin/update-settings', (req, res) => {
+  try {
+    const { platformFee, dailyInterest, insuranceRate, voyageTime, basisPoints } = req.body;
+    
+    if (platformFee !== undefined) platformSettings.platformFee = platformFee;
+    if (dailyInterest !== undefined) platformSettings.dailyInterest = dailyInterest;
+    if (insuranceRate !== undefined) platformSettings.insuranceRate = insuranceRate;
+    if (voyageTime !== undefined) platformSettings.voyageTime = voyageTime;
+    if (basisPoints !== undefined) platformSettings.basisPoints = basisPoints;
+    
+    console.log('⚙️ ADMIN SETTINGS UPDATED:', platformSettings);
+    
+    res.json({ 
+      success: true, 
+      message: 'Settings updated successfully',
+      settings: platformSettings
+    });
+  } catch (error) {
+    console.error('Settings update error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+app.get('/api/admin/dashboard-data', (req, res) => {
+  try {
+    // Calculate active trades
+    const activeTrades = Array.from(contracts.values()).filter(c => 
+      c.status === 'confirmed' || c.status === 'pending_confirmation'
+    );
+    
+    // Get flagged KYC applications
+    const flaggedKYC = Array.from(kycApplications.values()).filter(k => 
+      k.status === 'flagged'
+    );
+    
+    // Get price-flagged contracts
+    const priceFlaggedContracts = Array.from(contracts.values()).filter(c => 
+      c.priceFlags && c.priceFlags.length > 0
+    );
+    
+    // Get active auctions
+    const activeAuctions = Array.from(auctions.values()).filter(a => 
+      a.status === 'active'
+    );
+    
+    // Calculate total pool balance and fees collected
+    const totalFeesCollected = Array.from(contracts.values())
+      .filter(c => c.fees)
+      .reduce((sum, c) => sum + c.fees.total, 0);
+    
+    const dashboardData = {
+      activeTrades: activeTrades.length,
+      flaggedKYC: flaggedKYC.length,
+      priceFlaggedContracts: priceFlaggedContracts.length,
+      activeAuctions: activeAuctions.length,
+      tgtPoolBalance: tgtPool.totalBalance,
+      totalFeesCollected,
+      platformSettings,
+      recentActivity: {
+        flaggedKYCApplications: flaggedKYC.slice(0, 5),
+        priceFlaggedContracts: priceFlaggedContracts.slice(0, 5),
+        activeAuctions: activeAuctions.slice(0, 5)
+      }
+    };
+    
+    res.json(dashboardData);
+  } catch (error) {
+    console.error('Dashboard data error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+app.post('/api/admin/approve-kyc', async (req, res) => {
+  try {
+    const { kycId } = req.body;
+    
+    const kycApplication = kycApplications.get(kycId);
+    if (!kycApplication) {
+      return res.status(404).json({ success: false, message: 'KYC application not found' });
+    }
+    
+    // Update KYC status
+    kycApplication.status = 'approved';
+    kycApplication.reviewedAt = new Date();
+    
+    // Create wallet for approved user
+    const wallet = createTGTWallet(kycApplication.email);
+    
+    // Send approval email
+    await sendEmail(
+      kycApplication.email,
+      'KYC Approved - Welcome to Tangent Protocol',
+      `Your KYC application has been manually approved by admin. Your TGT wallet: ${wallet.address}`,
+      'success'
+    );
+    
+    console.log('✅ ADMIN KYC APPROVAL:', kycId);
+    
+    res.json({ 
+      success: true, 
+      message: 'KYC approved successfully',
+      walletAddress: wallet.address
+    });
+  } catch (error) {
+    console.error('KYC approval error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// TRADER DUAL CONTRACT SYSTEM
+app.post('/api/create-dual-contract', async (req, res) => {
+  try {
+    const { 
+      traderEmail,
+      buyContractData,  // {supplierEmail, productType, quantity, pricePerUnit, deliveryDate}
+      sellContractData, // {buyerEmail, productType, quantity, pricePerUnit, deliveryDate}
+      tradeMargin
+    } = req.body;
+    
+    // Create buy contract (trader as buyer)
+    const buyContract = {
+      id: 'BUY-CONTRACT-' + Date.now(),
+      supplierEmail: buyContractData.supplierEmail,
+      buyerEmail: traderEmail,
+      productType: buyContractData.productType,
+      quantity: buyContractData.quantity,
+      pricePerUnit: buyContractData.pricePerUnit,
+      totalValue: buyContractData.quantity * buyContractData.pricePerUnit,
+      deliveryDate: buyContractData.deliveryDate,
+      createdBy: 'trader',
+      status: 'pending_confirmation',
+      createdAt: new Date(),
+      contractType: 'buy',
+      linkedContractId: null // Will be set after sell contract creation
+    };
+    
+    // Create sell contract (trader as supplier)
+    const sellContract = {
+      id: 'SELL-CONTRACT-' + Date.now(),
+      supplierEmail: traderEmail,
+      buyerEmail: sellContractData.buyerEmail,
+      productType: sellContractData.productType,
+      quantity: sellContractData.quantity,
+      pricePerUnit: sellContractData.pricePerUnit,
+      totalValue: sellContractData.quantity * sellContractData.pricePerUnit,
+      deliveryDate: sellContractData.deliveryDate,
+      createdBy: 'trader',
+      status: 'pending_confirmation',
+      createdAt: new Date(),
+      contractType: 'sell',
+      linkedContractId: buyContract.id
+    };
+    
+    // Link contracts
+    buyContract.linkedContractId = sellContract.id;
+    
+    // Calculate profit margin
+    const profit = sellContract.totalValue - buyContract.totalValue;
+    const tradeData = {
+      traderEmail,
+      buyContractId: buyContract.id,
+      sellContractId: sellContract.id,
+      expectedProfit: profit,
+      margin: tradeMargin,
+      status: 'pending'
+    };
+    
+    // Store contracts
+    contracts.set(buyContract.id, buyContract);
+    contracts.set(sellContract.id, sellContract);
+    
+    // Send confirmation emails
+    await sendEmail(
+      buyContractData.supplierEmail,
+      'Contract Confirmation Required',
+      `Trader has created a buy contract (${buyContract.id}). Please confirm.`,
+      'action'
+    );
+    
+    await sendEmail(
+      sellContractData.buyerEmail,
+      'Contract Confirmation Required',
+      `Trader has created a sell contract (${sellContract.id}). Please confirm.`,
+      'action'
+    );
+    
+    console.log('🔄 DUAL CONTRACT CREATED:', tradeData);
+    
+    res.json({ 
+      success: true, 
+      message: 'Dual contracts created successfully',
+      buyContractId: buyContract.id,
+      sellContractId: sellContract.id,
+      expectedProfit: profit
+    });
+  } catch (error) {
+    console.error('Dual contract creation error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
 
 // Middleware
 app.use(express.json());
@@ -1233,9 +1518,31 @@ app.post('/api/submit-kyc', async (req, res) => {
     
     console.log('KYC Application submitted:', kycApplication);
     
-    // Send email notification (simulated)
+    // Send email notifications
     if (complianceResult.finalStatus === 'flagged') {
-      console.log('📧 EMAIL: Flagged KYC application requires admin review:', kycId);
+      await sendEmail(
+        'admin@tangent-protocol.com',
+        'KYC Application Flagged',
+        `KYC Application ${kycId} for ${email} has been flagged and requires manual review. Flags: ${complianceResult.flags.join(', ')}`,
+        'warning'
+      );
+      
+      await sendEmail(
+        email,
+        'KYC Application Under Review',
+        'Your KYC application is currently under review. You will receive an email within 48 hours with the results.',
+        'info'
+      );
+    } else {
+      // Auto-approve - create wallet and send confirmation
+      const wallet = createTGTWallet(email);
+      
+      await sendEmail(
+        email,
+        'KYC Approved - Welcome to Tangent Protocol',
+        `Congratulations! Your KYC has been approved. Your TGT wallet has been created: ${wallet.address}`,
+        'success'
+      );
     }
     
     res.json({ 
@@ -1263,6 +1570,455 @@ app.get('/portal', (req, res) => {
 app.get('/admin', (req, res) => {
   res.send('<h1>⚙️ Admin Panel</h1><p><a href="/dashboard">Go to Dashboard</a></p>');
 });
+
+// CONTRACT MANAGEMENT SYSTEM
+app.post('/api/create-contract', async (req, res) => {
+  try {
+    const { 
+      supplierEmail, 
+      buyerEmail, 
+      productType, 
+      quantity, 
+      pricePerUnit, 
+      totalValue, 
+      deliveryDate, 
+      role // 'supplier' or 'buyer'
+    } = req.body;
+    
+    // Validate price against exchanges (simulate)
+    const marketPrice = await validateMarketPrice(productType, pricePerUnit);
+    const priceFlags = [];
+    
+    if (marketPrice.discrepancy > platformSettings.basisPoints || 5) { // Default 5% if not set
+      priceFlags.push(`Price discrepancy: ${marketPrice.discrepancy}% above market`);
+    }
+    
+    const contractId = 'CONTRACT-' + Date.now();
+    const contract = {
+      id: contractId,
+      supplierEmail,
+      buyerEmail,
+      productType,
+      quantity,
+      pricePerUnit,
+      totalValue,
+      deliveryDate,
+      createdBy: role,
+      status: 'pending_confirmation',
+      priceValidation: marketPrice,
+      priceFlags,
+      createdAt: new Date(),
+      depositStatus: 'pending',
+      documentsUploaded: false,
+      paymentReleased: false
+    };
+    
+    contracts.set(contractId, contract);
+    
+    // Send email to counterparty for confirmation
+    const counterpartyEmail = role === 'supplier' ? buyerEmail : supplierEmail;
+    const counterpartyRole = role === 'supplier' ? 'buyer' : 'supplier';
+    
+    await sendEmail(
+      counterpartyEmail,
+      'Contract Confirmation Required',
+      `A new contract (${contractId}) has been created and requires your confirmation. Please log in to review and confirm.`,
+      'action'
+    );
+    
+    // Notify admin if price flags exist
+    if (priceFlags.length > 0) {
+      await sendEmail(
+        'admin@tangent-protocol.com',
+        'Contract Price Alert',
+        `Contract ${contractId} has price discrepancies: ${priceFlags.join(', ')}`,
+        'warning'
+      );
+    }
+    
+    console.log('📋 CONTRACT CREATED:', contract);
+    
+    res.json({ 
+      success: true, 
+      contractId, 
+      status: contract.status,
+      priceFlags,
+      message: 'Contract created successfully. Waiting for confirmation.'
+    });
+  } catch (error) {
+    console.error('Contract creation error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+app.post('/api/confirm-contract', async (req, res) => {
+  try {
+    const { contractId, userEmail, role } = req.body;
+    
+    const contract = contracts.get(contractId);
+    if (!contract) {
+      return res.status(404).json({ success: false, message: 'Contract not found' });
+    }
+    
+    // Verify user is authorized to confirm this contract
+    const isAuthorized = (role === 'buyer' && contract.buyerEmail === userEmail) || 
+                        (role === 'supplier' && contract.supplierEmail === userEmail);
+    
+    if (!isAuthorized) {
+      return res.status(403).json({ success: false, message: 'Not authorized to confirm this contract' });
+    }
+    
+    // Update contract status
+    contract.status = 'confirmed';
+    contract.confirmedAt = new Date();
+    contract.confirmedBy = userEmail;
+    
+    // Enable deposit for supplier-initiated contracts
+    if (contract.createdBy === 'supplier') {
+      contract.depositStatus = 'available';
+      
+      // Notify buyer about deposit requirement
+      await sendEmail(
+        contract.buyerEmail,
+        'Contract Confirmed - Deposit Required',
+        `Contract ${contractId} has been confirmed. Please make your deposit to proceed.`,
+        'action'
+      );
+    }
+    
+    console.log('✅ CONTRACT CONFIRMED:', contract);
+    
+    res.json({ 
+      success: true, 
+      message: 'Contract confirmed successfully',
+      contract: {
+        id: contract.id,
+        status: contract.status,
+        depositStatus: contract.depositStatus
+      }
+    });
+  } catch (error) {
+    console.error('Contract confirmation error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+app.post('/api/make-deposit', async (req, res) => {
+  try {
+    const { contractId, userEmail, amount } = req.body;
+    
+    const contract = contracts.get(contractId);
+    if (!contract) {
+      return res.status(404).json({ success: false, message: 'Contract not found' });
+    }
+    
+    if (contract.totalValue !== amount) {
+      return res.status(400).json({ 
+        success: false, 
+        message: `Deposit amount must equal contract value: ${contract.totalValue}` 
+      });
+    }
+    
+    // Process deposit to TGT pool
+    const deposit = tgtPool.deposit(amount, userEmail, contractId);
+    
+    // Update contract
+    contract.depositStatus = 'completed';
+    contract.depositedAt = new Date();
+    contract.depositId = deposit.id;
+    
+    // Notify supplier about completed deposit
+    await sendEmail(
+      contract.supplierEmail,
+      'Deposit Received - Upload Documents',
+      `Deposit for contract ${contractId} has been received. Please upload shipping documents to proceed.`,
+      'action'
+    );
+    
+    console.log('💰 DEPOSIT COMPLETED:', { contractId, deposit });
+    
+    res.json({ 
+      success: true, 
+      message: 'Deposit completed successfully',
+      depositId: deposit.id
+    });
+  } catch (error) {
+    console.error('Deposit error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// CONTRACT DOCUMENT UPLOAD
+app.post('/api/upload-contract-documents', upload.array('documents', 10), async (req, res) => {
+  try {
+    const { contractId, userEmail } = req.body;
+    
+    const contract = contracts.get(contractId);
+    if (!contract) {
+      return res.status(404).json({ success: false, message: 'Contract not found' });
+    }
+    
+    // Verify user is supplier
+    if (contract.supplierEmail !== userEmail) {
+      return res.status(403).json({ success: false, message: 'Only supplier can upload documents' });
+    }
+    
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({ success: false, message: 'No documents uploaded' });
+    }
+    
+    // Store document paths
+    const documentPaths = req.files.map(file => ({
+      originalName: file.originalname,
+      fileName: file.filename,
+      filePath: file.path,
+      uploadedAt: new Date()
+    }));
+    
+    // Update contract
+    contract.documentsUploaded = true;
+    contract.documentPaths = documentPaths;
+    contract.documentsUploadedAt = new Date();
+    
+    // Start countdown timer based on voyage time
+    const voyageTime = platformSettings.voyageTime || 30; // Default 30 days
+    contract.paymentDeadline = new Date(Date.now() + voyageTime * 24 * 60 * 60 * 1000);
+    
+    // Notify buyer about document upload
+    await sendEmail(
+      contract.buyerEmail,
+      'Documents Uploaded - Payment Required',
+      `Shipping documents for contract ${contractId} have been uploaded. Payment deadline: ${contract.paymentDeadline.toDateString()}`,
+      'action'
+    );
+    
+    console.log('📄 CONTRACT DOCUMENTS UPLOADED:', { contractId, documentCount: documentPaths.length });
+    
+    res.json({ 
+      success: true, 
+      message: 'Documents uploaded successfully',
+      documentCount: documentPaths.length,
+      paymentDeadline: contract.paymentDeadline
+    });
+  } catch (error) {
+    console.error('Document upload error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// PAYMENT RELEASE SYSTEM
+app.post('/api/release-payment', async (req, res) => {
+  try {
+    const { contractId, userEmail, role } = req.body;
+    
+    const contract = contracts.get(contractId);
+    if (!contract) {
+      return res.status(404).json({ success: false, message: 'Contract not found' });
+    }
+    
+    // Verify authorization (buyer, trader, or admin can release payment)
+    const isAuthorized = (role === 'buyer' && contract.buyerEmail === userEmail) ||
+                        (role === 'trader') || // Traders can release for both sides
+                        (role === 'admin');
+    
+    if (!isAuthorized) {
+      return res.status(403).json({ success: false, message: 'Not authorized to release payment' });
+    }
+    
+    if (contract.paymentReleased) {
+      return res.status(400).json({ success: false, message: 'Payment already released' });
+    }
+    
+    if (!contract.documentsUploaded) {
+      return res.status(400).json({ success: false, message: 'Documents must be uploaded first' });
+    }
+    
+    // Calculate fees and final amount
+    const platformFee = contract.totalValue * (platformSettings.platformFee / 100);
+    const insuranceFee = contract.totalValue * (platformSettings.insuranceRate / 100);
+    
+    // Calculate daily interest if payment is late
+    let interestFee = 0;
+    if (new Date() > contract.paymentDeadline) {
+      const daysLate = Math.ceil((new Date() - contract.paymentDeadline) / (1000 * 60 * 60 * 24));
+      interestFee = contract.totalValue * (platformSettings.dailyInterest / 100) * daysLate;
+    }
+    
+    const totalFees = platformFee + insuranceFee + interestFee;
+    const finalAmount = contract.totalValue - totalFees;
+    
+    // Process withdrawal from TGT pool to supplier
+    const withdrawal = tgtPool.withdraw(finalAmount, contract.supplierEmail, contractId);
+    
+    // Update contract
+    contract.paymentReleased = true;
+    contract.paymentReleasedAt = new Date();
+    contract.finalAmount = finalAmount;
+    contract.fees = {
+      platform: platformFee,
+      insurance: insuranceFee,
+      interest: interestFee,
+      total: totalFees
+    };
+    contract.withdrawalId = withdrawal.id;
+    contract.status = 'completed';
+    
+    // Send notifications
+    await sendEmail(
+      contract.supplierEmail,
+      'Payment Released',
+      `Payment for contract ${contractId} has been released. Amount: $${finalAmount.toFixed(2)} (after fees: $${totalFees.toFixed(2)})`,
+      'success'
+    );
+    
+    await sendEmail(
+      contract.buyerEmail,
+      'Contract Completed',
+      `Contract ${contractId} has been completed. Payment has been released to supplier.`,
+      'info'
+    );
+    
+    console.log('💸 PAYMENT RELEASED:', { contractId, finalAmount, totalFees });
+    
+    res.json({ 
+      success: true, 
+      message: 'Payment released successfully',
+      finalAmount,
+      fees: contract.fees,
+      withdrawalId: withdrawal.id
+    });
+  } catch (error) {
+    console.error('Payment release error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// COUNTDOWN TIMER AND AUCTION TRIGGER
+app.get('/api/check-overdue-contracts', (req, res) => {
+  const overdueContracts = [];
+  const now = new Date();
+  
+  for (const [contractId, contract] of contracts) {
+    if (contract.documentsUploaded && 
+        !contract.paymentReleased && 
+        contract.paymentDeadline && 
+        now > contract.paymentDeadline) {
+      
+      overdueContracts.push({
+        id: contractId,
+        daysOverdue: Math.ceil((now - contract.paymentDeadline) / (1000 * 60 * 60 * 24)),
+        totalValue: contract.totalValue,
+        supplierEmail: contract.supplierEmail,
+        buyerEmail: contract.buyerEmail
+      });
+      
+      // Auto-trigger auction if more than 7 days overdue
+      if (!contract.auctionTriggered && 
+          now > new Date(contract.paymentDeadline.getTime() + 7 * 24 * 60 * 60 * 1000)) {
+        
+        triggerAuction(contractId, contract);
+        contract.auctionTriggered = true;
+      }
+    }
+  }
+  
+  res.json({ overdueContracts, count: overdueContracts.length });
+});
+
+// AUCTION SYSTEM
+function triggerAuction(contractId, contract) {
+  const auctionId = 'AUCTION-' + Date.now();
+  const auction = {
+    id: auctionId,
+    contractId,
+    startingPrice: contract.totalValue,
+    currentBid: contract.totalValue,
+    bidders: new Map(),
+    status: 'active',
+    startTime: new Date(),
+    endTime: new Date(Date.now() + 72 * 60 * 60 * 1000), // 72 hours
+    originalContract: contract
+  };
+  
+  auctions.set(auctionId, auction);
+  
+  console.log('🏺 AUCTION TRIGGERED:', auctionId);
+  
+  // Notify all relevant parties
+  sendEmail(
+    'admin@tangent-protocol.com',
+    'Contract Auction Triggered',
+    `Contract ${contractId} has been moved to auction due to non-payment. Auction ID: ${auctionId}`,
+    'warning'
+  );
+}
+
+app.post('/api/place-bid', async (req, res) => {
+  try {
+    const { auctionId, bidderEmail, bidAmount } = req.body;
+    
+    const auction = auctions.get(auctionId);
+    if (!auction) {
+      return res.status(404).json({ success: false, message: 'Auction not found' });
+    }
+    
+    if (auction.status !== 'active') {
+      return res.status(400).json({ success: false, message: 'Auction is not active' });
+    }
+    
+    if (new Date() > auction.endTime) {
+      return res.status(400).json({ success: false, message: 'Auction has ended' });
+    }
+    
+    if (bidAmount <= auction.currentBid) {
+      return res.status(400).json({ success: false, message: 'Bid must be higher than current bid' });
+    }
+    
+    // Place bid
+    auction.bidders.set(bidderEmail, {
+      amount: bidAmount,
+      timestamp: new Date()
+    });
+    
+    auction.currentBid = bidAmount;
+    auction.leadingBidder = bidderEmail;
+    
+    console.log('🔨 BID PLACED:', { auctionId, bidderEmail, bidAmount });
+    
+    res.json({ 
+      success: true, 
+      message: 'Bid placed successfully',
+      currentBid: auction.currentBid,
+      timeRemaining: auction.endTime - new Date()
+    });
+  } catch (error) {
+    console.error('Bid placement error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Price validation against market data
+async function validateMarketPrice(productType, proposedPrice) {
+  // Simulate market price checking against exchanges/publications
+  const marketPrices = {
+    'crude_oil': 75.50,
+    'wheat': 245.30,
+    'copper': 8456.20,
+    'gold': 1985.40,
+    'silver': 24.15
+  };
+  
+  const marketPrice = marketPrices[productType] || proposedPrice * 0.95; // Default to 5% below proposed
+  const discrepancy = ((proposedPrice - marketPrice) / marketPrice) * 100;
+  
+  return {
+    marketPrice,
+    proposedPrice,
+    discrepancy: Math.round(discrepancy * 100) / 100,
+    source: 'Exchange_API_Simulation',
+    timestamp: new Date()
+  };
+}
 
 // API Routes
 app.post('/api/unified-register', (req, res) => {
