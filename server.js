@@ -1013,6 +1013,7 @@ app.use('/auth', require('./routes/auth'));
 app.use('/api/unified-register', require('./routes/unified-register'));
 app.use('/api/tgt', require('./routes/tgt'));
 app.use('/api/kyc', require('./routes/kyc'));
+app.use('/api/admin', require('./routes/admin'));
 
 // Admin API route for registrations
 app.get('/api/admin/registrations', requirePlatformAccess, (req, res) => {
