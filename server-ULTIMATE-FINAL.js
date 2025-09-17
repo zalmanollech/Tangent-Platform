@@ -1,5 +1,76 @@
 const express = require('express');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
 const app = express();
+
+// Configure multer for file uploads
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    const uploadDir = 'uploads/kyc/';
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    cb(null, uploadDir);
+  },
+  filename: function (req, file, cb) {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
+const upload = multer({ 
+  storage: storage,
+  limits: {
+    fileSize: 10 * 1024 * 1024 // 10MB limit
+  },
+  fileFilter: function (req, file, cb) {
+    // Allow PDF, DOC, DOCX, JPG, PNG
+    const allowedTypes = /pdf|doc|docx|jpg|jpeg|png/;
+    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+    const mimetype = allowedTypes.test(file.mimetype);
+    
+    if (mimetype && extname) {
+      return cb(null, true);
+    } else {
+      cb(new Error('Only PDF, DOC, DOCX, JPG, PNG files are allowed'));
+    }
+  }
+});
+
+// In-memory storage for demo (replace with database)
+const users = new Map();
+const contracts = new Map();
+const kycApplications = new Map();
+const auctions = new Map();
+const platformSettings = {
+  platformFee: 2.5,
+  dailyInterest: 0.1,
+  insuranceRate: 0.5
+};
+
+// Helper function for compliance checking
+async function performComplianceCheck(userData) {
+  // Simulate compliance check with external agencies
+  const riskScore = Math.random() * 100;
+  const flags = [];
+  
+  // Simulate various checks
+  if (riskScore > 85) {
+    flags.push('High risk jurisdiction');
+  }
+  if (userData.companyName && userData.companyName.toLowerCase().includes('test')) {
+    flags.push('Suspicious company name');
+  }
+  
+  return {
+    riskScore,
+    flags,
+    sanctionsCheck: riskScore < 70,
+    amlCheck: riskScore < 80,
+    finalStatus: flags.length === 0 ? 'approved' : 'flagged'
+  };
+}
 
 // Middleware
 app.use(express.json());
@@ -941,6 +1012,244 @@ app.get('/sign-up', (req, res) => {
 </body>
 </html>`;
   res.send(html);
+});
+
+// KYC DOCUMENT UPLOAD PAGES
+app.get('/kyc/upload/:companyType', (req, res) => {
+  const { companyType } = req.params;
+  const email = req.query.email || '';
+  
+  const documents = companyType === 'listed' ? 
+    ['Certificate of Incorporation', 'Annual Report', 'Stock Exchange Filing', 'Board Resolution', 'Beneficial Ownership', 'Audited Financial Statements'] :
+    ['Certificate of Incorporation', 'Articles of Association', 'Shareholders Register', 'Directors Register', 'Beneficial Ownership Info', 'Financial Statements', 'Business License'];
+  
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document Upload — Tangent Protocol</title>
+  <style>
+    body { font-family: system-ui; background: #0f172a; color: #f8fafc; margin: 0; padding: 20px; }
+    .container { max-width: 800px; margin: 50px auto; }
+    .header { text-align: center; margin-bottom: 40px; }
+    .header h1 { color: #2563eb; font-size: 2.5rem; }
+    .upload-section { background: #1e293b; padding: 30px; border-radius: 12px; border: 1px solid #334155; margin: 20px 0; }
+    .upload-section h3 { color: #06b6d4; margin-top: 0; }
+    .document-item { background: #0f172a; padding: 15px; border-radius: 8px; margin: 15px 0; border: 1px solid #334155; }
+    .document-item h4 { color: #f8fafc; margin: 0 0 10px 0; }
+    .file-input { width: 100%; padding: 10px; background: #1e293b; border: 1px solid #334155; border-radius: 6px; color: #f8fafc; margin: 8px 0; }
+    .btn { display: inline-block; padding: 12px 24px; background: #2563eb; color: white; text-decoration: none; border-radius: 8px; font-weight: 500; margin: 10px 10px 10px 0; cursor: pointer; border: none; }
+    .btn:hover { background: #1d4ed8; }
+    .btn.success { background: #10b981; }
+    .btn.success:hover { background: #059669; }
+    .status { padding: 8px 16px; border-radius: 20px; font-size: 0.9rem; margin-left: 10px; }
+    .status.uploaded { background: #10b981; color: white; }
+    .status.pending { background: #f59e0b; color: black; }
+    .progress-bar { width: 100%; height: 20px; background: #334155; border-radius: 10px; margin: 20px 0; }
+    .progress-fill { height: 100%; background: #10b981; border-radius: 10px; transition: width 0.3s; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>📄 Document Upload</h1>
+      <p style="color: #94a3b8;">Upload required documents for ${companyType === 'listed' ? 'Listed Company' : 'Private Company'} verification</p>
+      <p style="color: #06b6d4;"><strong>Email:</strong> ${email}</p>
+    </div>
+    
+    <div class="upload-section">
+      <h3>Required Documents</h3>
+      <p style="color: #94a3b8;">Please upload all required documents. Accepted formats: PDF, DOC, DOCX, JPG, PNG (Max 10MB each)</p>
+      
+      <div class="progress-bar">
+        <div class="progress-fill" id="progress" style="width: 0%;"></div>
+      </div>
+      <p id="progress-text" style="text-align: center; color: #94a3b8;">0 of ${documents.length} documents uploaded</p>
+      
+      <form id="uploadForm" enctype="multipart/form-data">
+        <input type="hidden" name="email" value="${email}">
+        <input type="hidden" name="companyType" value="${companyType}">
+        
+        ${documents.map((doc, index) => `
+          <div class="document-item">
+            <h4>${doc} <span class="status pending" id="status-${index}">Required</span></h4>
+            <input type="file" name="document-${index}" class="file-input" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" onchange="uploadDocument(this, ${index}, '${doc}')">
+            <div id="upload-result-${index}"></div>
+          </div>
+        `).join('')}
+        
+        <div style="text-align: center; margin-top: 30px;">
+          <button type="button" id="submitBtn" class="btn success" onclick="submitKYC()" disabled>
+            Submit for Review
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+  
+  <script>
+    let uploadedCount = 0;
+    const totalDocs = ${documents.length};
+    const uploadedFiles = {};
+    
+    async function uploadDocument(input, index, docName) {
+      const file = input.files[0];
+      if (!file) return;
+      
+      const formData = new FormData();
+      formData.append('document', file);
+      formData.append('documentType', docName);
+      formData.append('email', '${email}');
+      formData.append('companyType', '${companyType}');
+      
+      try {
+        const response = await fetch('/api/upload-document', {
+          method: 'POST',
+          body: formData
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+          document.getElementById('status-' + index).textContent = 'Uploaded';
+          document.getElementById('status-' + index).className = 'status uploaded';
+          uploadedFiles[index] = result.filePath;
+          uploadedCount++;
+          updateProgress();
+        } else {
+          alert('Upload failed: ' + result.message);
+        }
+      } catch (error) {
+        alert('Upload error: ' + error.message);
+      }
+    }
+    
+    function updateProgress() {
+      const percentage = (uploadedCount / totalDocs) * 100;
+      document.getElementById('progress').style.width = percentage + '%';
+      document.getElementById('progress-text').textContent = uploadedCount + ' of ' + totalDocs + ' documents uploaded';
+      
+      if (uploadedCount === totalDocs) {
+        document.getElementById('submitBtn').disabled = false;
+      }
+    }
+    
+    async function submitKYC() {
+      try {
+        const response = await fetch('/api/submit-kyc', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: '${email}',
+            companyType: '${companyType}',
+            uploadedFiles: uploadedFiles
+          })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+          if (result.status === 'approved') {
+            alert('KYC approved! Redirecting to wallet setup...');
+            window.location.href = '/wallet/setup?email=' + encodeURIComponent('${email}');
+          } else if (result.status === 'flagged') {
+            alert('Your application is under review. You will receive an email within 48 hours.');
+            window.location.href = '/kyc/pending?email=' + encodeURIComponent('${email}');
+          }
+        } else {
+          alert('Submission failed: ' + result.message);
+        }
+      } catch (error) {
+        alert('Submission error: ' + error.message);
+      }
+    }
+  </script>
+</body>
+</html>`;
+  
+  res.send(html);
+});
+
+// API Routes for document upload and KYC processing
+app.post('/api/upload-document', upload.single('document'), (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: 'No file uploaded' });
+    }
+    
+    const { documentType, email, companyType } = req.body;
+    
+    // Store document info (in production, save to database)
+    const documentInfo = {
+      originalName: req.file.originalname,
+      fileName: req.file.filename,
+      filePath: req.file.path,
+      documentType,
+      email,
+      companyType,
+      uploadedAt: new Date()
+    };
+    
+    console.log('Document uploaded:', documentInfo);
+    
+    res.json({ 
+      success: true, 
+      message: 'Document uploaded successfully',
+      filePath: req.file.path,
+      documentType
+    });
+  } catch (error) {
+    console.error('Upload error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+app.post('/api/submit-kyc', async (req, res) => {
+  try {
+    const { email, companyType, uploadedFiles } = req.body;
+    
+    // Perform compliance checking
+    const complianceResult = await performComplianceCheck({ 
+      email, 
+      companyType,
+      companyName: email.split('@')[0] // Simplified for demo
+    });
+    
+    // Create KYC application
+    const kycId = 'KYC-' + Date.now();
+    const kycApplication = {
+      id: kycId,
+      email,
+      companyType,
+      uploadedFiles,
+      complianceResult,
+      status: complianceResult.finalStatus,
+      submittedAt: new Date(),
+      reviewedAt: complianceResult.finalStatus === 'approved' ? new Date() : null
+    };
+    
+    kycApplications.set(kycId, kycApplication);
+    
+    console.log('KYC Application submitted:', kycApplication);
+    
+    // Send email notification (simulated)
+    if (complianceResult.finalStatus === 'flagged') {
+      console.log('📧 EMAIL: Flagged KYC application requires admin review:', kycId);
+    }
+    
+    res.json({ 
+      success: true, 
+      status: complianceResult.finalStatus,
+      kycId,
+      message: complianceResult.finalStatus === 'approved' ? 
+        'KYC approved automatically' : 
+        'KYC requires manual review due to compliance flags'
+    });
+  } catch (error) {
+    console.error('KYC submission error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
 });
 
 app.get('/tgt-info', (req, res) => {
