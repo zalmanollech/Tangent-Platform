@@ -6,6 +6,10 @@ const { logUtils } = require('../lib/logger');
 const fs = require('fs');
 const path = require('path');
 
+// Lightweight rate limiter for sensitive ops (per-process memory)
+const lastOpTimestamps = { backup: 0, restore: 0 };
+const MIN_INTERVAL_MS = 3000;
+
 // Middleware to ensure admin access
 const requireAdmin = (req, res, next) => {
   try {
@@ -235,3 +239,78 @@ router.post('/update-password', requireAdmin, async (req, res) => {
 });
 
 module.exports = router;
+
+// ----------------------------------------------------------------------------
+// Backup & Restore Endpoints
+// ----------------------------------------------------------------------------
+
+// Get live backup (sanitized) of current DB
+router.get('/backup', requireAdmin, (req, res) => {
+  try {
+    const now = Date.now();
+    if (now - lastOpTimestamps.backup < MIN_INTERVAL_MS) {
+      return res.status(429).json({ error: 'Please wait before requesting another backup' });
+    }
+    lastOpTimestamps.backup = now;
+
+    const db = getDatabase();
+    const data = JSON.parse(JSON.stringify(db.getAll()));
+
+    // Sanitize sensitive fields
+    if (Array.isArray(data.users)) {
+      data.users = data.users.map(u => ({
+        ...u,
+        passHash: u.passHash ? '[REDACTED]' : u.passHash,
+        twoFactor: u.twoFactor ? { ...u.twoFactor, secret: u.twoFactor.secret ? '[REDACTED]' : u.twoFactor.secret } : u.twoFactor
+      }));
+    }
+
+    const backup = {
+      ...data,
+      backupCreatedAt: new Date().toISOString(),
+      version: '1.0.0'
+    };
+
+    res.json({ success: true, backup });
+  } catch (error) {
+    logUtils.logError(error, { action: 'admin_backup' }, req);
+    res.status(500).json({ error: 'Failed to create backup' });
+  }
+});
+
+// Persist a snapshot copy of the JSON file on disk
+router.post('/backup/snapshot', requireAdmin, (req, res) => {
+  try {
+    const db = getDatabase();
+    const snapshotPath = db.createBackup();
+    res.json({ success: true, path: snapshotPath });
+  } catch (error) {
+    logUtils.logError(error, { action: 'admin_backup_snapshot' }, req);
+    res.status(500).json({ error: 'Failed to create backup snapshot' });
+  }
+});
+
+// Restore from provided backup JSON
+router.post('/restore', requireAdmin, (req, res) => {
+  try {
+    const now = Date.now();
+    if (now - lastOpTimestamps.restore < MIN_INTERVAL_MS) {
+      return res.status(429).json({ error: 'Please wait before attempting another restore' });
+    }
+    lastOpTimestamps.restore = now;
+
+    const { backup, strategy } = req.body || {};
+    if (!backup) {
+      return res.status(400).json({ error: 'backup payload required' });
+    }
+
+    const db = getDatabase();
+    const result = db.restoreFromBackup(backup, { strategy: strategy === 'merge' ? 'merge' : 'overwrite' });
+
+    logUtils.logSecurity('database_restored', { strategy: result.strategy }, req);
+    res.json({ success: true, result });
+  } catch (error) {
+    logUtils.logError(error, { action: 'admin_restore' }, req);
+    res.status(500).json({ error: 'Failed to restore from backup' });
+  }
+});
