@@ -7,31 +7,87 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static('public'));
 
-// Try to load existing routes
+// Try to load existing routes (safe loading)
 try {
-  const authRoutes = require('./routes/auth');
-  const tradeRoutes = require('./routes/trades');
-  const paymentRoutes = require('./routes/payments');
-  
-  app.use('/auth', authRoutes);
-  app.use('/api/trades', tradeRoutes);
-  app.use('/api/payments', paymentRoutes);
-  console.log('✅ API routes loaded');
+  const fs = require('fs');
+  if (fs.existsSync('./routes/auth.js')) {
+    const authRoutes = require('./routes/auth');
+    app.use('/auth', authRoutes);
+    console.log('✅ Auth routes loaded');
+  }
+  if (fs.existsSync('./routes/trades.js')) {
+    const tradeRoutes = require('./routes/trades');
+    app.use('/api/trades', tradeRoutes);
+    console.log('✅ Trade routes loaded');
+  }
+  if (fs.existsSync('./routes/payments.js')) {
+    const paymentRoutes = require('./routes/payments');
+    app.use('/api/payments', paymentRoutes);
+    console.log('✅ Payment routes loaded');
+  }
 } catch (error) {
-  console.log('⚠️ API routes not available:', error.message);
+  console.log('⚠️ Some API routes not available:', error.message);
 }
 
 // Landing page
 app.get('/', (req, res) => {
-  res.send(`<!DOCTYPE html>
-<html><head><title>Tangent Protocol</title>
-<style>body{font-family:system-ui;background:#0f172a;color:#f8fafc;padding:40px;text-align:center}
-h1{color:#2563eb;font-size:3rem}
-.btn{background:#2563eb;color:white;padding:15px 30px;border:none;border-radius:8px;margin:10px;text-decoration:none;display:inline-block}
-.btn:hover{background:#1d4ed8}</style></head>
-<body><h1>🚀 Tangent Protocol</h1><p>Advanced Trading Platform & TGT Stablecoin</p>
-<a href="/landing-two" class="btn">Team Portal</a>
-<a href="/test" class="btn">Test Server</a></body></html>`);
+  try {
+    res.setHeader('Content-Type', 'text/html');
+    res.status(200).send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tangent Protocol</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            color: #f8fafc;
+            padding: 40px;
+            text-align: center;
+            margin: 0;
+            min-height: 100vh;
+        }
+        h1 {
+            color: #2563eb;
+            font-size: 3rem;
+            margin-bottom: 20px;
+        }
+        .btn {
+            background: #2563eb;
+            color: white;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 8px;
+            margin: 10px;
+            text-decoration: none;
+            display: inline-block;
+            font-weight: 600;
+        }
+        .btn:hover {
+            background: #1d4ed8;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding-top: 100px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 Tangent Protocol</h1>
+        <p>Advanced Trading Platform & TGT Stablecoin</p>
+        <a href="/landing-two" class="btn">Team Portal</a>
+        <a href="/test" class="btn">Test Server</a>
+    </div>
+</body>
+</html>`);
+  } catch (error) {
+    console.error('Error serving landing page:', error);
+    res.status(500).send('Error loading page');
+  }
 });
 
 // Team access
@@ -106,12 +162,37 @@ app.get('/kyc', (req, res) => {
 
 // API endpoints
 app.get('/test', (req, res) => {
-  res.json({ 
-    status: 'TANGENT DEPLOY VERSION WORKING!', 
-    timestamp: new Date(),
-    version: 'DEPLOY-1.0.0',
-    size: 'Optimized for Railway deployment'
-  });
+  try {
+    res.setHeader('Content-Type', 'application/json');
+    res.status(200).json({ 
+      status: 'TANGENT DEPLOY VERSION WORKING!', 
+      timestamp: new Date().toISOString(),
+      version: 'DEPLOY-1.0.0',
+      size: 'Optimized for Railway deployment',
+      environment: process.env.NODE_ENV || 'development',
+      port: process.env.PORT || 4000
+    });
+  } catch (error) {
+    console.error('Error in test endpoint:', error);
+    res.status(500).json({ error: 'Test endpoint failed' });
+  }
+});
+
+// Debug endpoint
+app.get('/debug', (req, res) => {
+  try {
+    res.setHeader('Content-Type', 'application/json');
+    res.status(200).json({
+      message: 'DEBUG INFO',
+      environment: process.env.NODE_ENV,
+      port: process.env.PORT,
+      timestamp: new Date().toISOString(),
+      headers: req.headers,
+      url: req.url
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
 app.get('/health', (req, res) => {
