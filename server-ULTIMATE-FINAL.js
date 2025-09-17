@@ -2154,26 +2154,446 @@ app.get('/dashboard/buyer', (req, res) => {
   <title>Buyer Dashboard — Tangent Protocol</title>
   <style>
     body { font-family: system-ui; background: #0f172a; color: #f8fafc; margin: 0; padding: 20px; }
-    .header { background: #1e293b; padding: 20px; border-radius: 12px; margin-bottom: 30px; border: 1px solid #334155; }
-    .header h1 { color: #2563eb; margin: 0; font-size: 2.5rem; }
-    .dashboard-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 20px; }
-    .dashboard-card { background: #1e293b; padding: 25px; border-radius: 12px; border: 1px solid #334155; }
-    .dashboard-card h3 { color: #06b6d4; margin-top: 0; }
-    .btn { display: inline-block; padding: 12px 24px; background: #2563eb; color: white; text-decoration: none; border-radius: 8px; margin: 8px 8px 8px 0; font-weight: 500; }
+    .container { max-width: 1400px; margin: 0 auto; }
+    .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 40px; }
+    .header h1 { color: #2563eb; font-size: 2.5rem; margin: 0; }
+    .user-info { text-align: right; color: #94a3b8; }
+    .nav { margin-bottom: 30px; padding-bottom: 20px; border-bottom: 1px solid #334155; }
+    .nav a { color: #06b6d4; text-decoration: none; margin-right: 20px; padding: 8px 16px; border-radius: 6px; transition: all 0.3s; }
+    .nav a:hover { background: #06b6d4; color: white; }
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-bottom: 40px; }
+    .stat-card { background: #1e293b; padding: 20px; border-radius: 12px; border: 1px solid #334155; text-align: center; }
+    .stat-number { font-size: 2rem; font-weight: bold; color: #2563eb; }
+    .stat-label { color: #94a3b8; margin-top: 5px; }
+    .main-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 30px; }
+    .section { background: #1e293b; padding: 25px; border-radius: 12px; border: 1px solid #334155; }
+    .section h3 { color: #06b6d4; margin-bottom: 20px; }
+    .btn { display: inline-block; padding: 12px 24px; background: #2563eb; color: white; text-decoration: none; border-radius: 8px; margin: 5px; border: none; cursor: pointer; font-size: 14px; }
     .btn:hover { background: #1d4ed8; }
     .btn.success { background: #10b981; }
-    .field-input { width: 100%; padding: 10px; background: #0f172a; border: 1px solid #334155; border-radius: 6px; color: #f8fafc; margin: 8px 0; }
-    .contract-status { padding: 8px 16px; border-radius: 20px; font-size: 0.9rem; background: #f59e0b; color: #000; }
-    .logout { position: fixed; top: 20px; right: 20px; background: #ef4444; }
+    .btn.success:hover { background: #059669; }
+    .btn.warning { background: #f59e0b; }
+    .btn.danger { background: #ef4444; }
+    .contract-item { background: #0f172a; padding: 15px; border-radius: 8px; margin: 10px 0; border: 1px solid #334155; }
+    .contract-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+    .contract-id { font-weight: bold; color: #f8fafc; }
+    .status-badge { padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 500; }
+    .status-pending { background: #f59e0b; color: black; }
+    .status-confirmed { background: #10b981; color: white; }
+    .status-awaiting { background: #06b6d4; color: white; }
+    .status-completed { background: #8b5cf6; color: white; }
+    .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; }
+    .modal-content { background: #1e293b; padding: 30px; border-radius: 12px; max-width: 600px; margin: 50px auto; border: 1px solid #334155; }
+    .close { float: right; font-size: 28px; font-weight: bold; color: #94a3b8; cursor: pointer; }
+    .close:hover { color: #f8fafc; }
+    .form-group { margin-bottom: 15px; }
+    .form-group label { display: block; margin-bottom: 5px; color: #f8fafc; font-weight: 500; }
+    .form-group input, .form-group select { width: 100%; padding: 10px; border: 1px solid #334155; border-radius: 6px; background: #0f172a; color: #f8fafc; }
+    .cost-breakdown { background: #0f172a; padding: 15px; border-radius: 8px; margin: 15px 0; border: 1px solid #334155; }
+    .cost-item { display: flex; justify-content: space-between; margin: 8px 0; }
+    .total-cost { font-weight: bold; color: #2563eb; font-size: 1.1rem; border-top: 1px solid #334155; padding-top: 8px; margin-top: 8px; }
   </style>
 </head>
 <body>
-  <a href="/" class="btn logout">Logout</a>
-  
-  <div class="header">
-    <h1>🛒 Buyer Dashboard</h1>
-    <p>Manage your purchase contracts and deposits</p>
+  <div class="container">
+    <div class="nav">
+      <a href="/">Home</a>
+      <a href="/dashboard/buyer">Dashboard</a>
+      <a href="#" onclick="showContractModal()">Create Contract</a>
+      <a href="#" onclick="showDepositModal()">Make Deposit</a>
+      <a href="/landing-two">Sign Out</a>
+    </div>
+    
+    <div class="header">
+      <h1>🛒 Buyer Dashboard</h1>
+      <div class="user-info">
+        <div><strong>Company:</strong> Global Trading Corp</div>
+        <div><strong>Email:</strong> buyer@example.com</div>
+        <div><strong>Wallet:</strong> 0x5678...efgh</div>
+      </div>
+    </div>
+    
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-number" id="activeContracts">2</div>
+        <div class="stat-label">Active Contracts</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-number" id="pendingDeposits">$280,000</div>
+        <div class="stat-label">Pending Deposits</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-number" id="completedPurchases">8</div>
+        <div class="stat-label">Completed Purchases</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-number" id="totalSpent">$5.2M</div>
+        <div class="stat-label">Total Spent</div>
+      </div>
+    </div>
+    
+    <div class="main-grid">
+      <div class="section">
+        <h3>📋 Contract Management</h3>
+        <div style="margin-bottom: 20px;">
+          <button class="btn success" onclick="showContractModal()">+ Create New Contract</button>
+          <button class="btn" onclick="refreshContracts()">🔄 Refresh</button>
+        </div>
+        <div id="contractsList">
+          <div class="contract-item">
+            <div class="contract-header">
+              <span class="contract-id">CONTRACT-1111222233</span>
+              <span class="status-badge status-confirmed">Confirmed - Deposit Required</span>
+            </div>
+            <div style="color: #94a3b8;">
+              <div><strong>Supplier:</strong> Energy Solutions Inc</div>
+              <div><strong>Product:</strong> Crude Oil | <strong>Quantity:</strong> 2,000 barrels</div>
+              <div><strong>Price:</strong> $151,000 ($75.50/barrel)</div>
+              <div><strong>Confirmed:</strong> 3 hours ago</div>
+            </div>
+            <div style="margin-top: 10px;">
+              <button class="btn success" onclick="makeDeposit('CONTRACT-1111222233', 151000)">Make Deposit ($151,000)</button>
+              <button class="btn" onclick="viewContract('CONTRACT-1111222233')">View Details</button>
+            </div>
+          </div>
+          
+          <div class="contract-item">
+            <div class="contract-header">
+              <span class="contract-id">CONTRACT-4444555566</span>
+              <span class="status-badge status-awaiting">Awaiting Documents</span>
+            </div>
+            <div style="color: #94a3b8;">
+              <div><strong>Supplier:</strong> Grain Masters LLC</div>
+              <div><strong>Product:</strong> Wheat | <strong>Quantity:</strong> 1,000 tons</div>
+              <div><strong>Price:</strong> $245,300 ($245.30/ton)</div>
+              <div><strong>Deposit Made:</strong> 2 days ago</div>
+            </div>
+            <div style="margin-top: 10px;">
+              <button class="btn" onclick="viewDocuments('CONTRACT-4444555566')">Review Documents</button>
+              <button class="btn success" onclick="releasePayment('CONTRACT-4444555566')">Release Payment</button>
+            </div>
+          </div>
+          
+          <div class="contract-item">
+            <div class="contract-header">
+              <span class="contract-id">CONTRACT-7777888899</span>
+              <span class="status-badge status-pending">Pending Confirmation</span>
+            </div>
+            <div style="color: #94a3b8;">
+              <div><strong>Supplier:</strong> Metal Trading Co</div>
+              <div><strong>Product:</strong> Copper | <strong>Quantity:</strong> 50 tons</div>
+              <div><strong>Price:</strong> $422,810 ($8,456.20/ton)</div>
+              <div><strong>Created:</strong> 1 hour ago</div>
+            </div>
+            <div style="margin-top: 10px;">
+              <button class="btn warning" onclick="editContract('CONTRACT-7777888899')">Edit Contract</button>
+              <button class="btn danger" onclick="cancelContract('CONTRACT-7777888899')">Cancel</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div>
+        <div class="section" style="margin-bottom: 20px;">
+          <h3>🚀 Quick Actions</h3>
+          <button class="btn success" style="width: 100%; margin-bottom: 10px;" onclick="showContractModal()">Create Contract</button>
+          <button class="btn" style="width: 100%; margin-bottom: 10px;" onclick="showDepositModal()">Make Deposit</button>
+          <button class="btn warning" style="width: 100%; margin-bottom: 10px;" onclick="viewReports()">View Reports</button>
+          <button class="btn" style="width: 100%;" onclick="contactSupport()">Contact Support</button>
+        </div>
+        
+        <div class="section">
+          <h3>💰 Financial Overview</h3>
+          <div style="background: #0f172a; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+              <span>Available Balance:</span>
+              <span style="color: #10b981; font-weight: bold;">$2,850,000</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+              <span>Deposits Pending:</span>
+              <span style="color: #f59e0b; font-weight: bold;">$280,000</span>
+            </div>
+            <div style="display: flex; justify-content: space-between;">
+              <span>Total Committed:</span>
+              <span style="color: #2563eb; font-weight: bold;">$3,130,000</span>
+            </div>
+          </div>
+          <button class="btn" style="width: 100%;">Manage Finances</button>
+        </div>
+      </div>
+    </div>
   </div>
+  
+  <!-- Contract Creation Modal -->
+  <div id="contractModal" class="modal">
+    <div class="modal-content">
+      <span class="close" onclick="closeModal('contractModal')">&times;</span>
+      <h3 style="color: #2563eb;">Create New Purchase Contract</h3>
+      <form id="contractForm">
+        <div class="form-group">
+          <label>Supplier Email</label>
+          <input type="email" id="supplierEmail" required>
+        </div>
+        <div class="form-group">
+          <label>Product Type</label>
+          <select id="productType" required onchange="updatePricing()">
+            <option value="">Select product...</option>
+            <option value="crude_oil">Crude Oil</option>
+            <option value="wheat">Wheat</option>
+            <option value="copper">Copper</option>
+            <option value="gold">Gold</option>
+            <option value="silver">Silver</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Quantity</label>
+          <input type="number" id="quantity" required onchange="calculateCosts()">
+        </div>
+        <div class="form-group">
+          <label>Price Per Unit ($)</label>
+          <input type="number" id="pricePerUnit" step="0.01" required onchange="calculateCosts()">
+        </div>
+        <div class="form-group">
+          <label>Delivery Date</label>
+          <input type="date" id="deliveryDate" required>
+        </div>
+        
+        <div class="cost-breakdown" id="costBreakdown" style="display: none;">
+          <h4 style="color: #06b6d4; margin-top: 0;">Cost Breakdown</h4>
+          <div class="cost-item">
+            <span>Contract Value:</span>
+            <span id="contractValue">$0</span>
+          </div>
+          <div class="cost-item">
+            <span>Platform Fee (2.5%):</span>
+            <span id="platformFee">$0</span>
+          </div>
+          <div class="cost-item">
+            <span>Insurance Fee (0.5%):</span>
+            <span id="insuranceFee">$0</span>
+          </div>
+          <div class="cost-item total-cost">
+            <span>Total Cost:</span>
+            <span id="totalCost">$0</span>
+          </div>
+          <div style="margin-top: 15px; padding: 10px; background: #1e293b; border-radius: 6px; color: #94a3b8; font-size: 0.9rem;">
+            ⚠️ Additional daily interest of 0.1% applies for late payments
+          </div>
+        </div>
+        
+        <button type="submit" class="btn success">Create Contract</button>
+      </form>
+    </div>
+  </div>
+  
+  <!-- Deposit Modal -->
+  <div id="depositModal" class="modal">
+    <div class="modal-content">
+      <span class="close" onclick="closeModal('depositModal')">&times;</span>
+      <h3 style="color: #2563eb;">Make Contract Deposit</h3>
+      <form id="depositForm">
+        <div class="form-group">
+          <label>Contract ID</label>
+          <input type="text" id="depositContractId" required>
+        </div>
+        <div class="form-group">
+          <label>Deposit Amount ($)</label>
+          <input type="number" id="depositAmount" step="0.01" required readonly>
+        </div>
+        <div style="background: #0f172a; padding: 15px; border-radius: 8px; margin: 15px 0; color: #94a3b8;">
+          <div style="margin-bottom: 10px;"><strong>Payment Method:</strong> TGT Pool Transfer</div>
+          <div style="margin-bottom: 10px;"><strong>Processing Time:</strong> Instant</div>
+          <div><strong>Security:</strong> Funds held in escrow until delivery</div>
+        </div>
+        <button type="submit" class="btn success">Confirm Deposit</button>
+      </form>
+    </div>
+  </div>
+  
+  <script>
+    function showContractModal() {
+      document.getElementById('contractModal').style.display = 'block';
+    }
+    
+    function showDepositModal() {
+      document.getElementById('depositModal').style.display = 'block';
+    }
+    
+    function closeModal(modalId) {
+      document.getElementById(modalId).style.display = 'none';
+    }
+    
+    function updatePricing() {
+      const productType = document.getElementById('productType').value;
+      const marketPrices = {
+        'crude_oil': 75.50,
+        'wheat': 245.30,
+        'copper': 8456.20,
+        'gold': 1985.40,
+        'silver': 24.15
+      };
+      
+      if (marketPrices[productType]) {
+        document.getElementById('pricePerUnit').value = marketPrices[productType];
+        calculateCosts();
+      }
+    }
+    
+    function calculateCosts() {
+      const quantity = parseFloat(document.getElementById('quantity').value) || 0;
+      const pricePerUnit = parseFloat(document.getElementById('pricePerUnit').value) || 0;
+      const contractValue = quantity * pricePerUnit;
+      
+      if (contractValue > 0) {
+        const platformFee = contractValue * 0.025; // 2.5%
+        const insuranceFee = contractValue * 0.005; // 0.5%
+        const totalCost = contractValue + platformFee + insuranceFee;
+        
+        document.getElementById('contractValue').textContent = '$' + contractValue.toLocaleString();
+        document.getElementById('platformFee').textContent = '$' + platformFee.toLocaleString();
+        document.getElementById('insuranceFee').textContent = '$' + insuranceFee.toLocaleString();
+        document.getElementById('totalCost').textContent = '$' + totalCost.toLocaleString();
+        document.getElementById('costBreakdown').style.display = 'block';
+      } else {
+        document.getElementById('costBreakdown').style.display = 'none';
+      }
+    }
+    
+    // Contract form submission
+    document.getElementById('contractForm').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      
+      const formData = {
+        supplierEmail: document.getElementById('supplierEmail').value,
+        buyerEmail: 'buyer@example.com',
+        productType: document.getElementById('productType').value,
+        quantity: parseFloat(document.getElementById('quantity').value),
+        pricePerUnit: parseFloat(document.getElementById('pricePerUnit').value),
+        totalValue: parseFloat(document.getElementById('quantity').value) * parseFloat(document.getElementById('pricePerUnit').value),
+        deliveryDate: document.getElementById('deliveryDate').value,
+        role: 'buyer'
+      };
+      
+      try {
+        const response = await fetch('/api/create-contract', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(formData)
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+          alert('✅ Contract created successfully! ID: ' + result.contractId);
+          closeModal('contractModal');
+          refreshContracts();
+        } else {
+          alert('❌ Error: ' + result.message);
+        }
+      } catch (error) {
+        alert('❌ Error creating contract: ' + error.message);
+      }
+    });
+    
+    async function makeDeposit(contractId, amount) {
+      document.getElementById('depositContractId').value = contractId;
+      document.getElementById('depositAmount').value = amount;
+      showDepositModal();
+    }
+    
+    // Deposit form submission
+    document.getElementById('depositForm').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      
+      const formData = {
+        contractId: document.getElementById('depositContractId').value,
+        userEmail: 'buyer@example.com',
+        amount: parseFloat(document.getElementById('depositAmount').value)
+      };
+      
+      try {
+        const response = await fetch('/api/make-deposit', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(formData)
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+          alert('✅ Deposit made successfully! Deposit ID: ' + result.depositId);
+          closeModal('depositModal');
+          refreshContracts();
+        } else {
+          alert('❌ Error: ' + result.message);
+        }
+      } catch (error) {
+        alert('❌ Error making deposit: ' + error.message);
+      }
+    });
+    
+    async function releasePayment(contractId) {
+      if (confirm('Are you sure you want to release payment for this contract?')) {
+        try {
+          const response = await fetch('/api/release-payment', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contractId,
+              userEmail: 'buyer@example.com',
+              role: 'buyer'
+            })
+          });
+          
+          const result = await response.json();
+          
+          if (result.success) {
+            alert('✅ Payment released successfully! Final amount: $' + result.finalAmount.toLocaleString());
+            refreshContracts();
+          } else {
+            alert('❌ Error: ' + result.message);
+          }
+        } catch (error) {
+          alert('❌ Error releasing payment: ' + error.message);
+        }
+      }
+    }
+    
+    function viewDocuments(contractId) {
+      alert('📄 Viewing documents for contract: ' + contractId);
+    }
+    
+    function viewContract(contractId) {
+      alert('📋 Viewing contract details for: ' + contractId);
+    }
+    
+    function editContract(contractId) {
+      alert('✏️ Editing contract: ' + contractId);
+    }
+    
+    function cancelContract(contractId) {
+      if (confirm('Are you sure you want to cancel this contract?')) {
+        alert('❌ Contract cancelled: ' + contractId);
+        refreshContracts();
+      }
+    }
+    
+    function refreshContracts() {
+      location.reload();
+    }
+    
+    function viewReports() {
+      alert('📊 Reports feature - Integration with your existing analytics');
+    }
+    
+    function contactSupport() {
+      alert('📞 Support: Email us at support@tangent-protocol.com');
+    }
+  </script>
+</body>
+</html>`;
+  res.send(html);
+});
   
   <div class="dashboard-grid">
     <div class="dashboard-card">
@@ -2243,61 +2663,311 @@ app.get('/dashboard/supplier', (req, res) => {
   <title>Supplier Dashboard — Tangent Protocol</title>
   <style>
     body { font-family: system-ui; background: #0f172a; color: #f8fafc; margin: 0; padding: 20px; }
-    .header { background: #1e293b; padding: 20px; border-radius: 12px; margin-bottom: 30px; border: 1px solid #334155; }
-    .header h1 { color: #10b981; margin: 0; font-size: 2.5rem; }
-    .dashboard-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 20px; }
-    .dashboard-card { background: #1e293b; padding: 25px; border-radius: 12px; border: 1px solid #334155; }
-    .dashboard-card h3 { color: #06b6d4; margin-top: 0; }
-    .btn { display: inline-block; padding: 12px 24px; background: #10b981; color: white; text-decoration: none; border-radius: 8px; margin: 8px 8px 8px 0; font-weight: 500; }
+    .container { max-width: 1400px; margin: 0 auto; }
+    .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 40px; }
+    .header h1 { color: #10b981; font-size: 2.5rem; margin: 0; }
+    .user-info { text-align: right; color: #94a3b8; }
+    .nav { margin-bottom: 30px; padding-bottom: 20px; border-bottom: 1px solid #334155; }
+    .nav a { color: #06b6d4; text-decoration: none; margin-right: 20px; padding: 8px 16px; border-radius: 6px; transition: all 0.3s; }
+    .nav a:hover { background: #06b6d4; color: white; }
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-bottom: 40px; }
+    .stat-card { background: #1e293b; padding: 20px; border-radius: 12px; border: 1px solid #334155; text-align: center; }
+    .stat-number { font-size: 2rem; font-weight: bold; color: #10b981; }
+    .stat-label { color: #94a3b8; margin-top: 5px; }
+    .main-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 30px; }
+    .section { background: #1e293b; padding: 25px; border-radius: 12px; border: 1px solid #334155; }
+    .section h3 { color: #06b6d4; margin-bottom: 20px; }
+    .btn { display: inline-block; padding: 12px 24px; background: #10b981; color: white; text-decoration: none; border-radius: 8px; margin: 5px; border: none; cursor: pointer; font-size: 14px; }
     .btn:hover { background: #059669; }
     .btn.primary { background: #2563eb; }
-    .logout { position: fixed; top: 20px; right: 20px; background: #ef4444; }
+    .btn.primary:hover { background: #1d4ed8; }
+    .btn.warning { background: #f59e0b; }
+    .btn.danger { background: #ef4444; }
+    .contract-item { background: #0f172a; padding: 15px; border-radius: 8px; margin: 10px 0; border: 1px solid #334155; }
+    .contract-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+    .contract-id { font-weight: bold; color: #f8fafc; }
+    .status-badge { padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 500; }
+    .status-pending { background: #f59e0b; color: black; }
+    .status-confirmed { background: #10b981; color: white; }
+    .status-completed { background: #06b6d4; color: white; }
+    .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; }
+    .modal-content { background: #1e293b; padding: 30px; border-radius: 12px; max-width: 600px; margin: 50px auto; border: 1px solid #334155; }
+    .close { float: right; font-size: 28px; font-weight: bold; color: #94a3b8; cursor: pointer; }
+    .close:hover { color: #f8fafc; }
+    .form-group { margin-bottom: 15px; }
+    .form-group label { display: block; margin-bottom: 5px; color: #f8fafc; font-weight: 500; }
+    .form-group input, .form-group select { width: 100%; padding: 10px; border: 1px solid #334155; border-radius: 6px; background: #0f172a; color: #f8fafc; }
   </style>
 </head>
 <body>
-  <a href="/" class="btn logout">Logout</a>
-  
-  <div class="header">
-    <h1>🏭 Supplier Dashboard</h1>
-    <p>Manage your supply contracts and deliveries</p>
-  </div>
-  
-  <div class="dashboard-grid">
-    <div class="dashboard-card">
-      <h3>📧 Contract Confirmations</h3>
-      
-      <div style="border: 1px solid #334155; border-radius: 8px; padding: 15px; margin: 15px 0;">
-        <h4>Contract #TNG-2024-001</h4>
-        <p><strong>Buyer:</strong> International Foods</p>
-        <p><strong>Commodity:</strong> Wheat - 5,000 MT</p>
-        <p><strong>Price:</strong> $280.50/MT</p>
-        <div style="margin-top: 15px;">
-          <a href="#" class="btn">Confirm Contract</a>
-          <a href="#" class="btn" style="background: #ef4444;">Decline</a>
-        </div>
+  <div class="container">
+    <div class="nav">
+      <a href="/">Home</a>
+      <a href="/dashboard/supplier">Dashboard</a>
+      <a href="#" onclick="showContractModal()">Create Contract</a>
+      <a href="#" onclick="showUploadModal()">Upload Documents</a>
+      <a href="/landing-two">Sign Out</a>
+    </div>
+    
+    <div class="header">
+      <h1>🏭 Supplier Dashboard</h1>
+      <div class="user-info">
+        <div><strong>Company:</strong> Sample Trading LLC</div>
+        <div><strong>Email:</strong> supplier@example.com</div>
+        <div><strong>Wallet:</strong> 0x1234...abcd</div>
       </div>
     </div>
     
-    <div class="dashboard-card">
-      <h3>📋 Active Contracts</h3>
-      
-      <div style="border: 1px solid #334155; border-radius: 8px; padding: 15px; margin: 15px 0;">
-        <h4>Contract #TNG-2024-003</h4>
-        <p>Soybeans - 2,500 MT - $420.00/MT</p>
-        <p>Status: Ready for Documents</p>
-        <div style="margin-top: 15px;">
-          <a href="#" class="btn primary">Upload Documents</a>
-        </div>
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-number" id="activeContracts">3</div>
+        <div class="stat-label">Active Contracts</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-number" id="pendingPayments">$198,150</div>
+        <div class="stat-label">Pending Payments</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-number" id="completedTrades">12</div>
+        <div class="stat-label">Completed Trades</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-number" id="totalEarnings">$2.45M</div>
+        <div class="stat-label">Total Earnings</div>
       </div>
     </div>
     
-    <div class="dashboard-card">
-      <h3>💳 Wallet</h3>
-      <p><strong>Balance:</strong> 125,000 TGT</p>
-      <p><strong>Pending Payments:</strong> 3 contracts</p>
-      <a href="#" class="btn primary">Manage Wallet</a>
+    <div class="main-grid">
+      <div class="section">
+        <h3>📋 Contract Management</h3>
+        <div style="margin-bottom: 20px;">
+          <button class="btn" onclick="showContractModal()">+ Create New Contract</button>
+          <button class="btn primary" onclick="refreshContracts()">🔄 Refresh</button>
+        </div>
+        <div id="contractsList">
+          <div class="contract-item">
+            <div class="contract-header">
+              <span class="contract-id">CONTRACT-1234567890</span>
+              <span class="status-badge status-pending">Pending Confirmation</span>
+            </div>
+            <div style="color: #94a3b8;">
+              <div><strong>Buyer:</strong> Global Trading Corp</div>
+              <div><strong>Product:</strong> Crude Oil | <strong>Quantity:</strong> 1,000 barrels</div>
+              <div><strong>Price:</strong> $75,500 ($75.50/barrel)</div>
+              <div><strong>Created:</strong> 2 hours ago</div>
+            </div>
+            <div style="margin-top: 10px;">
+              <button class="btn primary" onclick="confirmContract('CONTRACT-1234567890')">Confirm Contract</button>
+              <button class="btn warning" onclick="editContract('CONTRACT-1234567890')">Edit</button>
+            </div>
+          </div>
+          
+          <div class="contract-item">
+            <div class="contract-header">
+              <span class="contract-id">CONTRACT-0987654321</span>
+              <span class="status-badge status-confirmed">Confirmed - Awaiting Documents</span>
+            </div>
+            <div style="color: #94a3b8;">
+              <div><strong>Buyer:</strong> Energy Solutions Inc</div>
+              <div><strong>Product:</strong> Wheat | <strong>Quantity:</strong> 500 tons</div>
+              <div><strong>Price:</strong> $122,650 ($245.30/ton)</div>
+              <div><strong>Confirmed:</strong> 1 day ago</div>
+            </div>
+            <div style="margin-top: 10px;">
+              <button class="btn" onclick="uploadDocuments('CONTRACT-0987654321')">Upload Documents</button>
+              <button class="btn primary" onclick="viewContract('CONTRACT-0987654321')">View Details</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div>
+        <div class="section" style="margin-bottom: 20px;">
+          <h3>🚀 Quick Actions</h3>
+          <button class="btn" style="width: 100%; margin-bottom: 10px;" onclick="showContractModal()">Create Contract</button>
+          <button class="btn primary" style="width: 100%; margin-bottom: 10px;" onclick="showUploadModal()">Upload Documents</button>
+          <button class="btn warning" style="width: 100%; margin-bottom: 10px;" onclick="viewReports()">View Reports</button>
+          <button class="btn" style="width: 100%;" onclick="contactSupport()">Contact Support</button>
+        </div>
+        
+        <div class="section">
+          <h3>💰 Wallet Overview</h3>
+          <div style="background: #0f172a; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+              <span>TGT Balance:</span>
+              <span style="color: #10b981; font-weight: bold;">125,000 TGT</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+              <span>Pending:</span>
+              <span style="color: #f59e0b; font-weight: bold;">$198,150</span>
+            </div>
+            <div style="display: flex; justify-content: space-between;">
+              <span>Available:</span>
+              <span style="color: #10b981; font-weight: bold;">$856,500</span>
+            </div>
+          </div>
+          <button class="btn primary" style="width: 100%;">Manage Wallet</button>
+        </div>
+      </div>
     </div>
   </div>
+  
+  <!-- Contract Creation Modal -->
+  <div id="contractModal" class="modal">
+    <div class="modal-content">
+      <span class="close" onclick="closeModal('contractModal')">&times;</span>
+      <h3 style="color: #10b981;">Create New Contract</h3>
+      <form id="contractForm">
+        <div class="form-group">
+          <label>Buyer Email</label>
+          <input type="email" id="buyerEmail" required>
+        </div>
+        <div class="form-group">
+          <label>Product Type</label>
+          <select id="productType" required>
+            <option value="">Select product...</option>
+            <option value="crude_oil">Crude Oil</option>
+            <option value="wheat">Wheat</option>
+            <option value="copper">Copper</option>
+            <option value="gold">Gold</option>
+            <option value="silver">Silver</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Quantity</label>
+          <input type="number" id="quantity" required>
+        </div>
+        <div class="form-group">
+          <label>Price Per Unit ($)</label>
+          <input type="number" id="pricePerUnit" step="0.01" required>
+        </div>
+        <div class="form-group">
+          <label>Delivery Date</label>
+          <input type="date" id="deliveryDate" required>
+        </div>
+        <button type="submit" class="btn">Create Contract</button>
+      </form>
+    </div>
+  </div>
+  
+  <!-- Document Upload Modal -->
+  <div id="uploadModal" class="modal">
+    <div class="modal-content">
+      <span class="close" onclick="closeModal('uploadModal')">&times;</span>
+      <h3 style="color: #10b981;">Upload Contract Documents</h3>
+      <form id="uploadForm" enctype="multipart/form-data">
+        <div class="form-group">
+          <label>Contract ID</label>
+          <input type="text" id="uploadContractId" required>
+        </div>
+        <div class="form-group">
+          <label>Documents (PDF, DOC, JPG, PNG)</label>
+          <input type="file" id="documents" multiple accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" required>
+        </div>
+        <button type="submit" class="btn">Upload Documents</button>
+      </form>
+    </div>
+  </div>
+  
+  <script>
+    function showContractModal() {
+      document.getElementById('contractModal').style.display = 'block';
+    }
+    
+    function showUploadModal() {
+      document.getElementById('uploadModal').style.display = 'block';
+    }
+    
+    function closeModal(modalId) {
+      document.getElementById(modalId).style.display = 'none';
+    }
+    
+    // Contract form submission
+    document.getElementById('contractForm').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      
+      const formData = {
+        supplierEmail: 'supplier@example.com',
+        buyerEmail: document.getElementById('buyerEmail').value,
+        productType: document.getElementById('productType').value,
+        quantity: parseFloat(document.getElementById('quantity').value),
+        pricePerUnit: parseFloat(document.getElementById('pricePerUnit').value),
+        totalValue: parseFloat(document.getElementById('quantity').value) * parseFloat(document.getElementById('pricePerUnit').value),
+        deliveryDate: document.getElementById('deliveryDate').value,
+        role: 'supplier'
+      };
+      
+      try {
+        const response = await fetch('/api/create-contract', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(formData)
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+          alert('✅ Contract created successfully! ID: ' + result.contractId);
+          closeModal('contractModal');
+          refreshContracts();
+        } else {
+          alert('❌ Error: ' + result.message);
+        }
+      } catch (error) {
+        alert('❌ Error creating contract: ' + error.message);
+      }
+    });
+    
+    async function confirmContract(contractId) {
+      try {
+        const response = await fetch('/api/confirm-contract', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contractId,
+            userEmail: 'supplier@example.com',
+            role: 'supplier'
+          })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+          alert('✅ Contract confirmed successfully!');
+          refreshContracts();
+        } else {
+          alert('❌ Error: ' + result.message);
+        }
+      } catch (error) {
+        alert('❌ Error confirming contract: ' + error.message);
+      }
+    }
+    
+    function uploadDocuments(contractId) {
+      document.getElementById('uploadContractId').value = contractId;
+      showUploadModal();
+    }
+    
+    function refreshContracts() {
+      location.reload();
+    }
+    
+    function viewContract(contractId) {
+      alert('📋 Viewing contract details for: ' + contractId);
+    }
+    
+    function editContract(contractId) {
+      alert('✏️ Editing contract: ' + contractId);
+    }
+    
+    function viewReports() {
+      alert('📊 Reports feature - Integration with your existing analytics');
+    }
+    
+    function contactSupport() {
+      alert('📞 Support: Email us at support@tangent-protocol.com');
+    }
+  </script>
 </body>
 </html>`;
   res.send(html);
