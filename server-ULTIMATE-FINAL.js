@@ -775,6 +775,174 @@ app.get('/login', (req, res) => {
   res.redirect('/sign-in');
 });
 
+// KYC SIGN UP PAGE  
+app.get('/sign-up', (req, res) => {
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sign Up & KYC — Tangent Protocol</title>
+  <style>
+    body { font-family: system-ui; background: #0f172a; color: #f8fafc; margin: 0; padding: 20px; }
+    .container { max-width: 600px; margin: 50px auto; }
+    .header { text-align: center; margin-bottom: 40px; }
+    .header h1 { color: #2563eb; font-size: 2.5rem; margin-bottom: 10px; }
+    .kyc-section { background: #1e293b; padding: 30px; border-radius: 12px; border: 1px solid #334155; margin: 20px 0; }
+    .kyc-section h3 { color: #06b6d4; margin-top: 0; }
+    .form-group { margin: 20px 0; }
+    .form-group label { display: block; margin-bottom: 8px; color: #94a3b8; font-weight: 500; }
+    .form-group input, .form-group select { width: 100%; padding: 12px; background: #0f172a; border: 1px solid #334155; border-radius: 8px; color: #f8fafc; }
+    .company-types { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin: 20px 0; }
+    .company-type { background: #0f172a; padding: 20px; border-radius: 8px; border: 2px solid #334155; cursor: pointer; transition: all 0.3s; }
+    .company-type:hover { border-color: #2563eb; }
+    .company-type.selected { border-color: #2563eb; background: rgba(37, 99, 235, 0.1); }
+    .company-type h4 { color: #06b6d4; margin-top: 0; }
+    .doc-list { color: #94a3b8; font-size: 0.9rem; }
+    .doc-list li { margin: 5px 0; }
+    .btn { display: inline-block; padding: 15px 30px; background: #2563eb; color: white; text-decoration: none; border-radius: 8px; font-weight: 600; margin: 10px 10px 10px 0; cursor: pointer; border: none; font-size: 1rem; }
+    .btn:hover { background: #1d4ed8; }
+    .btn.success { background: #10b981; }
+    .btn.success:hover { background: #059669; }
+    .back-link { display: block; text-align: center; margin-top: 30px; color: #06b6d4; text-decoration: none; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>📝 Account Registration & KYC</h1>
+      <p style="color: #94a3b8;">Create your account and complete verification</p>
+    </div>
+    
+    <form id="kycForm">
+      <div class="kyc-section">
+        <h3>1. Account Information</h3>
+        <div class="form-group">
+          <label for="username">Username</label>
+          <input type="text" id="username" name="username" required>
+        </div>
+        <div class="form-group">
+          <label for="email">Email Address</label>
+          <input type="email" id="email" name="email" required>
+        </div>
+        <div class="form-group">
+          <label for="password">Password</label>
+          <input type="password" id="password" name="password" required>
+        </div>
+        <div class="form-group">
+          <label for="confirm-password">Confirm Password</label>
+          <input type="password" id="confirm-password" name="confirm-password" required>
+        </div>
+      </div>
+      
+      <div class="kyc-section">
+        <h3>2. Company Type Selection</h3>
+        <p style="color: #94a3b8; margin-bottom: 20px;">Select your company type to see required documents</p>
+        
+        <div class="company-types">
+          <div class="company-type" onclick="selectCompanyType('listed')" id="listed-company">
+            <h4>📈 Listed Company</h4>
+            <p style="color: #94a3b8; margin: 10px 0;">Publicly traded corporation</p>
+            <ul class="doc-list">
+              <li>• Certificate of Incorporation</li>
+              <li>• Annual Report (Latest)</li>
+              <li>• Stock Exchange Filing</li>
+              <li>• Board Resolution</li>
+              <li>• Beneficial Ownership (25%+)</li>
+              <li>• Audited Financial Statements</li>
+            </ul>
+          </div>
+          
+          <div class="company-type" onclick="selectCompanyType('private')" id="private-company">
+            <h4>🏢 Private Company</h4>
+            <p style="color: #94a3b8; margin: 10px 0;">Privately held corporation</p>
+            <ul class="doc-list">
+              <li>• Certificate of Incorporation</li>
+              <li>• Articles of Association</li>
+              <li>• Shareholders Register</li>
+              <li>• Directors Register</li>
+              <li>• Beneficial Ownership Info</li>
+              <li>• Financial Statements</li>
+              <li>• Business License</li>
+            </ul>
+          </div>
+        </div>
+        
+        <input type="hidden" id="company-type" name="company-type" required>
+      </div>
+      
+      <div class="kyc-section">
+        <h3>3. Business Information</h3>
+        <div class="form-group">
+          <label for="company-name">Company Name</label>
+          <input type="text" id="company-name" name="company-name" required>
+        </div>
+        <div class="form-group">
+          <label for="registration-number">Registration Number</label>
+          <input type="text" id="registration-number" name="registration-number" required>
+        </div>
+        <div class="form-group">
+          <label for="business-address">Business Address</label>
+          <input type="text" id="business-address" name="business-address" required>
+        </div>
+        <div class="form-group">
+          <label for="role">Your Role</label>
+          <select id="role" name="role" required>
+            <option value="">Select Role</option>
+            <option value="buyer">Buyer</option>
+            <option value="supplier">Supplier</option>
+            <option value="trader">Trader</option>
+            <option value="insurer">Insurer</option>
+          </select>
+        </div>
+      </div>
+      
+      <div style="text-align: center;">
+        <button type="submit" class="btn success">Proceed to Document Upload</button>
+      </div>
+    </form>
+    
+    <a href="/landing-two" class="back-link">← Back to Team Portal</a>
+  </div>
+  
+  <script>
+    let selectedCompanyType = null;
+    
+    function selectCompanyType(type) {
+      // Remove previous selection
+      document.querySelectorAll('.company-type').forEach(el => el.classList.remove('selected'));
+      
+      // Add selection to clicked type
+      document.getElementById(type + '-company').classList.add('selected');
+      document.getElementById('company-type').value = type;
+      selectedCompanyType = type;
+    }
+    
+    document.getElementById('kycForm').addEventListener('submit', function(e) {
+      e.preventDefault();
+      
+      if (!selectedCompanyType) {
+        alert('Please select your company type');
+        return;
+      }
+      
+      const password = document.getElementById('password').value;
+      const confirmPassword = document.getElementById('confirm-password').value;
+      
+      if (password !== confirmPassword) {
+        alert('Passwords do not match');
+        return;
+      }
+      
+      // Proceed to document upload based on company type
+      window.location.href = '/kyc/upload/' + selectedCompanyType + '?email=' + encodeURIComponent(document.getElementById('email').value);
+    });
+  </script>
+</body>
+</html>`;
+  res.send(html);
+});
+
 app.get('/tgt-info', (req, res) => {
   res.send('<h1>💎 TGT Information</h1><p>Coming soon...</p><p><a href="/">← Back</a></p>');
 });
@@ -830,6 +998,337 @@ app.get('/health', (req, res) => {
     memory: process.memoryUsage(),
     timestamp: new Date().toISOString()
   });
+});
+
+// ROLE-BASED DASHBOARDS
+
+// ADMIN DASHBOARD
+app.get('/dashboard/admin', (req, res) => {
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Dashboard — Tangent Protocol</title>
+  <style>
+    body { font-family: system-ui; background: #0f172a; color: #f8fafc; margin: 0; padding: 20px; }
+    .header { background: #1e293b; padding: 20px; border-radius: 12px; margin-bottom: 30px; border: 1px solid #334155; }
+    .header h1 { color: #2563eb; margin: 0; font-size: 2.5rem; }
+    .dashboard-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
+    .dashboard-card { background: #1e293b; padding: 25px; border-radius: 12px; border: 1px solid #334155; }
+    .dashboard-card h3 { color: #06b6d4; margin-top: 0; }
+    .btn { display: inline-block; padding: 12px 24px; background: #2563eb; color: white; text-decoration: none; border-radius: 8px; margin: 8px 8px 8px 0; font-weight: 500; }
+    .btn:hover { background: #1d4ed8; }
+    .btn.secondary { background: #06b6d4; }
+    .field-input { width: 100%; padding: 10px; background: #0f172a; border: 1px solid #334155; border-radius: 6px; color: #f8fafc; margin: 8px 0; }
+    .logout { position: fixed; top: 20px; right: 20px; background: #ef4444; }
+  </style>
+</head>
+<body>
+  <a href="/" class="btn logout">Logout</a>
+  
+  <div class="header">
+    <h1>⚙️ Admin Dashboard</h1>
+    <p>Platform Management & Control Center</p>
+  </div>
+  
+  <div class="dashboard-grid">
+    <div class="dashboard-card">
+      <h3>💰 Platform Configuration</h3>
+      <label>Platform Fee (%)</label>
+      <input type="number" class="field-input" placeholder="2.5" step="0.1">
+      <label>Daily Interest Rate (%)</label>
+      <input type="number" class="field-input" placeholder="0.1" step="0.01">
+      <a href="#" class="btn">Save Settings</a>
+    </div>
+    
+    <div class="dashboard-card">
+      <h3>🚢 Voyage Times</h3>
+      <a href="/admin/voyage-times" class="btn">Manage Voyage Times</a>
+      <a href="/admin/basis-points" class="btn secondary">Basis Points</a>
+    </div>
+    
+    <div class="dashboard-card">
+      <h3>📊 Active Trades</h3>
+      <p>12 Active Contracts</p>
+      <p>5 Pending Confirmations</p>
+      <a href="/admin/trades" class="btn">View All Trades</a>
+    </div>
+    
+    <div class="dashboard-card">
+      <h3>🔍 KYC Management</h3>
+      <p>8 Pending Reviews</p>
+      <p>3 Flagged Applications</p>
+      <a href="/admin/kyc" class="btn">KYC Reports</a>
+    </div>
+    
+    <div class="dashboard-card">
+      <h3>🚨 Alerts & Flags</h3>
+      <p>2 Price Alerts</p>
+      <a href="/admin/flags" class="btn">Review Flags</a>
+    </div>
+    
+    <div class="dashboard-card">
+      <h3>🏛️ Auction Board</h3>
+      <p>3 Items in Auction</p>
+      <a href="/admin/auction" class="btn">Auction Board</a>
+    </div>
+  </div>
+</body>
+</html>`;
+  res.send(html);
+});
+
+// BUYER DASHBOARD  
+app.get('/dashboard/buyer', (req, res) => {
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Buyer Dashboard — Tangent Protocol</title>
+  <style>
+    body { font-family: system-ui; background: #0f172a; color: #f8fafc; margin: 0; padding: 20px; }
+    .header { background: #1e293b; padding: 20px; border-radius: 12px; margin-bottom: 30px; border: 1px solid #334155; }
+    .header h1 { color: #2563eb; margin: 0; font-size: 2.5rem; }
+    .dashboard-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 20px; }
+    .dashboard-card { background: #1e293b; padding: 25px; border-radius: 12px; border: 1px solid #334155; }
+    .dashboard-card h3 { color: #06b6d4; margin-top: 0; }
+    .btn { display: inline-block; padding: 12px 24px; background: #2563eb; color: white; text-decoration: none; border-radius: 8px; margin: 8px 8px 8px 0; font-weight: 500; }
+    .btn:hover { background: #1d4ed8; }
+    .btn.success { background: #10b981; }
+    .field-input { width: 100%; padding: 10px; background: #0f172a; border: 1px solid #334155; border-radius: 6px; color: #f8fafc; margin: 8px 0; }
+    .contract-status { padding: 8px 16px; border-radius: 20px; font-size: 0.9rem; background: #f59e0b; color: #000; }
+    .logout { position: fixed; top: 20px; right: 20px; background: #ef4444; }
+  </style>
+</head>
+<body>
+  <a href="/" class="btn logout">Logout</a>
+  
+  <div class="header">
+    <h1>🛒 Buyer Dashboard</h1>
+    <p>Manage your purchase contracts and deposits</p>
+  </div>
+  
+  <div class="dashboard-grid">
+    <div class="dashboard-card">
+      <h3>📝 Create New Contract</h3>
+      <label>Role: Buyer</label>
+      <input type="text" class="field-input" placeholder="Commodity (e.g., Wheat)">
+      <input type="number" class="field-input" placeholder="Quantity (MT)">
+      <input type="number" class="field-input" placeholder="Price per MT ($)">
+      <input type="email" class="field-input" placeholder="Supplier Email">
+      <input type="text" class="field-input" placeholder="Delivery Terms">
+      
+      <div style="background: #0f172a; padding: 15px; border-radius: 8px; margin: 15px 0;">
+        <h4 style="color: #06b6d4;">Cost Breakdown</h4>
+        <p>Platform Fee (2.5%): $35,063</p>
+        <p>Insurance (0.5%): $7,013</p>
+        <p><strong>Total Deposit: $1,445,976</strong></p>
+      </div>
+      
+      <p style="font-size: 0.9rem; color: #94a3b8;">
+        By submitting, you accept all conditions and fees.
+      </p>
+      
+      <a href="#" class="btn success">Submit Contract</a>
+    </div>
+    
+    <div class="dashboard-card">
+      <h3>📋 My Contracts</h3>
+      
+      <div style="border: 1px solid #334155; border-radius: 8px; padding: 15px; margin: 15px 0;">
+        <h4>Contract #TNG-2024-001</h4>
+        <p>Wheat - 5,000 MT - $280.50/MT</p>
+        <span class="contract-status">Pending Confirmation</span>
+        <div style="margin-top: 15px;">
+          <a href="#" class="btn" style="opacity: 0.5;">Deposit (Waiting)</a>
+        </div>
+      </div>
+      
+      <div style="border: 1px solid #334155; border-radius: 8px; padding: 15px; margin: 15px 0;">
+        <h4>Contract #TNG-2024-002</h4>
+        <p>Corn - 3,000 MT - $195.75/MT</p>
+        <span class="contract-status" style="background: #10b981; color: #fff;">Confirmed</span>
+        <div style="margin-top: 15px;">
+          <a href="#" class="btn success">Make Deposit</a>
+        </div>
+      </div>
+    </div>
+    
+    <div class="dashboard-card">
+      <h3>💳 Wallet</h3>
+      <p><strong>Balance:</strong> 50,000 TGT</p>
+      <p><strong>Active Deposits:</strong> 2,890,000 TGT</p>
+      <a href="#" class="btn">Manage Wallet</a>
+    </div>
+  </div>
+</body>
+</html>`;
+  res.send(html);
+});
+
+// SUPPLIER DASHBOARD
+app.get('/dashboard/supplier', (req, res) => {
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Supplier Dashboard — Tangent Protocol</title>
+  <style>
+    body { font-family: system-ui; background: #0f172a; color: #f8fafc; margin: 0; padding: 20px; }
+    .header { background: #1e293b; padding: 20px; border-radius: 12px; margin-bottom: 30px; border: 1px solid #334155; }
+    .header h1 { color: #10b981; margin: 0; font-size: 2.5rem; }
+    .dashboard-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 20px; }
+    .dashboard-card { background: #1e293b; padding: 25px; border-radius: 12px; border: 1px solid #334155; }
+    .dashboard-card h3 { color: #06b6d4; margin-top: 0; }
+    .btn { display: inline-block; padding: 12px 24px; background: #10b981; color: white; text-decoration: none; border-radius: 8px; margin: 8px 8px 8px 0; font-weight: 500; }
+    .btn:hover { background: #059669; }
+    .btn.primary { background: #2563eb; }
+    .logout { position: fixed; top: 20px; right: 20px; background: #ef4444; }
+  </style>
+</head>
+<body>
+  <a href="/" class="btn logout">Logout</a>
+  
+  <div class="header">
+    <h1>🏭 Supplier Dashboard</h1>
+    <p>Manage your supply contracts and deliveries</p>
+  </div>
+  
+  <div class="dashboard-grid">
+    <div class="dashboard-card">
+      <h3>📧 Contract Confirmations</h3>
+      
+      <div style="border: 1px solid #334155; border-radius: 8px; padding: 15px; margin: 15px 0;">
+        <h4>Contract #TNG-2024-001</h4>
+        <p><strong>Buyer:</strong> International Foods</p>
+        <p><strong>Commodity:</strong> Wheat - 5,000 MT</p>
+        <p><strong>Price:</strong> $280.50/MT</p>
+        <div style="margin-top: 15px;">
+          <a href="#" class="btn">Confirm Contract</a>
+          <a href="#" class="btn" style="background: #ef4444;">Decline</a>
+        </div>
+      </div>
+    </div>
+    
+    <div class="dashboard-card">
+      <h3>📋 Active Contracts</h3>
+      
+      <div style="border: 1px solid #334155; border-radius: 8px; padding: 15px; margin: 15px 0;">
+        <h4>Contract #TNG-2024-003</h4>
+        <p>Soybeans - 2,500 MT - $420.00/MT</p>
+        <p>Status: Ready for Documents</p>
+        <div style="margin-top: 15px;">
+          <a href="#" class="btn primary">Upload Documents</a>
+        </div>
+      </div>
+    </div>
+    
+    <div class="dashboard-card">
+      <h3>💳 Wallet</h3>
+      <p><strong>Balance:</strong> 125,000 TGT</p>
+      <p><strong>Pending Payments:</strong> 3 contracts</p>
+      <a href="#" class="btn primary">Manage Wallet</a>
+    </div>
+  </div>
+</body>
+</html>`;
+  res.send(html);
+});
+
+// TRADER DASHBOARD
+app.get('/dashboard/trader', (req, res) => {
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Trader Dashboard — Tangent Protocol</title>
+  <style>
+    body { font-family: system-ui; background: #0f172a; color: #f8fafc; margin: 0; padding: 20px; }
+    .header { background: #1e293b; padding: 20px; border-radius: 12px; margin-bottom: 30px; border: 1px solid #334155; }
+    .header h1 { color: #f59e0b; margin: 0; font-size: 2.5rem; }
+    .dashboard-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 20px; }
+    .dashboard-card { background: #1e293b; padding: 25px; border-radius: 12px; border: 1px solid #334155; }
+    .dashboard-card h3 { color: #06b6d4; margin-top: 0; }
+    .btn { display: inline-block; padding: 12px 24px; background: #f59e0b; color: white; text-decoration: none; border-radius: 8px; margin: 8px 8px 8px 0; font-weight: 500; }
+    .btn:hover { background: #d97706; }
+    .logout { position: fixed; top: 20px; right: 20px; background: #ef4444; }
+  </style>
+</head>
+<body>
+  <a href="/" class="btn logout">Logout</a>
+  
+  <div class="header">
+    <h1>📈 Trader Dashboard</h1>
+    <p>Manage your buy and sell contracts</p>
+  </div>
+  
+  <div class="dashboard-grid">
+    <div class="dashboard-card">
+      <h3>🔗 Link Contracts</h3>
+      <p>Link your buying and selling contracts for trade execution</p>
+      <a href="#" class="btn">Link Contracts</a>
+    </div>
+    
+    <div class="dashboard-card">
+      <h3>📊 Trading Portfolio</h3>
+      <p>Active Trades: 5</p>
+      <p>Profit/Loss: +$125,000</p>
+      <a href="#" class="btn">View Portfolio</a>
+    </div>
+  </div>
+</body>
+</html>`;
+  res.send(html);
+});
+
+// INSURER DASHBOARD
+app.get('/dashboard/insurer', (req, res) => {
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Insurer Dashboard — Tangent Protocol</title>
+  <style>
+    body { font-family: system-ui; background: #0f172a; color: #f8fafc; margin: 0; padding: 20px; }
+    .header { background: #1e293b; padding: 20px; border-radius: 12px; margin-bottom: 30px; border: 1px solid #334155; }
+    .header h1 { color: #8b5cf6; margin: 0; font-size: 2.5rem; }
+    .dashboard-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 20px; }
+    .dashboard-card { background: #1e293b; padding: 25px; border-radius: 12px; border: 1px solid #334155; }
+    .dashboard-card h3 { color: #06b6d4; margin-top: 0; }
+    .btn { display: inline-block; padding: 12px 24px; background: #8b5cf6; color: white; text-decoration: none; border-radius: 8px; margin: 8px 8px 8px 0; font-weight: 500; }
+    .btn:hover { background: #7c3aed; }
+    .logout { position: fixed; top: 20px; right: 20px; background: #ef4444; }
+  </style>
+</head>
+<body>
+  <a href="/" class="btn logout">Logout</a>
+  
+  <div class="header">
+    <h1>🛡️ Insurer Dashboard</h1>
+    <p>Provide insurance quotes and risk assessment</p>
+  </div>
+  
+  <div class="dashboard-grid">
+    <div class="dashboard-card">
+      <h3>📋 Active Trades</h3>
+      <p>View all platform trades available for insurance</p>
+      <a href="#" class="btn">View Trades</a>
+    </div>
+    
+    <div class="dashboard-card">
+      <h3>💼 Insurance Quotes</h3>
+      <p>Provide quotes for performance insurance</p>
+      <a href="#" class="btn">Create Quote</a>
+    </div>
+  </div>
+</body>
+</html>`;
+  res.send(html);
 });
 
 // Error handling
