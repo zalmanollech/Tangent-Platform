@@ -2,9 +2,9 @@
   "name": "tangent-platform",
   "version": "1.0.0",
   "description": "Tangent Platform - Secure Commodity Trading & Blockchain Finance",
-  "main": "server-FINAL-WORKING.js",
+  "main": "server-ULTIMATE-FINAL.js",
   "scripts": {
-    "start": "node server-FINAL-WORKING.js",
+    "start": "node server-ULTIMATE-FINAL.js",
     "dev": "nodemon server-original.js",
     "test": "jest"
   },
