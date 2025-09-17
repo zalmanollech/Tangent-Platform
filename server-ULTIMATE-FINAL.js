@@ -2077,68 +2077,479 @@ app.get('/dashboard/admin', (req, res) => {
   <title>Admin Dashboard — Tangent Protocol</title>
   <style>
     body { font-family: system-ui; background: #0f172a; color: #f8fafc; margin: 0; padding: 20px; }
-    .header { background: #1e293b; padding: 20px; border-radius: 12px; margin-bottom: 30px; border: 1px solid #334155; }
-    .header h1 { color: #2563eb; margin: 0; font-size: 2.5rem; }
-    .dashboard-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
-    .dashboard-card { background: #1e293b; padding: 25px; border-radius: 12px; border: 1px solid #334155; }
-    .dashboard-card h3 { color: #06b6d4; margin-top: 0; }
-    .btn { display: inline-block; padding: 12px 24px; background: #2563eb; color: white; text-decoration: none; border-radius: 8px; margin: 8px 8px 8px 0; font-weight: 500; }
+    .container { max-width: 1600px; margin: 0 auto; }
+    .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 40px; }
+    .header h1 { color: #2563eb; font-size: 2.5rem; margin: 0; }
+    .admin-info { text-align: right; color: #94a3b8; }
+    .nav { margin-bottom: 30px; padding-bottom: 20px; border-bottom: 1px solid #334155; }
+    .nav a { color: #06b6d4; text-decoration: none; margin-right: 20px; padding: 8px 16px; border-radius: 6px; transition: all 0.3s; }
+    .nav a:hover { background: #06b6d4; color: white; }
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 40px; }
+    .stat-card { background: #1e293b; padding: 20px; border-radius: 12px; border: 1px solid #334155; text-align: center; }
+    .stat-number { font-size: 2rem; font-weight: bold; color: #2563eb; }
+    .stat-label { color: #94a3b8; margin-top: 5px; }
+    .main-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 30px; margin-bottom: 30px; }
+    .section { background: #1e293b; padding: 25px; border-radius: 12px; border: 1px solid #334155; }
+    .section h3 { color: #06b6d4; margin-bottom: 20px; }
+    .btn { display: inline-block; padding: 12px 24px; background: #2563eb; color: white; text-decoration: none; border-radius: 8px; margin: 5px; border: none; cursor: pointer; font-size: 14px; }
     .btn:hover { background: #1d4ed8; }
-    .btn.secondary { background: #06b6d4; }
-    .field-input { width: 100%; padding: 10px; background: #0f172a; border: 1px solid #334155; border-radius: 6px; color: #f8fafc; margin: 8px 0; }
-    .logout { position: fixed; top: 20px; right: 20px; background: #ef4444; }
+    .btn.success { background: #10b981; }
+    .btn.success:hover { background: #059669; }
+    .btn.warning { background: #f59e0b; }
+    .btn.danger { background: #ef4444; }
+    .kyc-item, .flag-item, .auction-item { background: #0f172a; padding: 15px; border-radius: 8px; margin: 10px 0; border: 1px solid #334155; }
+    .item-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+    .flag-badge { padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 500; }
+    .flag-high { background: #ef4444; color: white; }
+    .flag-medium { background: #f59e0b; color: black; }
+    .flag-low { background: #10b981; color: white; }
+    .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; }
+    .modal-content { background: #1e293b; padding: 30px; border-radius: 12px; max-width: 600px; margin: 50px auto; border: 1px solid #334155; }
+    .close { float: right; font-size: 28px; font-weight: bold; color: #94a3b8; cursor: pointer; }
+    .close:hover { color: #f8fafc; }
+    .form-group { margin-bottom: 15px; }
+    .form-group label { display: block; margin-bottom: 5px; color: #f8fafc; font-weight: 500; }
+    .form-group input, .form-group select { width: 100%; padding: 10px; border: 1px solid #334155; border-radius: 6px; background: #0f172a; color: #f8fafc; }
+    .settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
   </style>
 </head>
 <body>
-  <a href="/" class="btn logout">Logout</a>
-  
-  <div class="header">
-    <h1>⚙️ Admin Dashboard</h1>
-    <p>Platform Management & Control Center</p>
+  <div class="container">
+    <div class="nav">
+      <a href="/">Home</a>
+      <a href="/dashboard/admin">Dashboard</a>
+      <a href="#" onclick="showSettingsModal()">Platform Settings</a>
+      <a href="#" onclick="showAuctionModal()">Auction Board</a>
+      <a href="/landing-two">Sign Out</a>
+    </div>
+    
+    <div class="header">
+      <h1>⚙️ Admin Dashboard</h1>
+      <div class="admin-info">
+        <div><strong>Administrator:</strong> System Admin</div>
+        <div><strong>Email:</strong> admin@tangent-protocol.com</div>
+        <div><strong>Access Level:</strong> Full Control</div>
+      </div>
+    </div>
+    
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-number" id="totalUsers">245</div>
+        <div class="stat-label">Total Users</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-number" id="activeContracts">18</div>
+        <div class="stat-label">Active Contracts</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-number" id="flaggedKYC">7</div>
+        <div class="stat-label">Flagged KYC</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-number" id="tgtPoolBalance">$8.2M</div>
+        <div class="stat-label">TGT Pool Balance</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-number" id="totalFees">$125,400</div>
+        <div class="stat-label">Fees Collected</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-number" id="activeAuctions">3</div>
+        <div class="stat-label">Active Auctions</div>
+      </div>
+    </div>
+    
+    <div class="main-grid">
+      <div class="section">
+        <h3>🔍 KYC Management</h3>
+        <div style="margin-bottom: 20px;">
+          <button class="btn" onclick="loadKYCData()">🔄 Refresh</button>
+          <button class="btn success" onclick="approveAllPending()">✅ Approve All Pending</button>
+        </div>
+        <div id="kycList">
+          <div class="kyc-item">
+            <div class="item-header">
+              <span style="font-weight: bold;">KYC-20240917-001</span>
+              <span class="flag-badge flag-high">HIGH RISK</span>
+            </div>
+            <div style="color: #94a3b8; font-size: 0.9rem;">
+              <div><strong>Company:</strong> Global Trading LLC</div>
+              <div><strong>Email:</strong> contact@globaltrading.com</div>
+              <div><strong>Type:</strong> Private Company</div>
+              <div><strong>Flags:</strong> High risk jurisdiction, Suspicious activity</div>
+              <div><strong>Submitted:</strong> 2 hours ago</div>
+            </div>
+            <div style="margin-top: 10px;">
+              <button class="btn success" onclick="approveKYC('KYC-20240917-001')">Approve</button>
+              <button class="btn danger" onclick="rejectKYC('KYC-20240917-001')">Reject</button>
+              <button class="btn" onclick="reviewKYC('KYC-20240917-001')">Review Documents</button>
+            </div>
+          </div>
+          
+          <div class="kyc-item">
+            <div class="item-header">
+              <span style="font-weight: bold;">KYC-20240917-002</span>
+              <span class="flag-badge flag-medium">MEDIUM RISK</span>
+            </div>
+            <div style="color: #94a3b8; font-size: 0.9rem;">
+              <div><strong>Company:</strong> Energy Solutions Inc</div>
+              <div><strong>Email:</strong> admin@energysol.com</div>
+              <div><strong>Type:</strong> Listed Company</div>
+              <div><strong>Flags:</strong> Missing beneficial ownership info</div>
+              <div><strong>Submitted:</strong> 1 day ago</div>
+            </div>
+            <div style="margin-top: 10px;">
+              <button class="btn success" onclick="approveKYC('KYC-20240917-002')">Approve</button>
+              <button class="btn danger" onclick="rejectKYC('KYC-20240917-002')">Reject</button>
+              <button class="btn" onclick="reviewKYC('KYC-20240917-002')">Review Documents</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="section">
+        <h3>🚨 Price Flags & Alerts</h3>
+        <div style="margin-bottom: 20px;">
+          <button class="btn" onclick="loadPriceFlags()">🔄 Refresh</button>
+          <button class="btn warning" onclick="showSettingsModal()">⚙️ Adjust Basis Points</button>
+        </div>
+        <div id="flagsList">
+          <div class="flag-item">
+            <div class="item-header">
+              <span style="font-weight: bold;">CONTRACT-1234567890</span>
+              <span class="flag-badge flag-high">PRICE ALERT</span>
+            </div>
+            <div style="color: #94a3b8; font-size: 0.9rem;">
+              <div><strong>Product:</strong> Crude Oil</div>
+              <div><strong>Contract Price:</strong> $82.50/barrel</div>
+              <div><strong>Market Price:</strong> $75.50/barrel</div>
+              <div><strong>Discrepancy:</strong> +9.3% above market</div>
+              <div><strong>Flagged:</strong> 30 minutes ago</div>
+            </div>
+            <div style="margin-top: 10px;">
+              <button class="btn" onclick="approvePrice('CONTRACT-1234567890')">Approve Price</button>
+              <button class="btn warning" onclick="investigatePrice('CONTRACT-1234567890')">Investigate</button>
+            </div>
+          </div>
+          
+          <div class="flag-item">
+            <div class="item-header">
+              <span style="font-weight: bold;">CONTRACT-0987654321</span>
+              <span class="flag-badge flag-medium">MANUAL REVIEW</span>
+            </div>
+            <div style="color: #94a3b8; font-size: 0.9rem;">
+              <div><strong>Product:</strong> Gold</div>
+              <div><strong>Contract Price:</strong> $2,150.00/oz</div>
+              <div><strong>Market Price:</strong> $1,985.40/oz</div>
+              <div><strong>Discrepancy:</strong> +8.3% above market</div>
+              <div><strong>Flagged:</strong> 1 hour ago</div>
+            </div>
+            <div style="margin-top: 10px;">
+              <button class="btn" onclick="approvePrice('CONTRACT-0987654321')">Approve Price</button>
+              <button class="btn warning" onclick="investigatePrice('CONTRACT-0987654321')">Investigate</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="section">
+        <h3>🏺 Auction Management</h3>
+        <div style="margin-bottom: 20px;">
+          <button class="btn" onclick="loadAuctions()">🔄 Refresh</button>
+          <button class="btn success" onclick="showAuctionModal()">🏺 Auction Board</button>
+        </div>
+        <div id="auctionsList">
+          <div class="auction-item">
+            <div class="item-header">
+              <span style="font-weight: bold;">AUCTION-001</span>
+              <span style="color: #10b981; font-weight: bold;">ACTIVE</span>
+            </div>
+            <div style="color: #94a3b8; font-size: 0.9rem;">
+              <div><strong>Contract:</strong> CONTRACT-555666777</div>
+              <div><strong>Product:</strong> Wheat - 1,500 tons</div>
+              <div><strong>Starting Price:</strong> $367,950</div>
+              <div><strong>Current Bid:</strong> $354,200</div>
+              <div><strong>Bidders:</strong> 4</div>
+              <div><strong>Time Left:</strong> 18h 32m</div>
+            </div>
+            <div style="margin-top: 10px;">
+              <button class="btn" onclick="viewAuction('AUCTION-001')">View Auction</button>
+              <button class="btn warning" onclick="extendAuction('AUCTION-001')">Extend Time</button>
+            </div>
+          </div>
+          
+          <div class="auction-item">
+            <div class="item-header">
+              <span style="font-weight: bold;">AUCTION-002</span>
+              <span style="color: #f59e0b; font-weight: bold;">ENDING SOON</span>
+            </div>
+            <div style="color: #94a3b8; font-size: 0.9rem;">
+              <div><strong>Contract:</strong> CONTRACT-888999000</div>
+              <div><strong>Product:</strong> Copper - 25 tons</div>
+              <div><strong>Starting Price:</strong> $211,405</div>
+              <div><strong>Current Bid:</strong> $198,750</div>
+              <div><strong>Bidders:</strong> 7</div>
+              <div><strong>Time Left:</strong> 2h 15m</div>
+            </div>
+            <div style="margin-top: 10px;">
+              <button class="btn" onclick="viewAuction('AUCTION-002')">View Auction</button>
+              <button class="btn danger" onclick="closeAuction('AUCTION-002')">Close Early</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="section">
+      <h3>⚙️ Platform Controls</h3>
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+        <button class="btn" onclick="showSettingsModal()">Platform Settings</button>
+        <button class="btn success" onclick="loadDashboardData()">Refresh Data</button>
+        <button class="btn warning" onclick="generateReports()">Generate Reports</button>
+        <button class="btn" onclick="systemBackup()">System Backup</button>
+        <button class="btn danger" onclick="emergencyStop()">Emergency Stop</button>
+        <button class="btn" onclick="contactSupport()">Support</button>
+      </div>
+    </div>
   </div>
   
-  <div class="dashboard-grid">
-    <div class="dashboard-card">
-      <h3>💰 Platform Configuration</h3>
-      <label>Platform Fee (%)</label>
-      <input type="number" class="field-input" placeholder="2.5" step="0.1">
-      <label>Daily Interest Rate (%)</label>
-      <input type="number" class="field-input" placeholder="0.1" step="0.01">
-      <a href="#" class="btn">Save Settings</a>
-    </div>
-    
-    <div class="dashboard-card">
-      <h3>🚢 Voyage Times</h3>
-      <a href="/admin/voyage-times" class="btn">Manage Voyage Times</a>
-      <a href="/admin/basis-points" class="btn secondary">Basis Points</a>
-    </div>
-    
-    <div class="dashboard-card">
-      <h3>📊 Active Trades</h3>
-      <p>12 Active Contracts</p>
-      <p>5 Pending Confirmations</p>
-      <a href="/admin/trades" class="btn">View All Trades</a>
-    </div>
-    
-    <div class="dashboard-card">
-      <h3>🔍 KYC Management</h3>
-      <p>8 Pending Reviews</p>
-      <p>3 Flagged Applications</p>
-      <a href="/admin/kyc" class="btn">KYC Reports</a>
-    </div>
-    
-    <div class="dashboard-card">
-      <h3>🚨 Alerts & Flags</h3>
-      <p>2 Price Alerts</p>
-      <a href="/admin/flags" class="btn">Review Flags</a>
-    </div>
-    
-    <div class="dashboard-card">
-      <h3>🏛️ Auction Board</h3>
-      <p>3 Items in Auction</p>
-      <a href="/admin/auction" class="btn">Auction Board</a>
+  <!-- Platform Settings Modal -->
+  <div id="settingsModal" class="modal">
+    <div class="modal-content">
+      <span class="close" onclick="closeModal('settingsModal')">&times;</span>
+      <h3 style="color: #2563eb;">Platform Settings</h3>
+      <form id="settingsForm">
+        <div class="settings-grid">
+          <div>
+            <h4 style="color: #06b6d4;">Fee Settings</h4>
+            <div class="form-group">
+              <label>Platform Fee (%)</label>
+              <input type="number" id="platformFee" value="2.5" step="0.1" required>
+            </div>
+            <div class="form-group">
+              <label>Daily Interest Rate (%)</label>
+              <input type="number" id="dailyInterest" value="0.1" step="0.01" required>
+            </div>
+            <div class="form-group">
+              <label>Insurance Rate (%)</label>
+              <input type="number" id="insuranceRate" value="0.5" step="0.1" required>
+            </div>
+          </div>
+          
+          <div>
+            <h4 style="color: #06b6d4;">Market Settings</h4>
+            <div class="form-group">
+              <label>Default Voyage Time (days)</label>
+              <input type="number" id="voyageTime" value="30" required>
+            </div>
+            <div class="form-group">
+              <label>Price Alert Threshold (%)</label>
+              <input type="number" id="basisPoints" value="5" step="0.5" required>
+            </div>
+            <div class="form-group">
+              <label>Auction Duration (hours)</label>
+              <input type="number" id="auctionDuration" value="72" required>
+            </div>
+          </div>
+        </div>
+        <button type="submit" class="btn success">Save Settings</button>
+      </form>
     </div>
   </div>
+  
+  <!-- Auction Board Modal -->
+  <div id="auctionModal" class="modal">
+    <div class="modal-content" style="max-width: 1000px;">
+      <span class="close" onclick="closeModal('auctionModal')">&times;</span>
+      <h3 style="color: #2563eb;">🏺 Live Auction Board</h3>
+      <div style="background: #0f172a; padding: 20px; border-radius: 8px; margin: 20px 0;">
+        <h4 style="color: #f59e0b; margin-top: 0;">Featured Auctions</h4>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+          <div style="background: #1e293b; padding: 15px; border-radius: 8px;">
+            <h5 style="color: #06b6d4; margin-top: 0;">AUCTION-001: Wheat Contract</h5>
+            <div style="color: #94a3b8; margin-bottom: 10px;">Current Bid: $354,200</div>
+            <div style="color: #94a3b8; margin-bottom: 10px;">Time Left: 18h 32m</div>
+            <button class="btn" onclick="placeBid('AUCTION-001')">Place Bid</button>
+          </div>
+          <div style="background: #1e293b; padding: 15px; border-radius: 8px;">
+            <h5 style="color: #06b6d4; margin-top: 0;">AUCTION-002: Copper Contract</h5>
+            <div style="color: #94a3b8; margin-bottom: 10px;">Current Bid: $198,750</div>
+            <div style="color: #94a3b8; margin-bottom: 10px;">Time Left: 2h 15m</div>
+            <button class="btn warning" onclick="placeBid('AUCTION-002')">Place Bid</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <script>
+    // Load dashboard data
+    async function loadDashboardData() {
+      try {
+        const response = await fetch('/api/admin/dashboard-data');
+        const data = await response.json();
+        
+        document.getElementById('totalUsers').textContent = data.activeTrades || '18';
+        document.getElementById('activeContracts').textContent = data.activeTrades || '18';
+        document.getElementById('flaggedKYC').textContent = data.flaggedKYC || '7';
+        document.getElementById('tgtPoolBalance').textContent = '$' + (data.tgtPoolBalance || 8200000).toLocaleString();
+        document.getElementById('totalFees').textContent = '$' + (data.totalFeesCollected || 125400).toLocaleString();
+        document.getElementById('activeAuctions').textContent = data.activeAuctions || '3';
+      } catch (error) {
+        console.error('Error loading dashboard data:', error);
+      }
+    }
+    
+    function showSettingsModal() {
+      document.getElementById('settingsModal').style.display = 'block';
+    }
+    
+    function showAuctionModal() {
+      document.getElementById('auctionModal').style.display = 'block';
+    }
+    
+    function closeModal(modalId) {
+      document.getElementById(modalId).style.display = 'none';
+    }
+    
+    // Settings form submission
+    document.getElementById('settingsForm').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      
+      const formData = {
+        platformFee: parseFloat(document.getElementById('platformFee').value),
+        dailyInterest: parseFloat(document.getElementById('dailyInterest').value),
+        insuranceRate: parseFloat(document.getElementById('insuranceRate').value),
+        voyageTime: parseInt(document.getElementById('voyageTime').value),
+        basisPoints: parseFloat(document.getElementById('basisPoints').value)
+      };
+      
+      try {
+        const response = await fetch('/api/admin/update-settings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(formData)
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+          alert('✅ Platform settings updated successfully!');
+          closeModal('settingsModal');
+        } else {
+          alert('❌ Error: ' + result.message);
+        }
+      } catch (error) {
+        alert('❌ Error updating settings: ' + error.message);
+      }
+    });
+    
+    async function approveKYC(kycId) {
+      try {
+        const response = await fetch('/api/admin/approve-kyc', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ kycId })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+          alert('✅ KYC approved successfully! Wallet created: ' + result.walletAddress);
+          loadKYCData();
+        } else {
+          alert('❌ Error: ' + result.message);
+        }
+      } catch (error) {
+        alert('❌ Error approving KYC: ' + error.message);
+      }
+    }
+    
+    function rejectKYC(kycId) {
+      if (confirm('Are you sure you want to reject this KYC application?')) {
+        alert('❌ KYC application rejected: ' + kycId);
+        loadKYCData();
+      }
+    }
+    
+    function reviewKYC(kycId) {
+      alert('📋 Opening document review for: ' + kycId);
+    }
+    
+    function approvePrice(contractId) {
+      alert('✅ Price approved for contract: ' + contractId);
+      loadPriceFlags();
+    }
+    
+    function investigatePrice(contractId) {
+      alert('🔍 Opening investigation for contract: ' + contractId);
+    }
+    
+    function viewAuction(auctionId) {
+      alert('🏺 Opening auction details for: ' + auctionId);
+    }
+    
+    function extendAuction(auctionId) {
+      alert('⏰ Extending auction time for: ' + auctionId);
+    }
+    
+    function closeAuction(auctionId) {
+      if (confirm('Are you sure you want to close this auction early?')) {
+        alert('🔚 Auction closed: ' + auctionId);
+        loadAuctions();
+      }
+    }
+    
+    function placeBid(auctionId) {
+      const bidAmount = prompt('Enter your bid amount:');
+      if (bidAmount) {
+        alert('🔨 Bid placed: $' + parseFloat(bidAmount).toLocaleString() + ' for ' + auctionId);
+      }
+    }
+    
+    function loadKYCData() {
+      console.log('Refreshing KYC data...');
+    }
+    
+    function loadPriceFlags() {
+      console.log('Refreshing price flags...');
+    }
+    
+    function loadAuctions() {
+      console.log('Refreshing auctions...');
+    }
+    
+    function approveAllPending() {
+      if (confirm('Are you sure you want to approve all pending KYC applications?')) {
+        alert('✅ All pending KYC applications approved!');
+        loadKYCData();
+      }
+    }
+    
+    function generateReports() {
+      alert('📊 Generating comprehensive platform reports...');
+    }
+    
+    function systemBackup() {
+      alert('💾 Starting system backup...');
+    }
+    
+    function emergencyStop() {
+      if (confirm('⚠️ EMERGENCY STOP - This will halt all platform operations. Are you sure?')) {
+        alert('🛑 Emergency stop activated!');
+      }
+    }
+    
+    function contactSupport() {
+      alert('📞 Admin Support: Email us at admin-support@tangent-protocol.com');
+    }
+    
+    // Load dashboard data on page load
+    loadDashboardData();
+    
+    // Auto-refresh every 30 seconds
+    setInterval(loadDashboardData, 30000);
+  </script>
 </body>
 </html>`;
   res.send(html);
