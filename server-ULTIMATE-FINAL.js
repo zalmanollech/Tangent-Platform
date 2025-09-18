@@ -18,11 +18,11 @@ app.use('/admin', (req, res, next) => {
   next();
 });
 
-// Add CSP headers for Google Analytics
+// Add CSP headers for Google Analytics and inline scripts
 app.use((req, res, next) => {
   res.setHeader('Content-Security-Policy', [
     "default-src 'self'",
-    "script-src 'self' https://www.googletagmanager.com",
+    "script-src 'self' 'unsafe-inline' https://www.googletagmanager.com",
     "connect-src 'self' https://www.google-analytics.com https://www.googletagmanager.com",
     "img-src 'self' data: https://www.google-analytics.com",
     "style-src 'self' 'unsafe-inline'",
