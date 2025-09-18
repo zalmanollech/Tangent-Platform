@@ -1986,7 +1986,7 @@ app.get('/login', (req, res) => {
           // Store token and redirect to portal
           localStorage.setItem('tangent_token', data.token);
           localStorage.setItem('tangent_user', JSON.stringify(data.user));
-          window.location.href = '/portal';
+          window.location.href = '/portal?token=' + data.token;
         } else {
           errorDiv.textContent = data.message || 'Login failed';
         }
