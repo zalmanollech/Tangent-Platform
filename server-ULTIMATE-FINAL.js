@@ -957,14 +957,14 @@ app.post('/auth/login', (req, res) => {
   const { email, password } = req.body;
   
   // Simple hardcoded check for demo purposes
-  if (email === 'admin@tangent-protocol.com' && password === 'admin123') {
+  if (email === 'admin@tangent-protocol.com' && password === 'knddyt2247') {
     res.json({ 
       success: true, 
       message: 'Login successful',
       token: 'demo-token-123',
       user: { email, role: 'admin' }
     });
-  } else if (email === 'dudiollech@gmail.com' && password === 'admin123') {
+  } else if (email === 'dudiollech@gmail.com' && password === 'knddyt66') {
     res.json({ 
       success: true, 
       message: 'Login successful',
