@@ -1,66 +1,82 @@
-import { useEffect, useState } from 'react'
+// src/wallet.js
+// Browser-compatible wallet utilities
+const { useState, useEffect } = React;
 
-// Sepolia chain id
-const SEPOLIA_CHAIN_ID_HEX = '0xaa36a7'
-const NETWORK_NAME = process.env.REACT_APP_NETWORK || 'sepolia'
-const RPC_URL = process.env.REACT_APP_RPC || 'https://sepolia.infura.io/v3/YOUR_KEY'
-
-export function useWallet(){
-  const hasProvider = typeof window !== 'undefined' && !!window.ethereum
-  const [account, setAccount] = useState(null)
-  const [chainId, setChainId] = useState(null)
-  const [error, setError] = useState(null)
-
-  useEffect(() => {
-    if (!hasProvider) return
-    window.ethereum.request({ method: 'eth_chainId' }).then(id => setChainId(id)).catch(()=>{})
-    window.ethereum.request({ method: 'eth_accounts' }).then(accs => setAccount(accs?.[0] || null)).catch(()=>{})
-    const onAccountsChanged = accs => setAccount(accs?.[0] || null)
-    const onChainChanged = id => setChainId(id)
-    window.ethereum.on('accountsChanged', onAccountsChanged)
-    window.ethereum.on('chainChanged', onChainChanged)
-    return () => {
-      try {
-        window.ethereum.removeListener('accountsChanged', onAccountsChanged)
-        window.ethereum.removeListener('chainChanged', onChainChanged)
-      } catch {}
-    }
-  }, [hasProvider])
-
-  const isSepolia = (chainId || '').toLowerCase() === SEPOLIA_CHAIN_ID_HEX
-  const shortAccount = account ? account.slice(0,6) + '…' + account.slice(-4) : null
-
-  async function connect(){
-    setError(null)
-    if (!hasProvider) { setError('MetaMask not found'); return }
-    try {
-      const accs = await window.ethereum.request({ method: 'eth_requestAccounts' })
-      setAccount(accs?.[0] || null)
-      const id = await window.ethereum.request({ method: 'eth_chainId' })
-      if ((id || '').toLowerCase() !== SEPOLIA_CHAIN_ID_HEX){
-        try {
-          await window.ethereum.request({
-            method: 'wallet_switchEthereumChain',
-            params: [{ chainId: SEPOLIA_CHAIN_ID_HEX }],
-          })
-        } catch (err){
-          if (err && err.code === 4902){
-            await window.ethereum.request({
-              method: 'wallet_addEthereumChain',
-              params: [{
-                chainId: SEPOLIA_CHAIN_ID_HEX,
-                chainName: 'Sepolia',
-                rpcUrls: [RPC_URL],
-                nativeCurrency: { name: 'SepoliaETH', symbol: 'ETH', decimals: 18 },
-              }]
-            })
-          } else { throw err }
+// Mock Web3 provider for development
+const mockProvider = {
+    request: async ({ method, params }) => {
+        console.log('Mock wallet request:', method, params);
+        
+        if (method === 'eth_requestAccounts') {
+            return ['0x1234567890123456789012345678901234567890'];
         }
-      }
-      const newId = await window.ethereum.request({ method: 'eth_chainId' })
-      setChainId(newId)
-    } catch (e){ setError(e?.message || String(e)) }
-  }
+        if (method === 'eth_chainId') {
+            return '0xaa36a7'; // Sepolia testnet
+        }
+        if (method === 'wallet_switchEthereumChain') {
+            return true;
+        }
+        return null;
+    }
+};
 
-  return { hasProvider, account, shortAccount, chainId, isSepolia, error, connect, networkName: NETWORK_NAME }
+// Wallet hook implementation
+function useWallet() {
+    const [hasProvider, setHasProvider] = useState(false);
+    const [account, setAccount] = useState(null);
+    const [chainId, setChainId] = useState(null);
+    const [error, setError] = useState(null);
+
+    useEffect(() => {
+        // Check for MetaMask
+        if (window.ethereum) {
+            setHasProvider(true);
+        } else {
+            console.log('MetaMask not detected, using mock wallet');
+            setHasProvider(true); // Use mock for development
+        }
+    }, []);
+
+    const connect = async () => {
+        try {
+            setError(null);
+            const provider = window.ethereum || mockProvider;
+            
+            const accounts = await provider.request({
+                method: 'eth_requestAccounts'
+            });
+            
+            if (accounts.length > 0) {
+                setAccount(accounts[0]);
+                
+                const chainId = await provider.request({
+                    method: 'eth_chainId'
+                });
+                setChainId(chainId);
+            }
+        } catch (err) {
+            console.error('Wallet connection error:', err);
+            setError(err.message || 'Failed to connect wallet');
+        }
+    };
+
+    const shortAccount = account ? 
+        `${account.slice(0, 6)}...${account.slice(-4)}` : null;
+    
+    const isSepolia = chainId === '0xaa36a7';
+    const networkName = isSepolia ? 'Sepolia' : chainId ? 'Unknown' : null;
+
+    return {
+        hasProvider,
+        account,
+        shortAccount,
+        isSepolia,
+        error,
+        connect,
+        networkName,
+        chainId
+    };
 }
+
+// Make useWallet available globally
+window.useWallet = useWallet;

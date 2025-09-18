@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tangent Protocol - Production Platform</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <style>
+        body { margin: 0; font-family: system-ui, Arial, sans-serif; }
+        .badge { 
+            background: #22c55e; 
+            color: white; 
+            padding: 2px 8px; 
+            border-radius: 12px; 
+            font-size: 12px; 
+        }
+        .link { 
+            background: none; 
+            border: none; 
+            color: #666; 
+            cursor: pointer; 
+            text-decoration: underline; 
+        }
+        .link:hover { color: #333; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+    
+    <!-- Load wallet utilities first -->
+    <script type="text/babel" src="/wallet.js"></script>
+    
+    <!-- Load all components -->
+    <script type="text/babel" src="/DocumentPanel.js"></script>
+    <script type="text/babel" src="/BuyerPanel.jsx"></script>
+    <script type="text/babel" src="/components/EnhancedDocumentPanel.jsx"></script>
+    <script type="text/babel" src="/components/EnhancedDocumentManager.jsx"></script>
+    <script type="text/babel" src="/components/BlockchainIntegration.jsx"></script>
+    <script type="text/babel" src="/components/ComplianceDashboard.jsx"></script>
+    <script type="text/babel" src="/components/AIDocumentDashboard.jsx"></script>
+    <script type="text/babel" src="/components/WalletConnect.jsx"></script>
+    <script type="text/babel" src="/components/EnhancedWalletConnect.jsx"></script>
+    <script type="text/babel" src="/components/WalletStatus.jsx"></script>
+    <script type="text/babel" src="/components/TransactionStatus.jsx"></script>
+    <script type="text/babel" src="/components/TradeManager.jsx"></script>
+    
+    <!-- Load main app and router -->
+    <script type="text/babel" src="/App.jsx"></script>
+    <script type="text/babel" src="/DashboardRouter.jsx"></script>
+    
+    <!-- Initialize app with routing -->
+    <script type="text/babel">
+        const { createRoot } = ReactDOM;
+        const root = createRoot(document.getElementById('root'));
+        
+        // Use DashboardRouter for all routes
+        root.render(React.createElement(window.DashboardRouter));
+    </script>
+</body>
+</html>

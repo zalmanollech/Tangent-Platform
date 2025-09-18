@@ -1,394 +1,292 @@
-import React, { useState, useEffect } from 'react';
-import { useTransactions } from '../hooks/useTransactions';
-import { useWallet } from '../wallet';
+// src/components/TradeManager.jsx
+// Browser-compatible React component
+const { useState, useEffect } = React;
 
 function TradeManager({ userRole }) {
-  const { account, isSepolia } = useWallet();
-  const {
-    loading,
-    error,
-    txHash,
-    createTrade,
-    buyerDeposit,
-    acceptDocsAndIssueKey,
-    payFinal,
-    claimDocs,
-    getTGTBalance,
-    getTGTAllowance,
-    approveTGT,
-    formatUnits,
-    parseUnits,
-    hashString,
-    TGT_ADDRESS,
-    ESCROW_ADDRESS
-  } = useTransactions();
+    const [contracts, setContracts] = useState([]);
+    const [loading, setLoading] = useState(false);
+    const [newContract, setNewContract] = useState({
+        supplierEmail: '',
+        productDetails: '',
+        quantity: '',
+        pricePerUnit: '',
+        deliveryDate: ''
+    });
 
-  const [trades, setTrades] = useState([]);
-  const [tgtBalance, setTgtBalance] = useState('0');
-  const [allowance, setAllowance] = useState('0');
-  const [newTrade, setNewTrade] = useState({
-    supplier: '',
-    buyer: '',
-    amount: '',
-    depositPct: 30,
-    financePct: 70
-  });
-  const [activeTrade, setActiveTrade] = useState(null);
-  const [tradeKey, setTradeKey] = useState('');
+    useEffect(() => {
+        loadContracts();
+    }, []);
 
-  useEffect(() => {
-    if (account && isSepolia) {
-      loadBalances();
-    }
-  }, [account, isSepolia]);
+    const loadContracts = async () => {
+        setLoading(true);
+        try {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                console.log('No auth token found');
+                setLoading(false);
+                return;
+            }
 
-  const loadBalances = async () => {
-    try {
-      const balance = await getTGTBalance(account);
-      const allowanceAmount = await getTGTAllowance(account, ESCROW_ADDRESS);
-      setTgtBalance(formatUnits(balance, 2)); // TGT has 2 decimals
-      setAllowance(formatUnits(allowanceAmount, 2));
-    } catch (err) {
-      console.error('Failed to load balances:', err);
-    }
-  };
+            const response = await fetch('/api/contracts', {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                setContracts(data.contracts || []);
+            }
+        } catch (error) {
+            console.error('Failed to load contracts:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
 
-  const handleCreateTrade = async () => {
-    if (!newTrade.supplier || !newTrade.buyer || !newTrade.amount) {
-      alert('Please fill in all fields');
-      return;
-    }
+    const createContract = async () => {
+        if (!newContract.supplierEmail || !newContract.productDetails) {
+            alert('Please fill in required fields');
+            return;
+        }
 
-    try {
-      const amount = parseUnits(newTrade.amount, 2);
-      await createTrade(
-        newTrade.supplier,
-        newTrade.buyer,
-        amount,
-        newTrade.depositPct,
-        newTrade.financePct
-      );
-      setNewTrade({ supplier: '', buyer: '', amount: '', depositPct: 30, financePct: 70 });
-      loadBalances();
-    } catch (err) {
-      console.error('Failed to create trade:', err);
-    }
-  };
+        setLoading(true);
+        try {
+            const token = localStorage.getItem('token');
+            const response = await fetch('/api/contracts/create', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    ...newContract,
+                    totalValue: parseFloat(newContract.quantity) * parseFloat(newContract.pricePerUnit)
+                })
+            });
 
-  const handleBuyerDeposit = async (tradeId, amount) => {
-    try {
-      // First approve if needed
-      const requiredAmount = parseUnits(amount, 2);
-      const currentAllowance = await getTGTAllowance(account, ESCROW_ADDRESS);
-      
-      if (currentAllowance < requiredAmount) {
-        await approveTGT(ESCROW_ADDRESS, requiredAmount);
-        await loadBalances();
-      }
+            if (response.ok) {
+                setNewContract({
+                    supplierEmail: '',
+                    productDetails: '',
+                    quantity: '',
+                    pricePerUnit: '',
+                    deliveryDate: ''
+                });
+                loadContracts();
+                alert('Contract created successfully!');
+            } else {
+                const error = await response.json();
+                alert(`Failed to create contract: ${error.error}`);
+            }
+        } catch (error) {
+            console.error('Contract creation failed:', error);
+            alert('Failed to create contract');
+        } finally {
+            setLoading(false);
+        }
+    };
 
-      await buyerDeposit(tradeId, requiredAmount);
-      loadBalances();
-    } catch (err) {
-      console.error('Failed to make deposit:', err);
-    }
-  };
+    return React.createElement('div', {
+        style: {
+            background: 'white',
+            border: '1px solid #e5e5e5',
+            borderRadius: '16px',
+            padding: '2rem',
+            margin: '1rem 0'
+        }
+    }, [
+        React.createElement('h2', {
+            key: 'title',
+            style: { margin: '0 0 1.5rem', color: '#333' }
+        }, `📈 ${userRole} Trade Manager`),
 
-  const handleIssueKey = async (tradeId) => {
-    if (!tradeKey) {
-      alert('Please enter a trade key');
-      return;
-    }
+        // Create new contract (for buyers)
+        userRole === 'Buyer' && React.createElement('div', {
+            key: 'create-contract',
+            style: {
+                background: '#f8f9fa',
+                padding: '1.5rem',
+                borderRadius: '12px',
+                marginBottom: '2rem'
+            }
+        }, [
+            React.createElement('h3', {
+                key: 'create-title',
+                style: { margin: '0 0 1rem', color: '#333' }
+            }, '➕ Create New Contract'),
+            
+            React.createElement('div', {
+                key: 'form',
+                style: {
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                    gap: '1rem',
+                    marginBottom: '1rem'
+                }
+            }, [
+                React.createElement('input', {
+                    key: 'supplier-email',
+                    type: 'email',
+                    placeholder: 'Supplier Email',
+                    value: newContract.supplierEmail,
+                    onChange: (e) => setNewContract({...newContract, supplierEmail: e.target.value}),
+                    style: {
+                        padding: '10px',
+                        border: '1px solid #ddd',
+                        borderRadius: '8px',
+                        fontSize: '1rem'
+                    }
+                }),
+                React.createElement('input', {
+                    key: 'product',
+                    type: 'text',
+                    placeholder: 'Product Details',
+                    value: newContract.productDetails,
+                    onChange: (e) => setNewContract({...newContract, productDetails: e.target.value}),
+                    style: {
+                        padding: '10px',
+                        border: '1px solid #ddd',
+                        borderRadius: '8px',
+                        fontSize: '1rem'
+                    }
+                }),
+                React.createElement('input', {
+                    key: 'quantity',
+                    type: 'number',
+                    placeholder: 'Quantity',
+                    value: newContract.quantity,
+                    onChange: (e) => setNewContract({...newContract, quantity: e.target.value}),
+                    style: {
+                        padding: '10px',
+                        border: '1px solid #ddd',
+                        borderRadius: '8px',
+                        fontSize: '1rem'
+                    }
+                }),
+                React.createElement('input', {
+                    key: 'price',
+                    type: 'number',
+                    step: '0.01',
+                    placeholder: 'Price per Unit',
+                    value: newContract.pricePerUnit,
+                    onChange: (e) => setNewContract({...newContract, pricePerUnit: e.target.value}),
+                    style: {
+                        padding: '10px',
+                        border: '1px solid #ddd',
+                        borderRadius: '8px',
+                        fontSize: '1rem'
+                    }
+                }),
+                React.createElement('input', {
+                    key: 'delivery-date',
+                    type: 'date',
+                    value: newContract.deliveryDate,
+                    onChange: (e) => setNewContract({...newContract, deliveryDate: e.target.value}),
+                    style: {
+                        padding: '10px',
+                        border: '1px solid #ddd',
+                        borderRadius: '8px',
+                        fontSize: '1rem'
+                    }
+                })
+            ]),
+            
+            React.createElement('button', {
+                key: 'create-btn',
+                onClick: createContract,
+                disabled: loading,
+                style: {
+                    background: loading ? '#9ca3af' : '#3b82f6',
+                    color: 'white',
+                    border: 'none',
+                    padding: '12px 24px',
+                    borderRadius: '8px',
+                    fontSize: '1rem',
+                    fontWeight: '600',
+                    cursor: loading ? 'not-allowed' : 'pointer'
+                }
+            }, loading ? '⏳ Creating...' : '✅ Create Contract')
+        ]),
 
-    try {
-      const keyHash = hashString(tradeKey);
-      const finalDeadline = Math.floor(Date.now() / 1000) + (14 * 24 * 60 * 60); // 14 days
-      await acceptDocsAndIssueKey(tradeId, keyHash, finalDeadline);
-      setTradeKey('');
-    } catch (err) {
-      console.error('Failed to issue key:', err);
-    }
-  };
-
-  const handlePayFinal = async (tradeId, amount) => {
-    try {
-      const finalAmount = parseUnits(amount, 2);
-      await payFinal(tradeId, finalAmount);
-      loadBalances();
-    } catch (err) {
-      console.error('Failed to pay final amount:', err);
-    }
-  };
-
-  const handleClaimDocs = async (tradeId, key) => {
-    try {
-      await claimDocs(tradeId, key);
-    } catch (err) {
-      console.error('Failed to claim docs:', err);
-    }
-  };
-
-  if (!account || !isSepolia) {
-    return (
-      <div style={{ 
-        padding: 20, 
-        textAlign: 'center', 
-        color: '#666',
-        background: '#f8f9fa',
-        borderRadius: 12,
-        border: '1px solid #e9ecef'
-      }}>
-        Please connect your wallet and switch to Sepolia network to manage trades.
-      </div>
-    );
-  }
-
-  return (
-    <div style={{ display: 'grid', gap: 20 }}>
-      {/* Balance Display */}
-      <div style={{ 
-        background: '#f8f9fa', 
-        border: '1px solid #e9ecef', 
-        borderRadius: 12, 
-        padding: 16 
-      }}>
-        <h3 style={{ margin: '0 0 12px 0' }}>Wallet Status</h3>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          <div>
-            <div style={{ fontSize: 12, color: '#666' }}>TGT Balance</div>
-            <div style={{ fontWeight: 600 }}>{tgtBalance} TGT</div>
-          </div>
-          <div>
-            <div style={{ fontSize: 12, color: '#666' }}>Escrow Allowance</div>
-            <div style={{ fontWeight: 600 }}>{allowance} TGT</div>
-          </div>
-        </div>
-      </div>
-
-      {/* Create Trade (Admin only) */}
-      {userRole === 'admin' && (
-        <div style={{ 
-          background: 'white', 
-          border: '1px solid #e9ecef', 
-          borderRadius: 12, 
-          padding: 16 
-        }}>
-          <h3 style={{ margin: '0 0 16px 0' }}>Create New Trade</h3>
-          <div style={{ display: 'grid', gap: 12 }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-              <input
-                type="text"
-                placeholder="Supplier Address"
-                value={newTrade.supplier}
-                onChange={(e) => setNewTrade({ ...newTrade, supplier: e.target.value })}
-                style={{ padding: 10, border: '1px solid #ddd', borderRadius: 8 }}
-              />
-              <input
-                type="text"
-                placeholder="Buyer Address"
-                value={newTrade.buyer}
-                onChange={(e) => setNewTrade({ ...newTrade, buyer: e.target.value })}
-                style={{ padding: 10, border: '1px solid #ddd', borderRadius: 8 }}
-              />
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
-              <input
-                type="number"
-                placeholder="Trade Amount (TGT)"
-                value={newTrade.amount}
-                onChange={(e) => setNewTrade({ ...newTrade, amount: e.target.value })}
-                style={{ padding: 10, border: '1px solid #ddd', borderRadius: 8 }}
-              />
-              <input
-                type="number"
-                placeholder="Deposit %"
-                value={newTrade.depositPct}
-                onChange={(e) => setNewTrade({ ...newTrade, depositPct: parseInt(e.target.value) })}
-                style={{ padding: 10, border: '1px solid #ddd', borderRadius: 8 }}
-              />
-              <input
-                type="number"
-                placeholder="Finance %"
-                value={newTrade.financePct}
-                onChange={(e) => setNewTrade({ ...newTrade, financePct: parseInt(e.target.value) })}
-                style={{ padding: 10, border: '1px solid #ddd', borderRadius: 8 }}
-              />
-            </div>
-            <button
-              onClick={handleCreateTrade}
-              disabled={loading}
-              style={{
-                padding: '12px 24px',
-                background: '#111',
-                color: 'white',
-                border: 'none',
-                borderRadius: 8,
-                cursor: 'pointer',
-                fontWeight: 500
-              }}
-            >
-              {loading ? 'Creating...' : 'Create Trade'}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Trade Actions */}
-      <div style={{ 
-        background: 'white', 
-        border: '1px solid #e9ecef', 
-        borderRadius: 12, 
-        padding: 16 
-      }}>
-        <h3 style={{ margin: '0 0 16px 0' }}>Trade Actions</h3>
-        
-        {/* Buyer Deposit */}
-        {userRole === 'buyer' && (
-          <div style={{ marginBottom: 16 }}>
-            <h4>Make Deposit</h4>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              <input
-                type="number"
-                placeholder="Trade ID"
-                style={{ padding: 8, border: '1px solid #ddd', borderRadius: 6, width: 100 }}
-              />
-              <input
-                type="number"
-                placeholder="Amount (TGT)"
-                style={{ padding: 8, border: '1px solid #ddd', borderRadius: 6, width: 120 }}
-              />
-              <button
-                onClick={() => handleBuyerDeposit(1, '100')} // Demo values
-                disabled={loading}
-                style={{
-                  padding: '8px 16px',
-                  background: '#16a34a',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: 6,
-                  cursor: 'pointer'
-                }}
-              >
-                Deposit
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Supplier Issue Key */}
-        {userRole === 'supplier' && (
-          <div style={{ marginBottom: 16 }}>
-            <h4>Issue Trade Key</h4>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              <input
-                type="number"
-                placeholder="Trade ID"
-                style={{ padding: 8, border: '1px solid #ddd', borderRadius: 6, width: 100 }}
-              />
-              <input
-                type="text"
-                placeholder="Trade Key"
-                value={tradeKey}
-                onChange={(e) => setTradeKey(e.target.value)}
-                style={{ padding: 8, border: '1px solid #ddd', borderRadius: 6, flex: 1 }}
-              />
-              <button
-                onClick={() => handleIssueKey(1)} // Demo trade ID
-                disabled={loading}
-                style={{
-                  padding: '8px 16px',
-                  background: '#3b82f6',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: 6,
-                  cursor: 'pointer'
-                }}
-              >
-                Issue Key
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Final Payment */}
-        {userRole === 'buyer' && (
-          <div style={{ marginBottom: 16 }}>
-            <h4>Pay Final Amount</h4>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              <input
-                type="number"
-                placeholder="Trade ID"
-                style={{ padding: 8, border: '1px solid #ddd', borderRadius: 6, width: 100 }}
-              />
-              <input
-                type="number"
-                placeholder="Amount (TGT)"
-                style={{ padding: 8, border: '1px solid #ddd', borderRadius: 6, width: 120 }}
-              />
-              <button
-                onClick={() => handlePayFinal(1, '70')} // Demo values
-                disabled={loading}
-                style={{
-                  padding: '8px 16px',
-                  background: '#dc2626',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: 6,
-                  cursor: 'pointer'
-                }}
-              >
-                Pay Final
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Claim Documents */}
-        <div>
-          <h4>Claim Documents</h4>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <input
-              type="number"
-              placeholder="Trade ID"
-              style={{ padding: 8, border: '1px solid #ddd', borderRadius: 6, width: 100 }}
-            />
-            <input
-              type="text"
-              placeholder="Trade Key"
-              style={{ padding: 8, border: '1px solid #ddd', borderRadius: 6, flex: 1 }}
-            />
-            <button
-              onClick={() => handleClaimDocs(1, 'demo-key')} // Demo values
-              disabled={loading}
-              style={{
-                padding: '8px 16px',
-                background: '#7c3aed',
-                color: 'white',
-                border: 'none',
-                borderRadius: 6,
-                cursor: 'pointer'
-              }}
-            >
-              Claim Docs
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Contract Addresses */}
-      <div style={{ 
-        background: '#f8f9fa', 
-        border: '1px solid #e9ecef', 
-        borderRadius: 12, 
-        padding: 16 
-      }}>
-        <h3 style={{ margin: '0 0 12px 0' }}>Contract Addresses</h3>
-        <div style={{ fontSize: 12, color: '#666' }}>
-          <div>TGT Token: <code>{TGT_ADDRESS}</code></div>
-          <div>Escrow: <code>{ESCROW_ADDRESS}</code></div>
-        </div>
-      </div>
-    </div>
-  );
+        // Contracts list
+        React.createElement('div', {
+            key: 'contracts-section'
+        }, [
+            React.createElement('h3', {
+                key: 'contracts-title',
+                style: { margin: '0 0 1rem', color: '#333' }
+            }, '📋 Your Contracts'),
+            
+            loading && React.createElement('div', {
+                key: 'loading',
+                style: { textAlign: 'center', padding: '2rem', color: '#666' }
+            }, '🔄 Loading contracts...'),
+            
+            !loading && contracts.length === 0 && React.createElement('div', {
+                key: 'no-contracts',
+                style: {
+                    textAlign: 'center',
+                    padding: '2rem',
+                    color: '#666',
+                    background: '#f8f9fa',
+                    borderRadius: '8px'
+                }
+            }, '📝 No contracts found. Create your first contract above!'),
+            
+            !loading && contracts.length > 0 && React.createElement('div', {
+                key: 'contracts-grid',
+                style: {
+                    display: 'grid',
+                    gap: '1rem'
+                }
+            }, contracts.map(contract => 
+                React.createElement('div', {
+                    key: contract.id,
+                    style: {
+                        background: '#f0f9ff',
+                        border: '1px solid #bae6fd',
+                        borderRadius: '8px',
+                        padding: '1rem'
+                    }
+                }, [
+                    React.createElement('div', {
+                        key: 'header',
+                        style: {
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            marginBottom: '0.5rem'
+                        }
+                    }, [
+                        React.createElement('strong', {
+                            key: 'product',
+                            style: { color: '#0c4a6e' }
+                        }, contract.productDetails),
+                        React.createElement('span', {
+                            key: 'status',
+                            style: {
+                                background: contract.status === 'completed' ? '#22c55e' : '#f59e0b',
+                                color: 'white',
+                                padding: '2px 8px',
+                                borderRadius: '4px',
+                                fontSize: '0.8rem'
+                            }
+                        }, contract.status)
+                    ]),
+                    React.createElement('div', {
+                        key: 'details',
+                        style: { color: '#075985', fontSize: '0.9rem' }
+                    }, [
+                        React.createElement('div', { key: 'value' }, `💰 Value: $${contract.totalValue}`),
+                        React.createElement('div', { key: 'role' }, `👤 Role: ${contract.userRole}`),
+                        React.createElement('div', { key: 'created' }, `📅 Created: ${new Date(contract.createdAt).toLocaleDateString()}`)
+                    ])
+                ])
+            ))
+        ])
+    ]);
 }
 
-export default TradeManager;
+// Make TradeManager available globally
+window.TradeManager = TradeManager;

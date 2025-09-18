@@ -1,17 +1,6 @@
 // src/App.jsx
-import React, { useState } from 'react'
-import { useWallet } from './wallet'
-import DocumentPanel from './DocumentPanel'
-import EnhancedDocumentPanel from './components/EnhancedDocumentPanel'
-import EnhancedDocumentManager from './components/EnhancedDocumentManager'
-import BlockchainIntegration from './components/BlockchainIntegration'
-import ComplianceDashboard from './components/ComplianceDashboard'
-import AIDocumentDashboard from './components/AIDocumentDashboard'
-import WalletConnect from './components/WalletConnect'
-import EnhancedWalletConnect from './components/EnhancedWalletConnect'
-import WalletStatus from './components/WalletStatus'
-import TransactionStatus from './components/TransactionStatus'
-import TradeManager from './components/TradeManager'
+// Browser-compatible React (no ES6 imports)
+const { useState } = React;
 
 function Btn({ children, onClick, primary }) {
   const base = {
@@ -133,9 +122,15 @@ function Trader() {
   )
 }
 
-export default function App(){
-  const { hasProvider, account, shortAccount, isSepolia, error, connect, networkName } = useWallet()
-  const [role, setRole] = useState('Supplier')
+function App({ initialRole = 'Supplier' }){
+  // Use wallet functionality if available, otherwise mock it
+  const walletData = window.useWallet ? window.useWallet() : {
+    hasProvider: false, account: null, shortAccount: null, isSepolia: false, 
+    error: null, connect: () => {}, networkName: 'Unknown'
+  };
+  const { hasProvider, account, shortAccount, isSepolia, error, connect, networkName } = walletData;
+  
+  const [role, setRole] = useState(initialRole)
   const [authOpen, setAuthOpen] = useState(false)
   const [user, setUser] = useState(null)
   const [showTxStatus, setShowTxStatus] = useState(false)
@@ -151,7 +146,7 @@ export default function App(){
             <span className="badge">{user ? 'Signed in' : 'Guest'}</span>
           </div>
           <div style={{display:'flex', gap:12, alignItems:'center'}}>
-            <WalletStatus />
+            {window.WalletStatus ? React.createElement(window.WalletStatus) : null}
             {user ? (
               <Btn onClick={()=>setUser(null)}>Sign out</Btn>
             ) : (
@@ -203,7 +198,8 @@ export default function App(){
                 <p style={{margin: '0 0 16px', color: '#92400e', fontSize: 14}}>
                   Connect your MetaMask wallet to access blockchain features and manage trades on-chain.
                 </p>
-                <EnhancedWalletConnect />
+                {window.EnhancedWalletConnect ? React.createElement(window.EnhancedWalletConnect) : 
+                 React.createElement('button', { onClick: () => alert('Please install MetaMask') }, 'Connect Wallet')}
               </div>
             </div>
           )}
@@ -224,7 +220,8 @@ export default function App(){
                 <p style={{margin: '0 0 16px', color: '#991b1b', fontSize: 14}}>
                   Please switch to Sepolia testnet to use blockchain features.
                 </p>
-                <EnhancedWalletConnect />
+                {window.EnhancedWalletConnect ? React.createElement(window.EnhancedWalletConnect) : 
+                 React.createElement('button', { onClick: () => alert('Please install MetaMask') }, 'Connect Wallet')}
               </div>
             </div>
           )}
@@ -232,7 +229,8 @@ export default function App(){
           {/* Blockchain Trade Manager */}
           {account && isSepolia && (
             <div style={{marginBottom: 24}}>
-              <TradeManager userRole={role} />
+              {window.TradeManager ? React.createElement(window.TradeManager, { userRole: role }) : 
+               React.createElement('div', {}, 'Loading Trade Manager...')}
             </div>
           )}
           
@@ -283,17 +281,16 @@ export default function App(){
       )}
 
       {/* Transaction Status */}
-      {showTxStatus && (
-        <TransactionStatus 
-          loading={false}
-          error={error}
-          txHash={null}
-          onClose={() => setShowTxStatus(false)}
-        />
-      )}
+      {showTxStatus && window.TransactionStatus && React.createElement(window.TransactionStatus, {
+        loading: false,
+        error: error,
+        txHash: null,
+        onClose: () => setShowTxStatus(false)
+      })}
     </div>
   )
 }
 
-
+// Make App available globally
+window.App = App;
 
