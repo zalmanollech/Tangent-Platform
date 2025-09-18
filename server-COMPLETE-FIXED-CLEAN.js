@@ -83,7 +83,7 @@ function sendEmail(to, subject, message, type = 'info') {
     status: 'sent'
   };
   
-  console.log(`  EMAIL SENT [${type.toUpperCase()}]:`, emailLog);
+  console.log(`≡ EMAIL SENT [${type.toUpperCase()}]:`, emailLog);
   
   // In production, integrate with SendGrid, AWS SES, or similar
   return Promise.resolve(emailLog);
@@ -104,7 +104,7 @@ function createTGTWallet(userEmail) {
   // Store wallet info
   users.set(userEmail + '_wallet', walletInfo);
   
-  console.log('  WALLET CREATED:', walletInfo);
+  console.log('≡░ WALLET CREATED:', walletInfo);
   return walletInfo;
 }
 
@@ -128,7 +128,7 @@ const tgtPool = {
     this.deposits.set(depositId, deposit);
     this.totalBalance += amount;
     
-    console.log('  TGT POOL DEPOSIT:', deposit);
+    console.log('≡░ TGT POOL DEPOSIT:', deposit);
     return deposit;
   },
   
@@ -150,7 +150,7 @@ const tgtPool = {
     this.withdrawals.set(withdrawalId, withdrawal);
     this.totalBalance -= amount;
     
-    console.log('  TGT POOL WITHDRAWAL:', withdrawal);
+    console.log('≡╕ TGT POOL WITHDRAWAL:', withdrawal);
     return withdrawal;
   }
 };
@@ -166,7 +166,7 @@ app.post('/api/admin/update-settings', (req, res) => {
     if (voyageTime !== undefined) platformSettings.voyageTime = voyageTime;
     if (basisPoints !== undefined) platformSettings.basisPoints = basisPoints;
     
-    console.log('  ADMIN SETTINGS UPDATED:', platformSettings);
+    console.log('∩╕ ADMIN SETTINGS UPDATED:', platformSettings);
     
     res.json({ 
       success: true, 
@@ -252,7 +252,7 @@ app.post('/api/admin/approve-kyc', async (req, res) => {
       'success'
     );
     
-    console.log('  ADMIN KYC APPROVAL:', kycId);
+    console.log('£ ADMIN KYC APPROVAL:', kycId);
     
     res.json({ 
       success: true, 
@@ -342,7 +342,7 @@ app.post('/api/create-dual-contract', async (req, res) => {
       'action'
     );
     
-    console.log('  DUAL CONTRACT CREATED:', tradeData);
+    console.log('≡ DUAL CONTRACT CREATED:', tradeData);
     
     res.json({ 
       success: true, 
@@ -473,7 +473,7 @@ app.get('/', (req, res) => {
       border-bottom: none; 
     }
     .features-list li::before { 
-      content: "  "; 
+      content: "£ "; 
       color: #10b981; 
       font-weight: bold; 
       margin-right: 10px; 
@@ -556,7 +556,7 @@ app.get('/', (req, res) => {
     <div class="main-content">
       <!-- Platform Section -->
       <div class="platform-section">
-        <h2>  Trading Platform</h2>
+        <h2>≡ Trading Platform</h2>
         <p class="section-description">
           Experience next-generation trading with institutional-grade tools, real-time analytics, and seamless execution.
         </p>
@@ -574,7 +574,7 @@ app.get('/', (req, res) => {
       
       <!-- TGT Stablecoin Section -->
       <div class="tgt-section">
-        <h2>  TGT Stablecoin</h2>
+        <h2>≡ TGT Stablecoin</h2>
         <p class="section-description">
           Discover the benefits of our innovative TGT stablecoin - designed for stability, transparency, and seamless integration.
         </p>
@@ -602,22 +602,22 @@ app.get('/', (req, res) => {
     </div>
     
     <div class="status">
-      <h3>  Platform Status</h3>
-      <p><strong>Server:</strong>   Online and Running</p>
-      <p><strong>DNS Routing:</strong>   Working</p>
-      <p><strong>SSL Certificates:</strong>   Active</p>
+      <h3>≡ Platform Status</h3>
+      <p><strong>Server:</strong> £ Online and Running</p>
+      <p><strong>DNS Routing:</strong> £ Working</p>
+      <p><strong>SSL Certificates:</strong> £ Active</p>
       <p><strong>Version:</strong> TANGENT-RESTORE-24-ULTIMATE-${Date.now()}</p>
       <p><strong>Last Updated:</strong> ${new Date().toISOString()}</p>
     </div>
     
     <div style="margin-top: 30px; text-align: center;">
-      <a href="/test" style="color: #2563eb; text-decoration: none; margin: 0 15px;">  Test Server</a>
-      <a href="/health" style="color: #2563eb; text-decoration: none; margin: 0 15px;">  Health Check</a>
+      <a href="/test" style="color: #2563eb; text-decoration: none; margin: 0 15px;">≡¬ Test Server</a>
+      <a href="/health" style="color: #2563eb; text-decoration: none; margin: 0 15px;">≡ Health Check</a>
     </div>
     
     <!-- Team Access Section -->
     <div style="text-align: center; margin-top: 40px; padding: 30px; border-top: 1px solid #334155; background: rgba(6, 182, 212, 0.05);">
-      <p style="color: #94a3b8; font-size: 1rem; margin-bottom: 15px;">  Team members & new users</p>
+      <p style="color: #94a3b8; font-size: 1rem; margin-bottom: 15px;">≡ Team members & new users</p>
       <a href="/landing-two" style="color: #06b6d4; text-decoration: none; font-size: 1rem; padding: 12px 24px; border: 2px solid #06b6d4; border-radius: 8px; transition: all 0.3s; font-weight: 500;" onmouseover="this.style.background='#06b6d4'; this.style.color='white'; this.style.transform='translateY(-2px)'" onmouseout="this.style.background='transparent'; this.style.color='#06b6d4'; this.style.transform='translateY(0)'">Team Portal</a>
     </div>
   </div>
@@ -654,12 +654,12 @@ app.get('/landing-two', (req, res) => {
 </head>
 <body>
   <div class="container">
-    <h1>  Team Access Portal</h1>
+    <h1>≡ Team Access Portal</h1>
     <p style="color: #94a3b8; font-size: 1.2rem; margin-bottom: 40px;">Choose your access method</p>
     
     <div class="access-grid">
       <div class="access-card">
-        <h2>  Sign In</h2>
+        <h2>≡ Sign In</h2>
         <p>Existing team members and registered users</p>
         <p>Access your dashboard based on your role:</p>
         <ul style="text-align: left; color: #94a3b8; margin: 20px 0;">
@@ -673,7 +673,7 @@ app.get('/landing-two', (req, res) => {
       </div>
       
       <div class="access-card">
-        <h2>  Sign Up</h2>
+        <h2>≡¥ Sign Up</h2>
         <p>New users requiring KYC verification</p>
         <p>Complete registration process:</p>
         <ul style="text-align: left; color: #94a3b8; margin: 20px 0;">
@@ -688,7 +688,7 @@ app.get('/landing-two', (req, res) => {
     </div>
     
     <div style="margin-top: 40px;">
-      <a href="/" style="color: #06b6d4; text-decoration: none;">  Back to Landing Page</a>
+      <a href="/" style="color: #06b6d4; text-decoration: none;"> Back to Landing Page</a>
     </div>
   </div>
 </body>
@@ -725,7 +725,7 @@ app.get('/sign-in', (req, res) => {
 </head>
 <body>
   <div class="container">
-    <h1>  Sign In</h1>
+    <h1>≡ Sign In</h1>
     <form id="signInForm">
       <div class="form-group">
         <label for="email">Email</label>
@@ -740,7 +740,7 @@ app.get('/sign-in', (req, res) => {
       <div id="success" class="success"></div>
     </form>
     <div class="back-link">
-      <a href="/landing-two">  Back to Team Access</a>
+      <a href="/landing-two"> Back to Team Access</a>
     </div>
   </div>
   
@@ -816,7 +816,7 @@ app.get('/sign-up', (req, res) => {
 </head>
 <body>
   <div class="container">
-    <h1>  Create Account</h1>
+    <h1>≡¥ Create Account</h1>
     <p style="text-align: center; color: #94a3b8; margin-bottom: 30px;">Create your account and start the KYC verification process</p>
     
     <form id="signUpForm">
@@ -874,7 +874,7 @@ app.get('/sign-up', (req, res) => {
     </form>
     
     <div class="back-link">
-      <a href="/landing-two">  Back to Team Access</a>
+      <a href="/landing-two"> Back to Team Access</a>
     </div>
   </div>
   
@@ -957,7 +957,7 @@ app.get('/kyc', (req, res) => {
 </head>
 <body>
   <div class="container">
-    <h1>  KYC Verification</h1>
+    <h1>≡ KYC Verification</h1>
     <p>Complete your Know Your Customer verification to access the platform</p>
     
     <div class="card">
@@ -1003,7 +1003,7 @@ app.get('/kyc', (req, res) => {
     </form>
     
     <div style="margin-top: 40px; text-align: center;">
-      <button class="btn ghost" onclick="window.location.href='/landing-two'">  Back to Team Access</button>
+      <button class="btn ghost" onclick="window.location.href='/landing-two'"> Back to Team Access</button>
     </div>
   </div>
   
@@ -1019,7 +1019,7 @@ app.get('/kyc', (req, res) => {
         });
         const result = await response.json();
         if (response.ok && result.success) {
-          alert("  KYC application submitted successfully! You will be notified once verification is complete.");
+          alert("≡ë KYC application submitted successfully! You will be notified once verification is complete.");
           window.location.href = "/dashboard";
         } else {
           alert("KYC submission failed: " + (result.message || "Unknown error"));
@@ -1071,49 +1071,49 @@ app.get('/dashboard', (req, res) => {
       <a href="/">Landing Page</a>
     </div>
     
-    <h1>  Tangent Protocol Dashboard</h1>
-    <div class="status">  Welcome to your dashboard</div>
+    <h1>≡ Tangent Protocol Dashboard</h1>
+    <div class="status">£ Welcome to your dashboard</div>
     
     <div class="grid">
       <div class="card">
-        <h3>  Upload Transactions</h3>
+        <h3>≡╝ Upload Transactions</h3>
         <p>Upload and manage your trading transactions</p>
         <button class="btn" onclick="alert('Trading interface coming soon!')">Upload Transactions</button>
       </div>
       
       <div class="card">
-        <h3>  Make Payments</h3>
+        <h3>≡│ Make Payments</h3>
         <p>Process payments and manage your account</p>
         <button class="btn" onclick="alert('Payment system coming soon!')">Make Payment</button>
       </div>
       
       <div class="card">
-        <h3>  Trading Platform</h3>
+        <h3>≡ê Trading Platform</h3>
         <p>Access the trading interface</p>
         <button class="btn" onclick="alert('Trading platform coming soon!')">Launch Trading</button>
       </div>
       
       <div class="card">
-        <h3>  Portfolio</h3>
+        <h3>≡ï Portfolio</h3>
         <p>View your portfolio and positions</p>
         <button class="btn" onclick="alert('Portfolio view coming soon!')">View Portfolio</button>
       </div>
       
       <div class="card">
-        <h3>  KYC Status</h3>
+        <h3>≡ KYC Status</h3>
         <p>Check your verification status</p>
         <button class="btn" onclick="window.location.href='/kyc'">Check KYC Status</button>
       </div>
       
       <div class="card">
-        <h3>  Settings</h3>
+        <h3>∩╕ Settings</h3>
         <p>Manage your account settings</p>
         <button class="btn" onclick="window.location.href='/admin'">Open Settings</button>
       </div>
     </div>
     
     <div style="margin-top: 40px; text-align: center;">
-      <button class="btn ghost" onclick="window.location.href='/'">  Back to Landing Page</button>
+      <button class="btn ghost" onclick="window.location.href='/'"> Back to Landing Page</button>
     </div>
   </div>
 </body>
@@ -1166,7 +1166,7 @@ app.get('/sign-up', (req, res) => {
 <body>
   <div class="container">
     <div class="header">
-      <h1>  Account Registration & KYC</h1>
+      <h1>≡¥ Account Registration & KYC</h1>
       <p style="color: #94a3b8;">Create your account and complete verification</p>
     </div>
     
@@ -1197,29 +1197,29 @@ app.get('/sign-up', (req, res) => {
         
         <div class="company-types">
           <div class="company-type" onclick="selectCompanyType('listed')" id="listed-company">
-            <h4>  Listed Company</h4>
+            <h4>≡ê Listed Company</h4>
             <p style="color: #94a3b8; margin: 10px 0;">Publicly traded corporation</p>
             <ul class="doc-list">
-              <li>  Certificate of Incorporation</li>
-              <li>  Annual Report (Latest)</li>
-              <li>  Stock Exchange Filing</li>
-              <li>  Board Resolution</li>
-              <li>  Beneficial Ownership (25%+)</li>
-              <li>  Audited Financial Statements</li>
+              <li>ó Certificate of Incorporation</li>
+              <li>ó Annual Report (Latest)</li>
+              <li>ó Stock Exchange Filing</li>
+              <li>ó Board Resolution</li>
+              <li>ó Beneficial Ownership (25%+)</li>
+              <li>ó Audited Financial Statements</li>
             </ul>
           </div>
           
           <div class="company-type" onclick="selectCompanyType('private')" id="private-company">
-            <h4>  Private Company</h4>
+            <h4>≡ó Private Company</h4>
             <p style="color: #94a3b8; margin: 10px 0;">Privately held corporation</p>
             <ul class="doc-list">
-              <li>  Certificate of Incorporation</li>
-              <li>  Articles of Association</li>
-              <li>  Shareholders Register</li>
-              <li>  Directors Register</li>
-              <li>  Beneficial Ownership Info</li>
-              <li>  Financial Statements</li>
-              <li>  Business License</li>
+              <li>ó Certificate of Incorporation</li>
+              <li>ó Articles of Association</li>
+              <li>ó Shareholders Register</li>
+              <li>ó Directors Register</li>
+              <li>ó Beneficial Ownership Info</li>
+              <li>ó Financial Statements</li>
+              <li>ó Business License</li>
             </ul>
           </div>
         </div>
@@ -1258,7 +1258,7 @@ app.get('/sign-up', (req, res) => {
       </div>
     </form>
     
-    <a href="/landing-two" class="back-link">  Back to Team Portal</a>
+    <a href="/landing-two" class="back-link"> Back to Team Portal</a>
   </div>
   
   <script>
@@ -1338,7 +1338,7 @@ app.get('/kyc/upload/:companyType', (req, res) => {
 <body>
   <div class="container">
     <div class="header">
-      <h1>  Document Upload</h1>
+      <h1>≡ Document Upload</h1>
       <p style="color: #94a3b8;">Upload required documents for ${companyType === 'listed' ? 'Listed Company' : 'Private Company'} verification</p>
       <p style="color: #06b6d4;"><strong>Email:</strong> ${email}</p>
     </div>
@@ -1560,15 +1560,15 @@ app.post('/api/submit-kyc', async (req, res) => {
 });
 
 app.get('/tgt-info', (req, res) => {
-  res.send('<h1>  TGT Information</h1><p>Coming soon...</p><p><a href="/">  Back</a></p>');
+  res.send('<h1>≡ TGT Information</h1><p>Coming soon...</p><p><a href="/"> Back</a></p>');
 });
 
 app.get('/portal', (req, res) => {
-  res.send('<h1>  Portal Home</h1><p><a href="/dashboard">Go to Dashboard</a></p>');
+  res.send('<h1>≡ Portal Home</h1><p><a href="/dashboard">Go to Dashboard</a></p>');
 });
 
 app.get('/admin', (req, res) => {
-  res.send('<h1>  Admin Panel</h1><p><a href="/dashboard">Go to Dashboard</a></p>');
+  res.send('<h1>∩╕ Admin Panel</h1><p><a href="/dashboard">Go to Dashboard</a></p>');
 });
 
 // CONTRACT MANAGEMENT SYSTEM
@@ -1636,7 +1636,7 @@ app.post('/api/create-contract', async (req, res) => {
       );
     }
     
-    console.log('  CONTRACT CREATED:', contract);
+    console.log('≡ï CONTRACT CREATED:', contract);
     
     res.json({ 
       success: true, 
@@ -1686,7 +1686,7 @@ app.post('/api/confirm-contract', async (req, res) => {
       );
     }
     
-    console.log('  CONTRACT CONFIRMED:', contract);
+    console.log('£ CONTRACT CONFIRMED:', contract);
     
     res.json({ 
       success: true, 
@@ -1735,7 +1735,7 @@ app.post('/api/make-deposit', async (req, res) => {
       'action'
     );
     
-    console.log('  DEPOSIT COMPLETED:', { contractId, deposit });
+    console.log('≡░ DEPOSIT COMPLETED:', { contractId, deposit });
     
     res.json({ 
       success: true, 
@@ -1792,7 +1792,7 @@ app.post('/api/upload-contract-documents', upload.array('documents', 10), async 
       'action'
     );
     
-    console.log('  CONTRACT DOCUMENTS UPLOADED:', { contractId, documentCount: documentPaths.length });
+    console.log('≡ CONTRACT DOCUMENTS UPLOADED:', { contractId, documentCount: documentPaths.length });
     
     res.json({ 
       success: true, 
@@ -1878,7 +1878,7 @@ app.post('/api/release-payment', async (req, res) => {
       'info'
     );
     
-    console.log('  PAYMENT RELEASED:', { contractId, finalAmount, totalFees });
+    console.log('≡╕ PAYMENT RELEASED:', { contractId, finalAmount, totalFees });
     
     res.json({ 
       success: true, 
@@ -1942,7 +1942,7 @@ function triggerAuction(contractId, contract) {
   
   auctions.set(auctionId, auction);
   
-  console.log('  AUCTION TRIGGERED:', auctionId);
+  console.log('≡║ AUCTION TRIGGERED:', auctionId);
   
   // Notify all relevant parties
   sendEmail(
@@ -1983,7 +1983,7 @@ app.post('/api/place-bid', async (req, res) => {
     auction.currentBid = bidAmount;
     auction.leadingBidder = bidderEmail;
     
-    console.log('  BID PLACED:', { auctionId, bidderEmail, bidAmount });
+    console.log('≡¿ BID PLACED:', { auctionId, bidderEmail, bidAmount });
     
     res.json({ 
       success: true, 
@@ -2093,13 +2093,13 @@ app.get('/dashboard/admin', (req, res) => {
   <a href="/" class="btn logout">Logout</a>
   
   <div class="header">
-    <h1>  Admin Dashboard</h1>
+    <h1>∩╕ Admin Dashboard</h1>
     <p>Platform Management & Control Center</p>
   </div>
   
   <div class="dashboard-grid">
     <div class="dashboard-card">
-      <h3>  Platform Configuration</h3>
+      <h3>≡░ Platform Configuration</h3>
       <label>Platform Fee (%)</label>
       <input type="number" class="field-input" placeholder="2.5" step="0.1">
       <label>Daily Interest Rate (%)</label>
@@ -2108,33 +2108,33 @@ app.get('/dashboard/admin', (req, res) => {
     </div>
     
     <div class="dashboard-card">
-      <h3>  Voyage Times</h3>
+      <h3>≡ó Voyage Times</h3>
       <a href="/admin/voyage-times" class="btn">Manage Voyage Times</a>
       <a href="/admin/basis-points" class="btn secondary">Basis Points</a>
     </div>
     
     <div class="dashboard-card">
-      <h3>  Active Trades</h3>
+      <h3>≡ Active Trades</h3>
       <p>12 Active Contracts</p>
       <p>5 Pending Confirmations</p>
       <a href="/admin/trades" class="btn">View All Trades</a>
     </div>
     
     <div class="dashboard-card">
-      <h3>  KYC Management</h3>
+      <h3>≡ KYC Management</h3>
       <p>8 Pending Reviews</p>
       <p>3 Flagged Applications</p>
       <a href="/admin/kyc" class="btn">KYC Reports</a>
     </div>
     
     <div class="dashboard-card">
-      <h3>  Alerts & Flags</h3>
+      <h3>≡¿ Alerts & Flags</h3>
       <p>2 Price Alerts</p>
       <a href="/admin/flags" class="btn">Review Flags</a>
     </div>
     
     <div class="dashboard-card">
-      <h3>  Auction Board</h3>
+      <h3>≡¢∩╕ Auction Board</h3>
       <p>3 Items in Auction</p>
       <a href="/admin/auction" class="btn">Auction Board</a>
     </div>
@@ -2171,13 +2171,13 @@ app.get('/dashboard/buyer', (req, res) => {
   <a href="/" class="btn logout">Logout</a>
   
   <div class="header">
-    <h1>  Buyer Dashboard</h1>
+    <h1>≡¢ Buyer Dashboard</h1>
     <p>Manage your purchase contracts and deposits</p>
   </div>
   
   <div class="dashboard-grid">
     <div class="dashboard-card">
-      <h3>  Create New Contract</h3>
+      <h3>≡¥ Create New Contract</h3>
       <label>Role: Buyer</label>
       <input type="text" class="field-input" placeholder="Commodity (e.g., Wheat)">
       <input type="number" class="field-input" placeholder="Quantity (MT)">
@@ -2200,7 +2200,7 @@ app.get('/dashboard/buyer', (req, res) => {
     </div>
     
     <div class="dashboard-card">
-      <h3>  My Contracts</h3>
+      <h3>≡ï My Contracts</h3>
       
       <div style="border: 1px solid #334155; border-radius: 8px; padding: 15px; margin: 15px 0;">
         <h4>Contract #TNG-2024-001</h4>
@@ -2222,7 +2222,7 @@ app.get('/dashboard/buyer', (req, res) => {
     </div>
     
     <div class="dashboard-card">
-      <h3>  Wallet</h3>
+      <h3>≡│ Wallet</h3>
       <p><strong>Balance:</strong> 50,000 TGT</p>
       <p><strong>Active Deposits:</strong> 2,890,000 TGT</p>
       <a href="#" class="btn">Manage Wallet</a>
@@ -2258,13 +2258,13 @@ app.get('/dashboard/supplier', (req, res) => {
   <a href="/" class="btn logout">Logout</a>
   
   <div class="header">
-    <h1>  Supplier Dashboard</h1>
+    <h1>≡¡ Supplier Dashboard</h1>
     <p>Manage your supply contracts and deliveries</p>
   </div>
   
   <div class="dashboard-grid">
     <div class="dashboard-card">
-      <h3>  Contract Confirmations</h3>
+      <h3>≡ Contract Confirmations</h3>
       
       <div style="border: 1px solid #334155; border-radius: 8px; padding: 15px; margin: 15px 0;">
         <h4>Contract #TNG-2024-001</h4>
@@ -2279,7 +2279,7 @@ app.get('/dashboard/supplier', (req, res) => {
     </div>
     
     <div class="dashboard-card">
-      <h3>  Active Contracts</h3>
+      <h3>≡ï Active Contracts</h3>
       
       <div style="border: 1px solid #334155; border-radius: 8px; padding: 15px; margin: 15px 0;">
         <h4>Contract #TNG-2024-003</h4>
@@ -2292,7 +2292,7 @@ app.get('/dashboard/supplier', (req, res) => {
     </div>
     
     <div class="dashboard-card">
-      <h3>  Wallet</h3>
+      <h3>≡│ Wallet</h3>
       <p><strong>Balance:</strong> 125,000 TGT</p>
       <p><strong>Pending Payments:</strong> 3 contracts</p>
       <a href="#" class="btn primary">Manage Wallet</a>
@@ -2327,19 +2327,19 @@ app.get('/dashboard/trader', (req, res) => {
   <a href="/" class="btn logout">Logout</a>
   
   <div class="header">
-    <h1>  Trader Dashboard</h1>
+    <h1>≡ê Trader Dashboard</h1>
     <p>Manage your buy and sell contracts</p>
   </div>
   
   <div class="dashboard-grid">
     <div class="dashboard-card">
-      <h3>  Link Contracts</h3>
+      <h3>≡ù Link Contracts</h3>
       <p>Link your buying and selling contracts for trade execution</p>
       <a href="#" class="btn">Link Contracts</a>
     </div>
     
     <div class="dashboard-card">
-      <h3>  Trading Portfolio</h3>
+      <h3>≡ Trading Portfolio</h3>
       <p>Active Trades: 5</p>
       <p>Profit/Loss: +$125,000</p>
       <a href="#" class="btn">View Portfolio</a>
@@ -2374,19 +2374,19 @@ app.get('/dashboard/insurer', (req, res) => {
   <a href="/" class="btn logout">Logout</a>
   
   <div class="header">
-    <h1>  Insurer Dashboard</h1>
+    <h1>≡¢í∩╕ Insurer Dashboard</h1>
     <p>Provide insurance quotes and risk assessment</p>
   </div>
   
   <div class="dashboard-grid">
     <div class="dashboard-card">
-      <h3>  Active Trades</h3>
+      <h3>≡ï Active Trades</h3>
       <p>View all platform trades available for insurance</p>
       <a href="#" class="btn">View Trades</a>
     </div>
     
     <div class="dashboard-card">
-      <h3>  Insurance Quotes</h3>
+      <h3>≡╝ Insurance Quotes</h3>
       <p>Provide quotes for performance insurance</p>
       <a href="#" class="btn">Create Quote</a>
     </div>
@@ -2398,31 +2398,31 @@ app.get('/dashboard/insurer', (req, res) => {
 
 // Error handling
 process.on('uncaughtException', (err) => {
-  console.error('  Uncaught Exception:', err);
+  console.error('¥ Uncaught Exception:', err);
 });
 
 process.on('unhandledRejection', (reason, promise) => {
-  console.error('  Unhandled Rejection:', reason);
+  console.error('¥ Unhandled Rejection:', reason);
 });
 
 // Start server
 const PORT = process.env.PORT || 4000;
 const HOST = '0.0.0.0';
 
-console.log('  Starting Tangent Ultimate Platform...');
+console.log('≡ Starting Tangent Ultimate Platform...');
 
 const server = app.listen(PORT, HOST, (err) => {
   if (err) {
-    console.error('  Failed to start server:', err);
+    console.error('¥ Failed to start server:', err);
     process.exit(1);
   }
-  console.log(`  TANGENT ULTIMATE PLATFORM RUNNING ON PORT ${PORT}`);
-  console.log(`  Landing Page: http://${HOST}:${PORT}/`);
-  console.log(`  Team Portal: http://${HOST}:${PORT}/landing-two`);
-  console.log(`  Health Check: http://${HOST}:${PORT}/health`);
-  console.log('  ALL FUNCTIONALITIES RESTORED!');
+  console.log(`£ TANGENT ULTIMATE PLATFORM RUNNING ON PORT ${PORT}`);
+  console.log(`≡ Landing Page: http://${HOST}:${PORT}/`);
+  console.log(`≡ Team Portal: http://${HOST}:${PORT}/landing-two`);
+  console.log(`¥∩╕ Health Check: http://${HOST}:${PORT}/health`);
+  console.log('≡» ALL FUNCTIONALITIES RESTORED!');
 });
 
 server.on('error', (err) => {
-  console.error('  Server error:', err);
+  console.error('¥ Server error:', err);
 });
