@@ -350,7 +350,7 @@ app.get('/', (req, res) => {
     `);
 });
 
-// Alternative Landing Page
+// Landing Page Two - Sign In/Sign Up Portal
 app.get('/landing-two', (req, res) => {
     res.send(`
     <!DOCTYPE html>
@@ -358,7 +358,7 @@ app.get('/landing-two', (req, res) => {
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Tangent Protocol - Team Portal</title>
+        <title>Tangent Protocol - Access Portal</title>
         <style>
             * { margin: 0; padding: 0; box-sizing: border-box; }
             body { 
@@ -378,57 +378,101 @@ app.get('/landing-two', (req, res) => {
                 max-width: 500px;
                 width: 90%;
             }
-            h1 { color: #1e3c72; font-size: 2.2rem; margin-bottom: 1rem; }
-            .subtitle { color: #666; font-size: 1.1rem; margin-bottom: 2rem; }
-            .team-features {
-                display: grid;
-                gap: 1rem;
+            h1 { 
+                color: #1e3c72; 
+                font-size: 2.2rem; 
+                margin-bottom: 1rem; 
+                font-weight: 700;
+            }
+            .subtitle { 
+                color: #666; 
+                font-size: 1.1rem; 
+                margin-bottom: 3rem; 
+                line-height: 1.6;
+            }
+            .access-buttons {
+                display: flex;
+                flex-direction: column;
+                gap: 1.5rem;
                 margin: 2rem 0;
             }
-            .team-feature {
-                background: #f1f5f9;
-                padding: 1rem;
-                border-radius: 8px;
-                border-left: 3px solid #2a5298;
-            }
             .btn {
-                padding: 12px 24px;
-                background: #2a5298;
-                color: white;
+                padding: 18px 32px;
                 border: none;
-                border-radius: 8px;
-                font-size: 1rem;
+                border-radius: 12px;
+                font-size: 1.2rem;
+                font-weight: 600;
                 cursor: pointer;
                 text-decoration: none;
                 display: inline-block;
-                margin: 0.5rem;
-                transition: background 0.3s ease;
+                transition: all 0.3s ease;
+                position: relative;
+                overflow: hidden;
             }
-            .btn:hover { background: #1e3c72; }
+            .btn-signin {
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: white;
+                box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
+            }
+            .btn-signin:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 12px 35px rgba(102, 126, 234, 0.4);
+            }
+            .btn-signup {
+                background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+                color: white;
+                box-shadow: 0 8px 25px rgba(245, 87, 108, 0.3);
+            }
+            .btn-signup:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 12px 35px rgba(245, 87, 108, 0.4);
+            }
+            .back-link {
+                margin-top: 2rem;
+                padding-top: 2rem;
+                border-top: 1px solid #e5e5e5;
+            }
+            .back-link a {
+                color: #666;
+                text-decoration: none;
+                font-size: 0.9rem;
+                transition: color 0.3s ease;
+            }
+            .back-link a:hover {
+                color: #1e3c72;
+            }
+            .welcome-message {
+                background: #f0f9ff;
+                border: 1px solid #bae6fd;
+                border-radius: 8px;
+                padding: 1rem;
+                margin-bottom: 2rem;
+                color: #0c4a6e;
+            }
         </style>
     </head>
     <body>
         <div class="container">
-            <h1>🚀 Tangent Team Portal</h1>
-            <p class="subtitle">Advanced Trading Platform Management</p>
+            <h1>🎯 Welcome to Tangent</h1>
+            <p class="subtitle">Access Your Trading Platform</p>
             
-            <div class="team-features">
-                <div class="team-feature">
-                    <h3>📊 Real-time Analytics</h3>
-                    <p>Monitor platform performance and user activities</p>
-                </div>
-                <div class="team-feature">
-                    <h3>🔧 System Configuration</h3>
-                    <p>Manage platform settings and parameters</p>
-                </div>
-                <div class="team-feature">
-                    <h3>📈 Business Intelligence</h3>
-                    <p>Advanced reporting and insights dashboard</p>
-                </div>
+            <div class="welcome-message">
+                <strong>Choose your access method:</strong><br>
+                Sign in if you already have an account, or sign up to get started
             </div>
             
-            <a href="/" class="btn">← Back to Main Platform</a>
-            <a href="/dashboard/admin" class="btn">Admin Access</a>
+            <div class="access-buttons">
+                <a href="/signin" class="btn btn-signin">
+                    🔐 Sign In
+                </a>
+                <a href="/signup" class="btn btn-signup">
+                    ✨ Sign Up
+                </a>
+            </div>
+            
+            <div class="back-link">
+                <a href="/">← Back to Main Platform</a>
+            </div>
         </div>
     </body>
     </html>

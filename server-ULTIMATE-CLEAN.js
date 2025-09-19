@@ -519,8 +519,8 @@ app.get('/dashboard/admin', (req, res) => {
     <div class="dashboard-card">
       <h3>🚢 Voyage Times</h3>
       <p>Manage shipping times for different routes</p>
-      <button class="btn">Manage Voyage Times</button>
-      <button class="btn secondary">Basis Points</button>
+      <a href="/admin/voyage-times" class="btn">Manage Voyage Times</a>
+      <a href="/admin/basis-points" class="btn secondary">Basis Points</a>
     </div>
     
     <div class="dashboard-card">
@@ -528,7 +528,7 @@ app.get('/dashboard/admin', (req, res) => {
       <p><strong>12</strong> Active Contracts</p>
       <p><strong>5</strong> Pending Confirmations</p>
       <p><strong>3</strong> Awaiting Deposits</p>
-      <button class="btn">View All Trades</button>
+      <a href="/admin/active-trades" class="btn">View All Trades</a>
     </div>
     
     <div class="dashboard-card">
@@ -536,8 +536,8 @@ app.get('/dashboard/admin', (req, res) => {
       <p><strong>8</strong> Pending Reviews</p>
       <p><strong>3</strong> Flagged Applications</p>
       <p><strong>25</strong> Approved This Month</p>
-      <button class="btn">KYC Reports</button>
-      <button class="btn secondary">Review Queue</button>
+      <a href="/admin/kyc-reports" class="btn">KYC Reports</a>
+      <a href="/admin/review-queue" class="btn secondary">Review Queue</a>
     </div>
     
     <div class="dashboard-card">
@@ -545,7 +545,7 @@ app.get('/dashboard/admin', (req, res) => {
       <p><strong>2</strong> Price Alerts</p>
       <p><strong>1</strong> Compliance Flag</p>
       <p><strong>0</strong> Security Issues</p>
-      <button class="btn">Review Flags</button>
+      <a href="/admin/flags" class="btn">Review Flags</a>
     </div>
     
     <div class="dashboard-card">
@@ -553,7 +553,7 @@ app.get('/dashboard/admin', (req, res) => {
       <p><strong>3</strong> Items in Auction</p>
       <p><strong>$2.5M</strong> Total Value</p>
       <p><strong>15</strong> Active Bidders</p>
-      <button class="btn">Auction Board</button>
+      <a href="/admin/auction-board" class="btn">Auction Board</a>
     </div>
     
     <div class="dashboard-card">
@@ -887,97 +887,272 @@ app.get('/dashboard/trader', (req, res) => {
   <a href="/" class="btn logout">Logout</a>
   
   <div class="header">
-    <h1>⚡ Trader Dashboard</h1>
-    <p>Manage dual contracts and arbitrage opportunities</p>
+    <h1>🎯 Trading Platform</h1>
+    <p>Select your role and manage contracts</p>
+    
+    <!-- Role Selector -->
+    <div style="margin-top: 20px;">
+      <label style="color: #06b6d4; font-weight: 600; margin-right: 15px;">What is your role today?</label>
+      <select id="roleSelector" class="field-input" style="width: auto; display: inline-block; margin-right: 20px;" onchange="switchRole()">
+        <option value="">Select Role...</option>
+        <option value="supplier">Supplier - I want to sell commodities</option>
+        <option value="buyer">Buyer - I want to buy commodities</option>
+        <option value="trader">Trader - I want to trade (buy & sell)</option>
+      </select>
+      <button onclick="resetForm()" class="btn" style="background: #6b7280;">Clear Form</button>
+    </div>
   </div>
   
-  <div class="dashboard-grid">
+  <!-- Unified Contract Form -->
+  <div id="contractForm" style="display: none; max-width: 800px; margin: 0 auto;">
     <div class="dashboard-card">
-      <h3>🔗 Create Dual Contract</h3>
-      <p>Link buy and sell contracts for trading profit</p>
+      <h3 id="formTitle">📝 Create Contract</h3>
+      <p id="formDescription">Complete the form below</p>
       
-      <h4 style="color: #10b981;">Buy Contract (You as Buyer)</h4>
-      <label>Supplier Email</label>
-      <input type="email" class="field-input" placeholder="supplier@company.com">
-      <label>Commodity & Quantity</label>
-      <input type="text" class="field-input" placeholder="Wheat - 5,000 MT">
-      <label>Purchase Price per MT</label>
-      <input type="number" class="field-input" placeholder="275.00">
-      
-      <h4 style="color: #2563eb;">Sell Contract (You as Supplier)</h4>
-      <label>Buyer Email</label>
-      <input type="email" class="field-input" placeholder="buyer@company.com">
-      <label>Selling Price per MT</label>
-      <input type="number" class="field-input" placeholder="285.00">
-      
-      <div style="background: #0f172a; padding: 15px; border-radius: 8px; margin: 15px 0;">
-        <h4 style="color: #f59e0b;">Profit Calculation</h4>
-        <p>Buy Price: $275.00/MT × 5,000 MT = <strong>$1,375,000</strong></p>
-        <p>Sell Price: $285.00/MT × 5,000 MT = <strong>$1,425,000</strong></p>
-        <p style="color: #10b981;">Expected Profit: <strong>$50,000</strong></p>
-        <p style="color: #f59e0b;">Margin: <strong>3.6%</strong></p>
-      </div>
-      
-      <button class="btn success" onclick="createDualContract()">Create Dual Contract</button>
-    </div>
-    
-    <div class="dashboard-card">
-      <h3>📊 Active Trades</h3>
-      
-      <div style="border: 1px solid #334155; border-radius: 8px; padding: 15px; margin: 15px 0;">
-        <h4>Trade #TR-2024-001</h4>
-        <p><strong>Commodity:</strong> Wheat - 3,000 MT</p>
-        <p><strong>Buy from:</strong> Global Grains Ltd @ $270/MT</p>
-        <p><strong>Sell to:</strong> Asian Markets @ $282/MT</p>
-        <p><strong>Status:</strong> Both contracts confirmed</p>
-        <p style="color: #10b981;"><strong>Projected Profit:</strong> $36,000</p>
-        <div style="margin-top: 15px;">
-          <button class="btn primary">Manage Trade</button>
+      <form id="unifiedForm" onsubmit="submitContract(event)">
+        <!-- Common Fields -->
+        <div class="form-group">
+          <label>Product *</label>
+          <select id="product" class="field-input" required>
+            <option value="">Select Commodity...</option>
+            <option value="wheat">Wheat (ZW)</option>
+            <option value="corn">Corn (ZC)</option>
+            <option value="soybeans">Soybeans (ZS)</option>
+            <option value="rice">Rice (ZR)</option>
+            <option value="barley">Barley</option>
+          </select>
         </div>
-      </div>
-      
-      <div style="border: 1px solid #334155; border-radius: 8px; padding: 15px; margin: 15px 0;">
-        <h4>Trade #TR-2024-002</h4>
-        <p><strong>Commodity:</strong> Corn - 2,500 MT</p>
-        <p><strong>Buy from:</strong> Midwest Farms @ $195/MT</p>
-        <p><strong>Sell to:</strong> International Foods @ $205/MT</p>
-        <p><strong>Status:</strong> Deposit made, documents pending</p>
-        <p style="color: #10b981;"><strong>Projected Profit:</strong> $25,000</p>
-        <div style="margin-top: 15px;">
-          <button class="btn">Monitor Progress</button>
+        
+        <div class="form-group">
+          <label>Quantity (MT) *</label>
+          <input type="number" id="quantity" class="field-input" required placeholder="e.g. 5000">
         </div>
-      </div>
+        
+        <!-- Supplier-specific fields -->
+        <div id="supplierFields" style="display: none;">
+          <div class="form-group">
+            <label>Price per MT (USD) *</label>
+            <input type="number" id="pricePerUnit" class="field-input" step="0.01" placeholder="e.g. 275.50">
+          </div>
+          
+          <div class="form-group">
+            <label>Delivery Period *</label>
+            <select id="deliveryPeriod" class="field-input">
+              <option value="">Select Month/Year...</option>
+              <option value="Jan 2025">January 2025</option>
+              <option value="Feb 2025">February 2025</option>
+              <option value="Mar 2025">March 2025</option>
+              <option value="Apr 2025">April 2025</option>
+              <option value="May 2025">May 2025</option>
+              <option value="Jun 2025">June 2025</option>
+            </select>
+          </div>
+          
+          <div class="form-group">
+            <label>Loading Port/Location *</label>
+            <input type="text" id="deliveryLocation" class="field-input" placeholder="e.g. Santos, Brazil">
+          </div>
+          
+          <div class="form-group">
+            <label>Destination Port *</label>
+            <input type="text" id="destination" class="field-input" placeholder="e.g. Shanghai, China">
+          </div>
+        </div>
+        
+        <!-- Buyer-specific fields -->
+        <div id="buyerFields" style="display: none;">
+          <div class="form-group">
+            <label>Maximum Price per MT (USD) *</label>
+            <input type="number" id="maxPrice" class="field-input" step="0.01" placeholder="e.g. 280.00">
+          </div>
+          
+          <div class="form-group">
+            <label>Required By *</label>
+            <select id="requiredBy" class="field-input">
+              <option value="">Select Month/Year...</option>
+              <option value="Jan 2025">January 2025</option>
+              <option value="Feb 2025">February 2025</option>
+              <option value="Mar 2025">March 2025</option>
+              <option value="Apr 2025">April 2025</option>
+              <option value="May 2025">May 2025</option>
+              <option value="Jun 2025">June 2025</option>
+            </select>
+          </div>
+          
+          <div class="form-group">
+            <label>Preferred Origin *</label>
+            <input type="text" id="preferredOrigin" class="field-input" placeholder="e.g. USA, Brazil, Argentina">
+          </div>
+          
+          <div class="form-group">
+            <label>Destination Port *</label>
+            <input type="text" id="buyerDestination" class="field-input" placeholder="e.g. Hamburg, Germany">
+          </div>
+        </div>
+        
+        <!-- Trader-specific fields -->
+        <div id="traderFields" style="display: none;">
+          <div style="background: #0f172a; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <h4 style="color: #10b981;">Buy Side (You as Buyer)</h4>
+            <div class="form-group">
+              <label>Maximum Buy Price per MT (USD) *</label>
+              <input type="number" id="traderBuyPrice" class="field-input" step="0.01" placeholder="e.g. 275.00">
+            </div>
+            <div class="form-group">
+              <label>Buy From (Origin) *</label>
+              <input type="text" id="buyFrom" class="field-input" placeholder="e.g. USA, Brazil">
+            </div>
+          </div>
+          
+          <div style="background: #0f172a; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <h4 style="color: #2563eb;">Sell Side (You as Supplier)</h4>
+            <div class="form-group">
+              <label>Minimum Sell Price per MT (USD) *</label>
+              <input type="number" id="traderSellPrice" class="field-input" step="0.01" placeholder="e.g. 285.00">
+            </div>
+            <div class="form-group">
+              <label>Sell To (Destination) *</label>
+              <input type="text" id="sellTo" class="field-input" placeholder="e.g. China, Europe">
+            </div>
+          </div>
+          
+          <div id="profitCalculation" style="background: #1e293b; padding: 15px; border-radius: 8px; margin: 15px 0;">
+            <h4 style="color: #f59e0b;">Profit Calculation</h4>
+            <p id="profitDetails">Enter prices to calculate profit...</p>
+          </div>
+        </div>
+        
+        <button type="submit" class="btn success" id="submitBtn">Create Contract</button>
+        <div id="responseMessage" style="margin-top: 15px;"></div>
+      </form>
     </div>
-    
-    <div class="dashboard-card">
-      <h3>💰 Profit & Loss</h3>
-      <p><strong>Total Trades:</strong> 15</p>
-      <p><strong>Successful Trades:</strong> 13</p>
-      <p><strong>Total Profit:</strong> $425,000</p>
-      <p><strong>Average Margin:</strong> 3.2%</p>
-      <p><strong>This Month:</strong> +$85,000</p>
-      <button class="btn primary">Detailed P&L Report</button>
-    </div>
-    
-    <div class="dashboard-card">
-      <h3>🎯 Market Opportunities</h3>
-      <p>AI-detected arbitrage opportunities</p>
-      
-      <div style="border: 1px solid #f59e0b; border-radius: 8px; padding: 15px; margin: 15px 0; background: rgba(245, 158, 11, 0.1);">
-        <h4>Hot Opportunity 🔥</h4>
-        <p><strong>Commodity:</strong> Soybeans</p>
-        <p><strong>Buy Opportunity:</strong> Brazil @ $415/MT</p>
-        <p><strong>Sell Opportunity:</strong> China @ $435/MT</p>
-        <p><strong>Potential Margin:</strong> 4.8%</p>
-        <button class="btn">Quick Trade</button>
-      </div>
-    </div>
+  </div>
+  
+  <!-- Welcome Message -->
+  <div id="welcomeMessage" style="text-align: center; padding: 60px 20px;">
+    <h2 style="color: #06b6d4; margin-bottom: 20px;">👆 Please select your role above to get started</h2>
+    <p style="font-size: 1.2rem; color: #94a3b8;">Choose whether you want to act as a Supplier, Buyer, or Trader today</p>
   </div>
   
   <script>
-    function createDualContract() {
-      alert('Creating dual contract... Notifications will be sent to both parties.');
+    function switchRole() {
+      const role = document.getElementById('roleSelector').value;
+      const contractForm = document.getElementById('contractForm');
+      const welcomeMessage = document.getElementById('welcomeMessage');
+      const formTitle = document.getElementById('formTitle');
+      const formDescription = document.getElementById('formDescription');
+      const submitBtn = document.getElementById('submitBtn');
+      
+      // Hide all role-specific fields
+      document.getElementById('supplierFields').style.display = 'none';
+      document.getElementById('buyerFields').style.display = 'none';
+      document.getElementById('traderFields').style.display = 'none';
+      
+      if (role === '') {
+        contractForm.style.display = 'none';
+        welcomeMessage.style.display = 'block';
+        return;
+      }
+      
+      contractForm.style.display = 'block';
+      welcomeMessage.style.display = 'none';
+      
+      if (role === 'supplier') {
+        formTitle.textContent = '🏭 Supplier - Create Offer';
+        formDescription.textContent = 'Create an offer to sell your commodities';
+        submitBtn.textContent = 'Create Supplier Offer';
+        document.getElementById('supplierFields').style.display = 'block';
+      } else if (role === 'buyer') {
+        formTitle.textContent = '🛒 Buyer - Create Request';
+        formDescription.textContent = 'Create a request to buy commodities';
+        submitBtn.textContent = 'Create Buyer Request';
+        document.getElementById('buyerFields').style.display = 'block';
+      } else if (role === 'trader') {
+        formTitle.textContent = '📈 Trader - Create Dual Contract';
+        formDescription.textContent = 'Set up both buy and sell sides for trading profit';
+        submitBtn.textContent = 'Create Dual Contract';
+        document.getElementById('traderFields').style.display = 'block';
+      }
     }
+    
+    function resetForm() {
+      document.getElementById('roleSelector').value = '';
+      document.getElementById('unifiedForm').reset();
+      document.getElementById('contractForm').style.display = 'none';
+      document.getElementById('welcomeMessage').style.display = 'block';
+      document.getElementById('responseMessage').innerHTML = '';
+    }
+    
+    function submitContract(event) {
+      event.preventDefault();
+      const role = document.getElementById('roleSelector').value;
+      const responseDiv = document.getElementById('responseMessage');
+      
+      // Collect form data
+      const formData = {
+        type: role === 'supplier' ? 'supplier_offer' : role === 'buyer' ? 'buyer_request' : 'trader_dual',
+        product: document.getElementById('product').value,
+        quantity: document.getElementById('quantity').value
+      };
+      
+      if (role === 'supplier') {
+        formData.pricePerUnit = document.getElementById('pricePerUnit').value;
+        formData.deliveryPeriod = document.getElementById('deliveryPeriod').value;
+        formData.deliveryLocation = document.getElementById('deliveryLocation').value;
+        formData.destination = document.getElementById('destination').value;
+      } else if (role === 'buyer') {
+        formData.maxPrice = document.getElementById('maxPrice').value;
+        formData.requiredBy = document.getElementById('requiredBy').value;
+        formData.preferredOrigin = document.getElementById('preferredOrigin').value;
+        formData.destination = document.getElementById('buyerDestination').value;
+      } else if (role === 'trader') {
+        formData.buyPrice = document.getElementById('traderBuyPrice').value;
+        formData.sellPrice = document.getElementById('traderSellPrice').value;
+        formData.buyFrom = document.getElementById('buyFrom').value;
+        formData.sellTo = document.getElementById('sellTo').value;
+      }
+      
+      // Submit to backend
+      fetch('/api/create-contract', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData)
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          responseDiv.innerHTML = '<div style="color: #10b981; padding: 15px; background: rgba(16, 185, 129, 0.1); border-radius: 8px;"><strong>Success!</strong><br>' + data.message + '<br><strong>Contract ID:</strong> ' + data.contractId + '</div>';
+          document.getElementById('unifiedForm').reset();
+        } else {
+          responseDiv.innerHTML = '<div style="color: #ef4444; padding: 15px; background: rgba(239, 68, 68, 0.1); border-radius: 8px;"><strong>Error:</strong> ' + data.message + '</div>';
+        }
+      })
+      .catch(error => {
+        responseDiv.innerHTML = '<div style="color: #ef4444; padding: 15px; background: rgba(239, 68, 68, 0.1); border-radius: 8px;"><strong>Error:</strong> ' + error.message + '</div>';
+      });
+    }
+    
+    // Auto-calculate profit for traders
+    document.addEventListener('input', function(e) {
+      if (e.target.id === 'traderBuyPrice' || e.target.id === 'traderSellPrice' || e.target.id === 'quantity') {
+        const buyPrice = parseFloat(document.getElementById('traderBuyPrice').value) || 0;
+        const sellPrice = parseFloat(document.getElementById('traderSellPrice').value) || 0;
+        const quantity = parseFloat(document.getElementById('quantity').value) || 0;
+        
+        if (buyPrice > 0 && sellPrice > 0 && quantity > 0) {
+          const buyTotal = buyPrice * quantity;
+          const sellTotal = sellPrice * quantity;
+          const profit = sellTotal - buyTotal;
+          const margin = ((profit / buyTotal) * 100);
+          
+          document.getElementById('profitDetails').innerHTML = 
+            '<p>Buy Total: $' + buyTotal.toLocaleString() + '</p>' +
+            '<p>Sell Total: $' + sellTotal.toLocaleString() + '</p>' +
+            '<p style="color: ' + (profit > 0 ? '#10b981' : '#ef4444') + ';">Profit: $' + profit.toLocaleString() + '</p>' +
+            '<p style="color: #f59e0b;">Margin: ' + margin.toFixed(2) + '%</p>';
+        }
+      }
+    });
   </script>
 </body>
 </html>`);
@@ -1071,11 +1246,15 @@ app.post('/auth/login', (req, res) => {
   // Demo credentials
   if ((email === 'admin@tangent-protocol.com' || email === 'dudiollech@gmail.com') && password === 'TangentAdmin2024!') {
     res.json({ success: true, user: { email, role: 'admin' } });
+  } else if ((email === 'zo@sadotagri.com' || email === 'dudiollech@gmail.com') && password === 'TangentAdmin2024!') {
+    res.json({ success: true, user: { email, role: 'admin' } });
   } else if (email === 'buyer@demo.com' && password === 'demo123') {
     res.json({ success: true, user: { email, role: 'buyer' } });
   } else if (email === 'supplier@demo.com' && password === 'demo123') {
     res.json({ success: true, user: { email, role: 'supplier' } });
   } else if (email === 'trader@demo.com' && password === 'demo123') {
+    res.json({ success: true, user: { email, role: 'trader' } });
+  } else if (email === 'zo@sadotagri.com' && password === 'demo123') {
     res.json({ success: true, user: { email, role: 'trader' } });
   } else if (email === 'insurer@demo.com' && password === 'demo123') {
     res.json({ success: true, user: { email, role: 'insurer' } });
@@ -1121,6 +1300,782 @@ process.on('unhandledRejection', (reason, promise) => {
 });
 
 // Start server
+// CONTRACT CREATION WITH DEPOSIT HANDLING
+app.post('/api/create-contract', async (req, res) => {
+  try {
+    const { type, product, quantity, pricePerUnit, maxPrice, deliveryPeriod, deliveryLocation, destination, requiredBy } = req.body;
+    
+    const contractId = 'CT-' + Date.now();
+    const currentTime = new Date();
+    
+    if (type === 'supplier_offer') {
+      // SUPPLIER CONTRACT CREATION WITH DEPOSIT
+      const totalValue = parseFloat(quantity) * parseFloat(pricePerUnit);
+      const requiredDeposit = totalValue * 0.1; // 10% deposit
+      
+      // Check TGT pool balance (simulated user balance)
+      const userBalance = 10000; // Simulated user balance
+      if (userBalance < requiredDeposit) {
+        return res.json({
+          success: false,
+          message: 'Insufficient TGT balance. Required: ' + requiredDeposit + ' TGT, Available: ' + userBalance + ' TGT'
+        });
+      }
+      
+      // Process deposit to TGT pool
+      const deposit = tgtPool.deposit(requiredDeposit, 'supplier@current.com', contractId);
+      const newBalance = userBalance - requiredDeposit;
+      
+      // Calculate fees
+      const platformFee = totalValue * 0.025; // 2.5%
+      const insuranceFee = totalValue * 0.005; // 0.5%
+      
+      console.log('✅ SUPPLIER CONTRACT CREATED WITH DEPOSIT:', {
+        contractId,
+        totalValue,
+        deposit: requiredDeposit,
+        newBalance
+      });
+      
+      return res.json({
+        success: true,
+        contractId,
+        message: 'Supplier contract created and deposit processed',
+        depositRequired: requiredDeposit + ' TGT',
+        newBalance,
+        totalValue: '$' + totalValue.toLocaleString(),
+        fees: {
+          platform: '$' + platformFee.toLocaleString(),
+          insurance: '$' + insuranceFee.toLocaleString()
+        }
+      });
+      
+    } else if (type === 'buyer_request') {
+      // BUYER REQUEST CREATION
+      const estimatedValue = parseFloat(quantity) * parseFloat(maxPrice);
+      const estimatedDeposit = estimatedValue * 0.1; // 10% estimated deposit
+      
+      console.log('✅ BUYER REQUEST CREATED:', {
+        contractId,
+        estimatedValue,
+        estimatedDeposit
+      });
+      
+      return res.json({
+        success: true,
+        contractId,
+        message: 'Buyer request created - suppliers will be notified',
+        estimatedValue: '$' + estimatedValue.toLocaleString(),
+        estimatedDeposit: estimatedDeposit + ' TGT'
+      });
+    }
+    
+  } catch (error) {
+    console.error('Contract creation error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// ADMIN BUTTON ROUTES WITH TABLES
+app.get('/admin/voyage-times', (req, res) => {
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Voyage Times Management - Admin Panel</title>
+  <style>
+    body { font-family: system-ui; background: #0f172a; color: #f8fafc; margin: 0; padding: 20px; }
+    .back-btn { background: #ef4444; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px; display: inline-block; margin-bottom: 20px; }
+    .header { background: #1e293b; padding: 20px; border-radius: 12px; margin-bottom: 30px; border: 1px solid #334155; }
+    .header h1 { color: #2563eb; margin: 0; font-size: 2.5rem; }
+    .table { background: #1e293b; border-radius: 12px; overflow: hidden; border: 1px solid #334155; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 15px; text-align: left; border-bottom: 1px solid #334155; }
+    th { background: #0f172a; color: #06b6d4; font-weight: 600; }
+    .btn { background: #2563eb; color: white; padding: 8px 16px; text-decoration: none; border-radius: 4px; font-size: 0.9rem; }
+    .btn.edit { background: #f59e0b; }
+  </style>
+</head>
+<body>
+  <a href="/dashboard/admin" class="back-btn">← Back to Admin Dashboard</a>
+  <div class="header">
+    <h1>🚢 Voyage Times Management</h1>
+    <p>Configure shipping routes and estimated delivery times</p>
+  </div>
+  <div class="table">
+    <table>
+      <thead>
+        <tr>
+          <th>Route ID</th>
+          <th>From Port</th>
+          <th>To Port</th>
+          <th>Voyage Days</th>
+          <th>Last Updated</th>
+          <th>Status</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>RT-001</td>
+          <td>Shanghai, China</td>
+          <td>Los Angeles, USA</td>
+          <td>14 days</td>
+          <td>2025-01-15</td>
+          <td><span style="background: #10b981; color: #000; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem;">Active</span></td>
+          <td><a href="#" class="btn edit">Edit Route</a></td>
+        </tr>
+        <tr>
+          <td>RT-002</td>
+          <td>Hamburg, Germany</td>
+          <td>Santos, Brazil</td>
+          <td>21 days</td>
+          <td>2025-01-18</td>
+          <td><span style="background: #10b981; color: #000; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem;">Active</span></td>
+          <td><a href="#" class="btn edit">Edit Route</a></td>
+        </tr>
+        <tr>
+          <td>RT-003</td>
+          <td>Singapore</td>
+          <td>Dubai, UAE</td>
+          <td>7 days</td>
+          <td>2025-01-20</td>
+          <td><span style="background: #10b981; color: #000; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem;">Active</span></td>
+          <td><a href="#" class="btn edit">Edit Route</a></td>
+        </tr>
+        <tr>
+          <td>RT-004</td>
+          <td>Mumbai, India</td>
+          <td>London, UK</td>
+          <td>18 days</td>
+          <td>2025-01-22</td>
+          <td><span style="background: #10b981; color: #000; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem;">Active</span></td>
+          <td><a href="#" class="btn edit">Edit Route</a></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</body>
+</html>`;
+  res.send(html);
+});
+
+app.get('/admin/active-trades', (req, res) => {
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Active Trades - Admin Panel</title>
+  <style>
+    body { font-family: system-ui; background: #0f172a; color: #f8fafc; margin: 0; padding: 20px; }
+    .back-btn { background: #ef4444; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px; display: inline-block; margin-bottom: 20px; }
+    .header { background: #1e293b; padding: 20px; border-radius: 12px; margin-bottom: 30px; border: 1px solid #334155; }
+    .header h1 { color: #2563eb; margin: 0; font-size: 2.5rem; }
+    .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 30px; }
+    .stat-card { background: #1e293b; padding: 20px; border-radius: 12px; border: 1px solid #334155; text-align: center; }
+    .stat-number { font-size: 2rem; font-weight: bold; color: #10b981; }
+    .table { background: #1e293b; border-radius: 12px; overflow: hidden; border: 1px solid #334155; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 15px; text-align: left; border-bottom: 1px solid #334155; }
+    th { background: #0f172a; color: #06b6d4; font-weight: 600; }
+    .status-active { background: #10b981; color: #000; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; }
+    .status-pending { background: #f59e0b; color: #000; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; }
+    .btn { background: #2563eb; color: white; padding: 8px 16px; text-decoration: none; border-radius: 4px; font-size: 0.9rem; }
+  </style>
+</head>
+<body>
+  <a href="/dashboard/admin" class="back-btn">← Back to Admin Dashboard</a>
+  <div class="header">
+    <h1>📊 Active Trades Management</h1>
+    <p>Monitor and manage all platform trading activity</p>
+  </div>
+  <div class="stats">
+    <div class="stat-card">
+      <div class="stat-number">12</div>
+      <div>Active Contracts</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-number">5</div>
+      <div>Pending Confirmation</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-number">$2.5M</div>
+      <div>Total Value</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-number">7</div>
+      <div>Completed Today</div>
+    </div>
+  </div>
+  <div class="table">
+    <table>
+      <thead>
+        <tr>
+          <th>Contract ID</th>
+          <th>Product</th>
+          <th>Quantity</th>
+          <th>Value</th>
+          <th>Status</th>
+          <th>Delivery</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>CT-001</td>
+          <td>Wheat (ZW)</td>
+          <td>500 tons</td>
+          <td>$125,000</td>
+          <td><span class="status-active">Active</span></td>
+          <td>Jan 2025</td>
+          <td><a href="#" class="btn">Manage</a></td>
+        </tr>
+        <tr>
+          <td>CT-002</td>
+          <td>Corn (ZC)</td>
+          <td>300 tons</td>
+          <td>$60,000</td>
+          <td><span class="status-pending">Pending</span></td>
+          <td>Feb 2025</td>
+          <td><a href="#" class="btn">Review</a></td>
+        </tr>
+        <tr>
+          <td>CT-003</td>
+          <td>Soybeans (ZS)</td>
+          <td>200 tons</td>
+          <td>$90,000</td>
+          <td><span class="status-active">Active</span></td>
+          <td>Mar 2025</td>
+          <td><a href="#" class="btn">Manage</a></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</body>
+</html>`;
+  res.send(html);
+});
+
+// Admin sub-route for KYC reports
+app.get('/admin/kyc-reports', (req, res) => {
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KYC Reports - Admin Panel</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; padding: 20px; }
+    .back-btn { display: inline-block; background: rgba(255,255,255,0.2); color: white; padding: 8px 16px; border-radius: 20px; text-decoration: none; margin-bottom: 20px; transition: all 0.3s; }
+    .back-btn:hover { background: rgba(255,255,255,0.3); transform: translateY(-2px); }
+    .header { text-align: center; color: white; margin-bottom: 30px; }
+    .header h1 { font-size: 2.5rem; margin-bottom: 10px; }
+    .header p { font-size: 1.1rem; opacity: 0.9; }
+    .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 30px; }
+    .stat-card { background: rgba(255,255,255,0.95); padding: 20px; border-radius: 15px; text-align: center; box-shadow: 0 8px 25px rgba(0,0,0,0.1); }
+    .stat-number { font-size: 2rem; font-weight: bold; color: #667eea; margin-bottom: 5px; }
+    .stat-label { color: #666; font-size: 0.9rem; }
+    .table { background: rgba(255,255,255,0.95); border-radius: 15px; overflow: hidden; box-shadow: 0 8px 25px rgba(0,0,0,0.1); }
+    table { width: 100%; border-collapse: collapse; }
+    th { background: #667eea; color: white; padding: 15px; text-align: left; font-weight: 600; }
+    td { padding: 12px 15px; border-bottom: 1px solid #eee; }
+    tr:hover { background: #f8f9ff; }
+    .status-approved { background: #10b981; color: white; padding: 4px 12px; border-radius: 20px; font-size: 0.8rem; }
+    .status-pending { background: #f59e0b; color: white; padding: 4px 12px; border-radius: 20px; font-size: 0.8rem; }
+    .status-flagged { background: #ef4444; color: white; padding: 4px 12px; border-radius: 20px; font-size: 0.8rem; }
+    .btn { background: #667eea; color: white; padding: 6px 12px; border-radius: 6px; text-decoration: none; font-size: 0.8rem; transition: all 0.3s; }
+    .btn:hover { background: #5a67d8; transform: translateY(-1px); }
+  </style>
+</head>
+<body>
+  <a href="/dashboard/admin" class="back-btn">← Back to Admin Dashboard</a>
+  
+  <div class="header">
+    <h1>📋 KYC Reports & Compliance</h1>
+    <p>Review customer verification and compliance status</p>
+  </div>
+
+  <div class="stats">
+    <div class="stat-card">
+      <div class="stat-number">156</div>
+      <div class="stat-label">Total Applications</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-number">142</div>
+      <div class="stat-label">Approved</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-number">8</div>
+      <div class="stat-label">Pending Review</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-number">6</div>
+      <div class="stat-label">Flagged</div>
+    </div>
+  </div>
+
+  <div class="table">
+    <table>
+      <thead>
+        <tr>
+          <th>User ID</th>
+          <th>Company Name</th>
+          <th>Type</th>
+          <th>Submitted</th>
+          <th>Status</th>
+          <th>Risk Score</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>KYC-001</td>
+          <td>AgriCorp Ltd</td>
+          <td>Listed Company</td>
+          <td>2025-01-15</td>
+          <td><span class="status-approved">Approved</span></td>
+          <td>Low</td>
+          <td><a href="#" class="btn">View Report</a></td>
+        </tr>
+        <tr>
+          <td>KYC-002</td>
+          <td>Global Traders Inc</td>
+          <td>Private Company</td>
+          <td>2025-01-14</td>
+          <td><span class="status-pending">Pending</span></td>
+          <td>Medium</td>
+          <td><a href="#" class="btn">Review</a></td>
+        </tr>
+        <tr>
+          <td>KYC-003</td>
+          <td>Commodity Solutions</td>
+          <td>Private Company</td>
+          <td>2025-01-13</td>
+          <td><span class="status-flagged">Flagged</span></td>
+          <td>High</td>
+          <td><a href="#" class="btn">Investigate</a></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</body>
+</html>`;
+  res.send(html);
+});
+
+// Admin sub-route for review queue
+app.get('/admin/review-queue', (req, res) => {
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Review Queue - Admin Panel</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; padding: 20px; }
+    .back-btn { display: inline-block; background: rgba(255,255,255,0.2); color: white; padding: 8px 16px; border-radius: 20px; text-decoration: none; margin-bottom: 20px; transition: all 0.3s; }
+    .back-btn:hover { background: rgba(255,255,255,0.3); transform: translateY(-2px); }
+    .header { text-align: center; color: white; margin-bottom: 30px; }
+    .header h1 { font-size: 2.5rem; margin-bottom: 10px; }
+    .header p { font-size: 1.1rem; opacity: 0.9; }
+    .priority-high { border-left: 5px solid #ef4444; }
+    .priority-medium { border-left: 5px solid #f59e0b; }
+    .priority-low { border-left: 5px solid #10b981; }
+    .table { background: rgba(255,255,255,0.95); border-radius: 15px; overflow: hidden; box-shadow: 0 8px 25px rgba(0,0,0,0.1); }
+    table { width: 100%; border-collapse: collapse; }
+    th { background: #667eea; color: white; padding: 15px; text-align: left; font-weight: 600; }
+    td { padding: 12px 15px; border-bottom: 1px solid #eee; }
+    tr:hover { background: #f8f9ff; }
+    .btn { background: #667eea; color: white; padding: 6px 12px; border-radius: 6px; text-decoration: none; font-size: 0.8rem; transition: all 0.3s; margin-right: 5px; }
+    .btn:hover { background: #5a67d8; transform: translateY(-1px); }
+    .btn.approve { background: #10b981; }
+    .btn.reject { background: #ef4444; }
+  </style>
+</head>
+<body>
+  <a href="/dashboard/admin" class="back-btn">← Back to Admin Dashboard</a>
+  
+  <div class="header">
+    <h1>⏳ Review Queue</h1>
+    <p>Items requiring administrative review and approval</p>
+  </div>
+
+  <div class="table">
+    <table>
+      <thead>
+        <tr>
+          <th>Item Type</th>
+          <th>Description</th>
+          <th>Submitted By</th>
+          <th>Date</th>
+          <th>Priority</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr class="priority-high">
+          <td>KYC Application</td>
+          <td>Global Traders Inc - High Risk Flag</td>
+          <td>system@auto</td>
+          <td>2025-01-16</td>
+          <td>High</td>
+          <td>
+            <a href="#" class="btn approve">Approve</a>
+            <a href="#" class="btn reject">Reject</a>
+            <a href="#" class="btn">Details</a>
+          </td>
+        </tr>
+        <tr class="priority-medium">
+          <td>Contract Dispute</td>
+          <td>CT-002 - Delivery Date Conflict</td>
+          <td>buyer@example.com</td>
+          <td>2025-01-15</td>
+          <td>Medium</td>
+          <td>
+            <a href="#" class="btn">Mediate</a>
+            <a href="#" class="btn">Details</a>
+          </td>
+        </tr>
+        <tr class="priority-low">
+          <td>Price Validation</td>
+          <td>Wheat contract exceeds 10% variance</td>
+          <td>supplier@agri.com</td>
+          <td>2025-01-14</td>
+          <td>Low</td>
+          <td>
+            <a href="#" class="btn approve">Approve</a>
+            <a href="#" class="btn">Review</a>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</body>
+</html>`;
+  res.send(html);
+});
+
+// Admin sub-route for flags
+app.get('/admin/flags', (req, res) => {
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Review Flags - Admin Panel</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; padding: 20px; }
+    .back-btn { display: inline-block; background: rgba(255,255,255,0.2); color: white; padding: 8px 16px; border-radius: 20px; text-decoration: none; margin-bottom: 20px; transition: all 0.3s; }
+    .back-btn:hover { background: rgba(255,255,255,0.3); transform: translateY(-2px); }
+    .header { text-align: center; color: white; margin-bottom: 30px; }
+    .header h1 { font-size: 2.5rem; margin-bottom: 10px; }
+    .header p { font-size: 1.1rem; opacity: 0.9; }
+    .flag-critical { background: rgba(239, 68, 68, 0.1); border-left: 5px solid #ef4444; }
+    .flag-warning { background: rgba(245, 158, 11, 0.1); border-left: 5px solid #f59e0b; }
+    .flag-info { background: rgba(59, 130, 246, 0.1); border-left: 5px solid #3b82f6; }
+    .table { background: rgba(255,255,255,0.95); border-radius: 15px; overflow: hidden; box-shadow: 0 8px 25px rgba(0,0,0,0.1); }
+    table { width: 100%; border-collapse: collapse; }
+    th { background: #667eea; color: white; padding: 15px; text-align: left; font-weight: 600; }
+    td { padding: 12px 15px; border-bottom: 1px solid #eee; }
+    tr:hover { background: #f8f9ff; }
+    .flag-type { padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: 600; }
+    .flag-aml { background: #ef4444; color: white; }
+    .flag-credit { background: #f59e0b; color: white; }
+    .flag-price { background: #3b82f6; color: white; }
+    .btn { background: #667eea; color: white; padding: 6px 12px; border-radius: 6px; text-decoration: none; font-size: 0.8rem; transition: all 0.3s; margin-right: 5px; }
+    .btn:hover { background: #5a67d8; transform: translateY(-1px); }
+  </style>
+</head>
+<body>
+  <a href="/dashboard/admin" class="back-btn">← Back to Admin Dashboard</a>
+  
+  <div class="header">
+    <h1>🚩 System Flags & Alerts</h1>
+    <p>Automated compliance and risk detection alerts</p>
+  </div>
+
+  <div class="table">
+    <table>
+      <thead>
+        <tr>
+          <th>Flag Type</th>
+          <th>Entity</th>
+          <th>Description</th>
+          <th>Severity</th>
+          <th>Date</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr class="flag-critical">
+          <td><span class="flag-type flag-aml">AML</span></td>
+          <td>Global Traders Inc</td>
+          <td>High-risk jurisdiction match detected</td>
+          <td>Critical</td>
+          <td>2025-01-16</td>
+          <td>
+            <a href="#" class="btn">Investigate</a>
+            <a href="#" class="btn">Report</a>
+          </td>
+        </tr>
+        <tr class="flag-warning">
+          <td><span class="flag-type flag-credit">Credit</span></td>
+          <td>AgriCorp Ltd</td>
+          <td>Credit score below threshold (650)</td>
+          <td>Warning</td>
+          <td>2025-01-15</td>
+          <td>
+            <a href="#" class="btn">Review</a>
+            <a href="#" class="btn">Override</a>
+          </td>
+        </tr>
+        <tr class="flag-info">
+          <td><span class="flag-type flag-price">Price</span></td>
+          <td>CT-001</td>
+          <td>Price deviation 12% above market rate</td>
+          <td>Info</td>
+          <td>2025-01-14</td>
+          <td>
+            <a href="#" class="btn">Approve</a>
+            <a href="#" class="btn">Reject</a>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</body>
+</html>`;
+  res.send(html);
+});
+
+// Admin sub-route for auction board
+app.get('/admin/auction-board', (req, res) => {
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Auction Board - Admin Panel</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; padding: 20px; }
+    .back-btn { display: inline-block; background: rgba(255,255,255,0.2); color: white; padding: 8px 16px; border-radius: 20px; text-decoration: none; margin-bottom: 20px; transition: all 0.3s; }
+    .back-btn:hover { background: rgba(255,255,255,0.3); transform: translateY(-2px); }
+    .header { text-align: center; color: white; margin-bottom: 30px; }
+    .header h1 { font-size: 2.5rem; margin-bottom: 10px; }
+    .header p { font-size: 1.1rem; opacity: 0.9; }
+    .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 30px; }
+    .stat-card { background: rgba(255,255,255,0.95); padding: 20px; border-radius: 15px; text-align: center; box-shadow: 0 8px 25px rgba(0,0,0,0.1); }
+    .stat-number { font-size: 2rem; font-weight: bold; color: #667eea; margin-bottom: 5px; }
+    .stat-label { color: #666; font-size: 0.9rem; }
+    .table { background: rgba(255,255,255,0.95); border-radius: 15px; overflow: hidden; box-shadow: 0 8px 25px rgba(0,0,0,0.1); }
+    table { width: 100%; border-collapse: collapse; }
+    th { background: #667eea; color: white; padding: 15px; text-align: left; font-weight: 600; }
+    td { padding: 12px 15px; border-bottom: 1px solid #eee; }
+    tr:hover { background: #f8f9ff; }
+    .status-live { background: #ef4444; color: white; padding: 4px 12px; border-radius: 20px; font-size: 0.8rem; animation: pulse 2s infinite; }
+    .status-upcoming { background: #f59e0b; color: white; padding: 4px 12px; border-radius: 20px; font-size: 0.8rem; }
+    .status-closed { background: #6b7280; color: white; padding: 4px 12px; border-radius: 20px; font-size: 0.8rem; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
+    .btn { background: #667eea; color: white; padding: 6px 12px; border-radius: 6px; text-decoration: none; font-size: 0.8rem; transition: all 0.3s; margin-right: 5px; }
+    .btn:hover { background: #5a67d8; transform: translateY(-1px); }
+  </style>
+</head>
+<body>
+  <a href="/dashboard/admin" class="back-btn">← Back to Admin Dashboard</a>
+  
+  <div class="header">
+    <h1>🏛️ Auction Board Management</h1>
+    <p>Monitor and manage overdue contract auctions</p>
+  </div>
+
+  <div class="stats">
+    <div class="stat-card">
+      <div class="stat-number">3</div>
+      <div class="stat-label">Live Auctions</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-number">7</div>
+      <div class="stat-label">Upcoming</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-number">$450K</div>
+      <div class="stat-label">Total Value</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-number">12</div>
+      <div class="stat-label">Active Bidders</div>
+    </div>
+  </div>
+
+  <div class="table">
+    <table>
+      <thead>
+        <tr>
+          <th>Auction ID</th>
+          <th>Original Contract</th>
+          <th>Product</th>
+          <th>Starting Bid</th>
+          <th>Current Bid</th>
+          <th>Status</th>
+          <th>Ends</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>AU-001</td>
+          <td>CT-005</td>
+          <td>Wheat (ZW) - 300 tons</td>
+          <td>$75,000</td>
+          <td>$82,500</td>
+          <td><span class="status-live">Live</span></td>
+          <td>2h 15m</td>
+          <td>
+            <a href="#" class="btn">Monitor</a>
+            <a href="#" class="btn">Extend</a>
+          </td>
+        </tr>
+        <tr>
+          <td>AU-002</td>
+          <td>CT-007</td>
+          <td>Corn (ZC) - 500 tons</td>
+          <td>$120,000</td>
+          <td>$125,000</td>
+          <td><span class="status-live">Live</span></td>
+          <td>45m</td>
+          <td>
+            <a href="#" class="btn">Monitor</a>
+            <a href="#" class="btn">Close</a>
+          </td>
+        </tr>
+        <tr>
+          <td>AU-003</td>
+          <td>CT-009</td>
+          <td>Soybeans (ZS) - 200 tons</td>
+          <td>$48,000</td>
+          <td>No bids</td>
+          <td><span class="status-upcoming">Starts 1h</span></td>
+          <td>Tomorrow</td>
+          <td>
+            <a href="#" class="btn">Preview</a>
+            <a href="#" class="btn">Cancel</a>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</body>
+</html>`;
+  res.send(html);
+});
+
+// Admin sub-route for basis points
+app.get('/admin/basis-points', (req, res) => {
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Basis Points Management - Admin Panel</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; padding: 20px; }
+    .back-btn { display: inline-block; background: rgba(255,255,255,0.2); color: white; padding: 8px 16px; border-radius: 20px; text-decoration: none; margin-bottom: 20px; transition: all 0.3s; }
+    .back-btn:hover { background: rgba(255,255,255,0.3); transform: translateY(-2px); }
+    .header { text-align: center; color: white; margin-bottom: 30px; }
+    .header h1 { font-size: 2.5rem; margin-bottom: 10px; }
+    .header p { font-size: 1.1rem; opacity: 0.9; }
+    .table { background: rgba(255,255,255,0.95); border-radius: 15px; overflow: hidden; box-shadow: 0 8px 25px rgba(0,0,0,0.1); }
+    table { width: 100%; border-collapse: collapse; }
+    th { background: #667eea; color: white; padding: 15px; text-align: left; font-weight: 600; }
+    td { padding: 12px 15px; border-bottom: 1px solid #eee; }
+    tr:hover { background: #f8f9ff; }
+    .btn { background: #667eea; color: white; padding: 6px 12px; border-radius: 6px; text-decoration: none; font-size: 0.8rem; transition: all 0.3s; margin-right: 5px; }
+    .btn:hover { background: #5a67d8; transform: translateY(-1px); }
+    .btn.edit { background: #f59e0b; }
+    .positive { color: #10b981; font-weight: 600; }
+    .negative { color: #ef4444; font-weight: 600; }
+  </style>
+</head>
+<body>
+  <a href="/dashboard/admin" class="back-btn">← Back to Admin Dashboard</a>
+  
+  <div class="header">
+    <h1>📈 Basis Points Management</h1>
+    <p>Configure commodity pricing basis points and regional adjustments</p>
+  </div>
+
+  <div class="table">
+    <table>
+      <thead>
+        <tr>
+          <th>Commodity</th>
+          <th>Exchange Symbol</th>
+          <th>Current Basis</th>
+          <th>Regional Adjustment</th>
+          <th>Last Updated</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Wheat</td>
+          <td>ZW</td>
+          <td class="positive">+25 basis points</td>
+          <td class="positive">+$0.15/bushel</td>
+          <td>2025-01-16 09:30</td>
+          <td>
+            <a href="#" class="btn edit">Edit</a>
+            <a href="#" class="btn">History</a>
+          </td>
+        </tr>
+        <tr>
+          <td>Corn</td>
+          <td>ZC</td>
+          <td class="negative">-15 basis points</td>
+          <td class="negative">-$0.08/bushel</td>
+          <td>2025-01-16 08:45</td>
+          <td>
+            <a href="#" class="btn edit">Edit</a>
+            <a href="#" class="btn">History</a>
+          </td>
+        </tr>
+        <tr>
+          <td>Soybeans</td>
+          <td>ZS</td>
+          <td class="positive">+40 basis points</td>
+          <td class="positive">+$0.22/bushel</td>
+          <td>2025-01-16 10:15</td>
+          <td>
+            <a href="#" class="btn edit">Edit</a>
+            <a href="#" class="btn">History</a>
+          </td>
+        </tr>
+        <tr>
+          <td>Rice</td>
+          <td>ZR</td>
+          <td class="positive">+10 basis points</td>
+          <td class="positive">+$0.05/cwt</td>
+          <td>2025-01-15 16:20</td>
+          <td>
+            <a href="#" class="btn edit">Edit</a>
+            <a href="#" class="btn">History</a>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</body>
+</html>`;
+  res.send(html);
+});
+
 const PORT = process.env.PORT || 4000;
 const HOST = '0.0.0.0';
 

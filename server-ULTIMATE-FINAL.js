@@ -361,6 +361,10 @@ app.post('/api/create-dual-contract', async (req, res) => {
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Serve React app and static files
+app.use(express.static('src'));
+app.use('/static', express.static('public'));
+
 // Access Control Middleware
 app.use('/portal', (req, res, next) => {
   console.log('Portal access requested:', req.path);
@@ -383,6 +387,11 @@ app.use((req, res, next) => {
     "frame-src 'self'"
   ].join('; '));
   next();
+});
+
+// React Router - serve React app for dashboard routes
+app.get('/dashboard/*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'src', 'index.html'));
 });
 
 // LANDING PAGE (Root)
@@ -2067,8 +2076,8 @@ app.get('/health', (req, res) => {
 
 // ROLE-BASED DASHBOARDS
 
-// ADMIN DASHBOARD
-app.get('/dashboard/admin', (req, res) => {
+// ADMIN DASHBOARD (Commented out - using React version)
+// app.get('/dashboard/admin', (req, res) => {
   const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2144,8 +2153,8 @@ app.get('/dashboard/admin', (req, res) => {
   res.send(html);
 });
 
-// BUYER DASHBOARD  
-app.get('/dashboard/buyer', (req, res) => {
+// BUYER DASHBOARD (Commented out - using React version)
+/*app.get('/dashboard/buyer', (req, res) => {
   const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2231,7 +2240,7 @@ app.get('/dashboard/buyer', (req, res) => {
 </body>
 </html>`;
   res.send(html);
-});
+});*/
 
 // SUPPLIER DASHBOARD
 app.get('/dashboard/supplier', (req, res) => {

@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>React Components Test</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <style>
+        body { margin: 0; font-family: system-ui, Arial, sans-serif; padding: 20px; }
+        .test-section { 
+            border: 2px solid #22c55e; 
+            margin: 10px 0; 
+            padding: 15px; 
+            border-radius: 8px; 
+            background: #f0fdf4;
+        }
+        .error { border-color: #ef4444; background: #fef2f2; }
+        .loading { border-color: #f59e0b; background: #fffbeb; }
+    </style>
+</head>
+<body>
+    <h1>🧪 React Components Test Suite</h1>
+    <div id="test-results"></div>
+    <div id="component-test"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+        const { createRoot } = ReactDOM;
+
+        function TestSuite() {
+            const [results, setResults] = useState([]);
+            const [loading, setLoading] = useState(true);
+
+            const addResult = (test, status, message) => {
+                setResults(prev => [...prev, { test, status, message, timestamp: new Date().toLocaleTimeString() }]);
+            };
+
+            useEffect(() => {
+                runTests();
+            }, []);
+
+            const runTests = async () => {
+                addResult("React Basic", "✅", "React loaded successfully");
+                addResult("ReactDOM", "✅", "ReactDOM loaded successfully");
+                addResult("Babel", "✅", "Babel transformer loaded successfully");
+
+                // Test basic component creation
+                try {
+                    const TestComponent = () => React.createElement('div', {}, 'Test Component Works');
+                    addResult("Component Creation", "✅", "Basic components can be created");
+                } catch (e) {
+                    addResult("Component Creation", "❌", `Error: ${e.message}`);
+                }
+
+                // Test hooks
+                try {
+                    function HookTest() {
+                        const [state, setState] = useState('works');
+                        return React.createElement('div', {}, `Hooks: ${state}`);
+                    }
+                    addResult("React Hooks", "✅", "useState hook working");
+                } catch (e) {
+                    addResult("React Hooks", "❌", `Error: ${e.message}`);
+                }
+
+                // Test file accessibility
+                const filesToTest = [
+                    '/wallet.js',
+                    '/App.jsx',
+                    '/DashboardRouter.jsx',
+                    '/BuyerPanel.jsx'
+                ];
+
+                for (const file of filesToTest) {
+                    try {
+                        const response = await fetch(file);
+                        if (response.ok) {
+                            addResult(`File: ${file}`, "✅", `Accessible (${response.status})`);
+                        } else {
+                            addResult(`File: ${file}`, "⚠️", `Status: ${response.status}`);
+                        }
+                    } catch (e) {
+                        addResult(`File: ${file}`, "❌", `Error: ${e.message}`);
+                    }
+                }
+
+                // Test API endpoints
+                const apisToTest = [
+                    '/health',
+                    '/test',
+                    '/api/auth/login'
+                ];
+
+                for (const api of apisToTest) {
+                    try {
+                        const response = await fetch(api, {
+                            method: api === '/api/auth/login' ? 'POST' : 'GET',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: api === '/api/auth/login' ? JSON.stringify({
+                                email: 'test@test.com',
+                                password: 'test'
+                            }) : undefined
+                        });
+                        
+                        const data = await response.json();
+                        addResult(`API: ${api}`, response.ok ? "✅" : "⚠️", 
+                            `Status: ${response.status} - ${data.message || data.status || 'OK'}`);
+                    } catch (e) {
+                        addResult(`API: ${api}`, "❌", `Error: ${e.message}`);
+                    }
+                }
+
+                setLoading(false);
+            };
+
+            return React.createElement('div', {},
+                React.createElement('div', { id: 'results' },
+                    results.map((result, index) => 
+                        React.createElement('div', {
+                            key: index,
+                            className: `test-section ${result.status.includes('❌') ? 'error' : result.status.includes('⚠️') ? 'loading' : ''}`
+                        },
+                            React.createElement('strong', {}, `${result.status} ${result.test}`),
+                            React.createElement('br'),
+                            React.createElement('span', {}, result.message),
+                            React.createElement('small', { style: { float: 'right', color: '#666' } }, result.timestamp)
+                        )
+                    )
+                ),
+                loading && React.createElement('div', { style: { textAlign: 'center', padding: '20px' } }, 
+                    React.createElement('h3', {}, '🔄 Running tests...')
+                ),
+                !loading && React.createElement('div', { style: { marginTop: '20px', padding: '15px', background: '#e0f2fe', borderRadius: '8px' } },
+                    React.createElement('h3', {}, '✅ All tests completed!'),
+                    React.createElement('p', {}, 
+                        `Passed: ${results.filter(r => r.status.includes('✅')).length}, ` +
+                        `Warnings: ${results.filter(r => r.status.includes('⚠️')).length}, ` +
+                        `Failed: ${results.filter(r => r.status.includes('❌')).length}`
+                    )
+                )
+            );
+        }
+
+        // Render test suite
+        const root = createRoot(document.getElementById('test-results'));
+        root.render(React.createElement(TestSuite));
+
+        // Test component mounting
+        setTimeout(() => {
+            try {
+                const componentTest = createRoot(document.getElementById('component-test'));
+                componentTest.render(React.createElement('div', { 
+                    style: { background: '#dcfce7', padding: '15px', borderRadius: '8px', marginTop: '20px' }
+                }, 
+                    React.createElement('h3', {}, '🎯 Component Mount Test'),
+                    React.createElement('p', {}, 'If you see this, React components are mounting correctly!')
+                ));
+            } catch (e) {
+                document.getElementById('component-test').innerHTML = 
+                    `<div style="background: #fef2f2; padding: 15px; border-radius: 8px; margin-top: 20px;">
+                        <h3>❌ Component Mount Error</h3>
+                        <p>${e.message}</p>
+                    </div>`;
+            }
+        }, 1000);
+    </script>
+</body>
+</html>

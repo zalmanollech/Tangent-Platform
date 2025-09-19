@@ -113,6 +113,7 @@ const tgtPool = {
   totalBalance: 1000000, // Starting with 1M TGT
   deposits: new Map(),
   withdrawals: new Map(),
+  userBalances: new Map(), // Track individual user balances
   
   deposit(amount, from, contractId) {
     const depositId = 'DEP-' + Date.now();
@@ -152,6 +153,31 @@ const tgtPool = {
     
     console.log('  TGT POOL WITHDRAWAL:', withdrawal);
     return withdrawal;
+  },
+  
+  // Initialize user balance if not exists
+  initializeUser(userEmail, initialBalance = 10000) {
+    if (!this.userBalances.has(userEmail)) {
+      this.userBalances.set(userEmail, initialBalance);
+      console.log(`🎯 TGT USER INITIALIZED: ${userEmail} with ${initialBalance} TGT`);
+    }
+    return this.userBalances.get(userEmail);
+  },
+  
+  // Get user balance
+  getUserBalance(userEmail) {
+    return this.userBalances.get(userEmail) || 0;
+  },
+  
+  // Deduct from user balance (for deposits)
+  deductUserBalance(userEmail, amount) {
+    const currentBalance = this.getUserBalance(userEmail);
+    if (currentBalance >= amount) {
+      this.userBalances.set(userEmail, currentBalance - amount);
+      console.log(`📉 USER BALANCE DEDUCTED: ${userEmail} -${amount} TGT (New: ${currentBalance - amount})`);
+      return true;
+    }
+    return false;
   }
 };
 
@@ -1571,7 +1597,7 @@ app.get('/admin', (req, res) => {
   res.send('<h1>  Admin Panel</h1><p><a href="/dashboard">Go to Dashboard</a></p>');
 });
 
-// CONTRACT MANAGEMENT SYSTEM
+// CONTRACT MANAGEMENT SYSTEM - COMPLETE WORKFLOW WITH DEPOSITS
 app.post('/api/create-contract', async (req, res) => {
   try {
     const { 
