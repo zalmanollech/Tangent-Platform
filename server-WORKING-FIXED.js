@@ -5197,7 +5197,11 @@ app.use('*', (req, res) => {
 // ================================
 // SERVER STARTUP
 // ================================
-const server = app.listen(PORT, 'localhost', () => {
+const server = app.listen(PORT, '0.0.0.0', (err) => {
+    if (err) {
+        console.error('❌ Failed to start server:', err);
+        process.exit(1);
+    }
     console.log('✅ TANGENT COMPLETE PRODUCTION PLATFORM RUNNING ON PORT', PORT);
     console.log('🌐 Landing Page:', `http://localhost:${PORT}/`);
     console.log('👥 Team Portal:', `http://localhost:${PORT}/landing-two`);
@@ -5213,6 +5217,14 @@ const server = app.listen(PORT, 'localhost', () => {
     console.log('');
     console.log('🚀 ALL 15 FUNCTIONALITIES IMPLEMENTED');
     console.log('✅ PRODUCTION READY - NO PLACEHOLDERS');
+});
+
+server.on('error', (err) => {
+    console.error('❌ Server error:', err);
+    if (err.code === 'EADDRINUSE') {
+        console.error(`❌ Port ${PORT} is already in use`);
+        process.exit(1);
+    }
 });
 
 // Graceful shutdown
