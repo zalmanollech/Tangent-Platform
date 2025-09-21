@@ -107,25 +107,127 @@ const database = {
 database.users.set('admin@tangent.com', {
     id: 'admin-001',
     email: 'admin@tangent.com',
-    password: bcrypt.hashSync('admin123', 10),
+    password: bcrypt.hashSync('TangentAdmin2024!', 10),
     role: 'admin',
     verified: true,
     kycStatus: 'approved'
+});
+
+// Test approved users for each role
+database.users.set('buyer@test.com', {
+    id: 'buyer-001',
+    email: 'buyer@test.com',
+    password: bcrypt.hashSync('TestUser2024!', 10),
+    role: 'buyer',
+    verified: true,
+    kycStatus: 'approved'
+});
+
+database.users.set('supplier@test.com', {
+    id: 'supplier-001',
+    email: 'supplier@test.com',
+    password: bcrypt.hashSync('TestUser2024!', 10),
+    role: 'supplier',
+    verified: true,
+    kycStatus: 'approved'
+});
+
+database.users.set('trader@test.com', {
+    id: 'trader-001',
+    email: 'trader@test.com',
+    password: bcrypt.hashSync('TestUser2024!', 10),
+    role: 'trader',
+    verified: true,
+    kycStatus: 'approved'
+});
+
+database.users.set('insurer@test.com', {
+    id: 'insurer-001',
+    email: 'insurer@test.com',
+    password: bcrypt.hashSync('TestUser2024!', 10),
+    role: 'insurer',
+    verified: true,
+    kycStatus: 'approved'
+});
+
+// Create TGT wallets for test users
+database.wallets.set('buyer-001', {
+    userId: 'buyer-001',
+    tgtBalance: 10000, // Give them some starting balance
+    address: 'tgt_buyer-001_test',
+    createdAt: new Date().toISOString()
+});
+
+database.wallets.set('supplier-001', {
+    userId: 'supplier-001',
+    tgtBalance: 5000,
+    address: 'tgt_supplier-001_test',
+    createdAt: new Date().toISOString()
+});
+
+database.wallets.set('trader-001', {
+    userId: 'trader-001',
+    tgtBalance: 15000,
+    address: 'tgt_trader-001_test',
+    createdAt: new Date().toISOString()
+});
+
+database.wallets.set('insurer-001', {
+    userId: 'insurer-001',
+    tgtBalance: 8000,
+    address: 'tgt_insurer-001_test',
+    createdAt: new Date().toISOString()
 });
 
 // ================================
 // AUTHENTICATION MIDDLEWARE
 // ================================
 const authenticateToken = (req, res, next) => {
+    console.log('🔐 AUTH MIDDLEWARE - Path:', req.path);
+    console.log('🔐 AUTH MIDDLEWARE - Query params:', req.query);
+    
+    // Try multiple ways to get the token
+    let token = null;
+    
+    // 1. Check Authorization header (for API calls)
     const authHeader = req.headers['authorization'];
-    const token = authHeader && authHeader.split(' ')[1];
+    if (authHeader && authHeader.split(' ')[1]) {
+        token = authHeader.split(' ')[1];
+        console.log('🔐 AUTH MIDDLEWARE - Token from header:', token.substring(0, 20) + '...');
+    }
+    
+    // 2. Check query parameter (for dashboard redirects)
+    if (!token && req.query.token) {
+        token = req.query.token;
+        console.log('🔐 AUTH MIDDLEWARE - Token from query:', token.substring(0, 20) + '...');
+    }
+    
+    // 3. Check cookies (if we implement cookie auth later)
+    if (!token && req.cookies && req.cookies.token) {
+        token = req.cookies.token;
+        console.log('🔐 AUTH MIDDLEWARE - Token from cookies:', token.substring(0, 20) + '...');
+    }
     
     if (!token) {
+        console.log('❌ AUTH MIDDLEWARE - No token found, redirecting to login');
+        // For dashboard routes, redirect to login instead of JSON error
+        if (req.path.startsWith('/dashboard')) {
+            return res.redirect('/landing-two');
+        }
         return res.status(401).json({ error: 'Access token required' });
     }
     
+    console.log('🔐 AUTH MIDDLEWARE - Verifying token...');
     jwt.verify(token, process.env.JWT_SECRET || 'tangent-secret-key', (err, user) => {
-        if (err) return res.status(403).json({ error: 'Invalid token' });
+        if (err) {
+            console.log('❌ AUTH MIDDLEWARE - Token verification failed:', err.message);
+            // For dashboard routes, redirect to login instead of JSON error
+            if (req.path.startsWith('/dashboard')) {
+                return res.redirect('/landing-two');
+            }
+            return res.status(403).json({ error: 'Invalid token' });
+        }
+        console.log('✅ AUTH MIDDLEWARE - Token verified successfully for user:', user.email);
         req.user = user;
         next();
     });
@@ -141,19 +243,716 @@ const requireRole = (roles) => {
 };
 
 // ================================
-// REACT APP SERVING
+// STATIC FILE SERVING (No React)
 // ================================
-app.use(express.static('src'));
+// Serve only specific files, not the entire src directory to avoid React conflicts
 app.use('/static', express.static('public'));
 app.use('/uploads', express.static('uploads'));
 
-// React Router - serve React app for ALL dashboard routes
-app.get('/dashboard', (req, res) => {
-    res.sendFile(path.join(__dirname, 'src', 'index.html'));
+// Block access to problematic React files that cause console errors
+app.get('*.jsx', (req, res) => {
+    res.status(404).send('JSX files not served');
+});
+app.get('*.js', (req, res) => {
+    // Only allow specific JS files, block React components
+    if (req.path.includes('App.jsx') || 
+        req.path.includes('DashboardRouter') || 
+        req.path.includes('react') ||
+        req.path.includes('components/')) {
+        res.status(404).send('React components not served');
+    } else {
+        res.status(404).send('File not found');
+    }
 });
 
-app.get('/dashboard/*', (req, res) => {
-    res.sendFile(path.join(__dirname, 'src', 'index.html'));
+// Serve favicon to prevent 404 errors
+app.get('/favicon.ico', (req, res) => {
+    res.status(204).end(); // No content response for favicon
+});
+
+// Unified Dashboard routing - ALL roles go to same dashboard
+app.get('/dashboard', (req, res) => {
+    // Client-side token authentication
+    res.send(`
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Dashboard - Tangent Protocol</title>
+    </head>
+    <body>
+        <div id="loadingMessage">Loading dashboard...</div>
+        
+        <script>
+            console.log('📱 Dashboard page loaded');
+            
+            // Check for token in localStorage
+            const token = localStorage.getItem('token');
+            const user = JSON.parse(localStorage.getItem('user') || '{}');
+            
+            console.log('🔍 Token from localStorage:', token ? token.substring(0, 20) + '...' : 'NOT FOUND');
+            console.log('🔍 User from localStorage:', user);
+            
+            if (!token || !user.email) {
+                console.log('❌ No token or user found, redirecting to login');
+                window.location.href = '/landing-two';
+            } else {
+                console.log('✅ Token and user found, loading dashboard...');
+                
+                // Verify token with server
+                fetch('/api/auth/verify', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': 'Bearer ' + token,
+                        'Content-Type': 'application/json'
+                    }
+                })
+                .then(response => {
+                    if (response.ok) {
+                        console.log('✅ Token verified, redirecting to actual dashboard');
+                        // Token is valid, redirect to the actual dashboard with authentication
+                        window.location.href = '/dashboard/authenticated?role=' + user.role;
+                    } else {
+                        console.log('❌ Token verification failed, redirecting to login');
+                        localStorage.removeItem('token');
+                        localStorage.removeItem('user');
+                        window.location.href = '/landing-two';
+                    }
+                })
+                .catch(error => {
+                    console.error('❌ Token verification error:', error);
+                    window.location.href = '/landing-two';
+                });
+            }
+        </script>
+    </body>
+    </html>
+    `);
+});
+
+// Token verification API
+app.post('/api/auth/verify', authenticateToken, (req, res) => {
+    res.json({ 
+        valid: true, 
+        user: req.user 
+    });
+});
+
+// Authenticated dashboard route
+app.get('/dashboard/authenticated', (req, res) => {
+    const role = req.query.role || 'unified';
+    console.log('🎯 DASHBOARD AUTHENTICATED ROUTE HIT - Role:', role);
+    
+    // Force no caching
+    res.set({
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+    });
+    
+    // Enhanced My Contracts dashboard
+    const dashboardHTML = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${role.charAt(0).toUpperCase() + role.slice(1)} Dashboard - Tangent Protocol</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0f172a; color: #f8fafc; margin: 0; padding: 20px; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .header { background: #1e293b; padding: 20px; border-radius: 12px; margin-bottom: 30px; border: 1px solid #334155; display: flex; justify-content: space-between; align-items: center; }
+        .header h1 { color: #2563eb; margin: 0; font-size: 2rem; }
+        .role-badge { background: #06b6d4; color: white; padding: 8px 16px; border-radius: 20px; font-size: 0.9rem; font-weight: 600; }
+        .contracts-section { background: #1e293b; padding: 30px; border-radius: 12px; border: 1px solid #334155; margin-bottom: 30px; }
+        .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .section-title { color: #06b6d4; font-size: 1.5rem; margin: 0; }
+        .btn { background: #2563eb; color: white; padding: 12px 24px; border: none; border-radius: 8px; cursor: pointer; text-decoration: none; font-size: 1rem; font-weight: 600; transition: all 0.3s ease; display: inline-block; }
+        .btn:hover { background: #1d4ed8; transform: translateY(-2px); }
+        .btn.secondary { background: #10b981; }
+        .btn.secondary:hover { background: #059669; }
+        .btn.small { font-size: 0.8rem; padding: 6px 12px; margin-right: 5px; }
+        .contracts-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        .contracts-table th, .contracts-table td { padding: 12px; text-align: left; border-bottom: 1px solid #334155; }
+        .contracts-table th { background: #0f172a; color: #06b6d4; font-weight: 600; }
+        .status-pending, .status-pending-deposit, .status-pending-supplier-confirmation, .status-pending-buyer-confirmation { background: #f59e0b; color: #000; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; }
+        .status-active { background: #10b981; color: #000; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; }
+        .status-completed { background: #06b6d4; color: #000; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; }
+        .empty-state { text-align: center; padding: 40px; color: #94a3b8; }
+        .logout-btn { background: #ef4444; color: white; padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer; text-decoration: none; font-size: 0.9rem; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🏛️ My Contracts Dashboard</h1>
+            <div>
+                <span class="role-badge">${role.toUpperCase()}</span>
+                <button class="logout-btn" onclick="logout()">Logout</button>
+            </div>
+        </div>
+        
+        <div class="contracts-section">
+            <div class="section-header">
+                <h2 class="section-title">📋 My Contracts</h2>
+                <button class="btn" onclick="createContract()">Create New Contract</button>
+            </div>
+            <div id="contractsContainer">
+                <div class="empty-state"><p>Loading contracts...</p></div>
+            </div>
+        </div>
+        
+        ${role === 'admin' ? `
+        <div class="contracts-section">
+            <div class="section-header">
+                <h2 class="section-title">🛠️ Admin Tools</h2>
+            </div>
+            <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+                <a href="/admin/active-trades" class="btn secondary">View All Trades</a>
+                <a href="/admin/auction" class="btn secondary">Auction Board</a>
+                <button class="btn secondary">KYC Reports</button>
+                <button class="btn secondary">Manage Fees</button>
+                <button class="btn secondary">Voyage Times</button>
+            </div>
+        </div>
+        ` : ''}
+    </div>
+    
+    <script>
+        const token = localStorage.getItem('token');
+        const user = JSON.parse(localStorage.getItem('user') || '{}');
+        
+        if (!token || !user.email) {
+            window.location.href = '/landing-two';
+        }
+        
+        loadContracts();
+        
+        async function loadContracts() {
+            try {
+                const isAdmin = user.role === 'admin';
+                const response = await fetch(isAdmin ? '/api/admin/contracts' : '/api/contracts', {
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    displayContracts(data.contracts);
+                } else {
+                    document.getElementById('contractsContainer').innerHTML = 
+                        '<div class="empty-state"><p>Error loading contracts</p></div>';
+                }
+            } catch (error) {
+                document.getElementById('contractsContainer').innerHTML = 
+                    '<div class="empty-state"><p>Error loading contracts</p></div>';
+            }
+        }
+        
+        function displayContracts(contracts) {
+            const container = document.getElementById('contractsContainer');
+            const isAdmin = user.role === 'admin';
+            
+            if (!contracts || contracts.length === 0) {
+                container.innerHTML = '<div class="empty-state"><p>No contracts found. Create your first contract!</p></div>';
+                return;
+            }
+            
+            let tableHTML = '<table class="contracts-table"><thead><tr>';
+            tableHTML += '<th>Contract ID</th><th>Product</th><th>Value</th><th>Status</th>';
+            if (isAdmin) {
+                tableHTML += '<th>Buyer</th><th>Supplier</th>';
+            } else {
+                tableHTML += '<th>Counterparty</th><th>My Role</th>';
+            }
+            tableHTML += '<th>Flags</th><th>Created</th>';
+            tableHTML += '<th>Actions</th></tr></thead><tbody>';
+            
+            contracts.forEach(contract => {
+                const statusClass = 'status-' + (contract.status || 'pending').replace(/_/g, '-');
+                const flags = [];
+                
+                if (contract.buyerFlag) flags.push('🔵 Buyer Flag');
+                if (contract.supplierFlag) flags.push('🟢 Supplier Flag');
+                if (contract.status === 'pending_deposit') flags.push('💰 Pending Deposit');
+                if (contract.status === 'pending_supplier_confirmation') flags.push('✅ Awaiting Supplier');
+                if (contract.status === 'pending_buyer_confirmation') flags.push('✅ Awaiting Buyer');
+                
+                const actionButtons = getActionButtons(contract, user.role);
+                
+                tableHTML += '<tr>';
+                tableHTML += '<td>' + (contract.id || 'N/A') + '</td>';
+                tableHTML += '<td>' + (contract.productDetails || 'N/A') + '</td>';
+                tableHTML += '<td>$' + (contract.totalValue || 0).toLocaleString() + '</td>';
+                tableHTML += '<td><span class="' + statusClass + '">' + (contract.status || 'pending').replace(/_/g, ' ').toUpperCase() + '</span></td>';
+                if (isAdmin) {
+                    tableHTML += '<td>' + (contract.buyerEmail || 'N/A') + '</td>';
+                    tableHTML += '<td>' + (contract.supplierEmail || 'N/A') + '</td>';
+                } else {
+                    // Show counterparty based on user's role
+                    const userRole = getUserRole(contract, user.email);
+                    let counterparty = 'N/A';
+                    if (userRole === 'Buyer' && contract.supplierEmail) {
+                        counterparty = contract.supplierEmail;
+                    } else if (userRole === 'Supplier' && contract.buyerEmail) {
+                        counterparty = contract.buyerEmail;
+                    } else if (userRole === 'Trader') {
+                        counterparty = contract.buyerEmail + ' / ' + contract.supplierEmail;
+                    }
+                    tableHTML += '<td>' + counterparty + '</td>';
+                    tableHTML += '<td>' + userRole + '</td>';
+                }
+                tableHTML += '<td>' + (flags.join('<br>') || 'None') + '</td>';
+                tableHTML += '<td>' + new Date(contract.createdAt).toLocaleDateString() + '</td>';
+                tableHTML += '<td>' + actionButtons + '</td>';
+                tableHTML += '</tr>';
+            });
+            
+            tableHTML += '</tbody></table>';
+            container.innerHTML = tableHTML;
+        }
+        
+        function getActionButtons(contract, userRole) {
+            let buttons = '<a href="/manage-contract/' + contract.id + '" class="btn small">Manage</a>';
+            
+            if (userRole === 'buyer') {
+                // Step 1: Pay Deposit (10-30% of total value)
+                if (contract.status === 'pending_deposit' || contract.status === 'pending_buyer_confirmation') {
+                    const depositAmount = Math.round(contract.totalValue * 0.20); // 20% deposit
+                    buttons += '<button class="btn secondary small" onclick="payDeposit(\\''+contract.id+'\\', '+depositAmount+')" style="background: #f59e0b;">💰 Pay Deposit ($'+depositAmount.toLocaleString()+')</button>';
+                }
+                // Step 4: Release Remaining Payment (Against Documents)
+                if (contract.status === 'active' && contract.depositPaid && contract.documentsUploaded) {
+                    const remainingAmount = contract.totalValue - (contract.depositAmount || Math.round(contract.totalValue * 0.20));
+                    buttons += '<button class="btn secondary small" onclick="releasePayment(\\''+contract.id+'\\', '+remainingAmount+')" style="background: #10b981;">📄 Release Payment ($'+remainingAmount.toLocaleString()+')</button>';
+                }
+                // Show waiting status
+                if (contract.status === 'active' && contract.depositPaid && !contract.documentsUploaded) {
+                    buttons += '<span class="btn small" style="background: #6b7280; cursor: default;">⏳ Awaiting Shipping Docs</span>';
+                }
+            } else if (userRole === 'supplier') {
+                // Step 2: Confirm Contract
+                if (contract.status === 'pending_supplier_confirmation') {
+                    buttons += '<button class="btn secondary small" onclick="confirmContract(\\''+contract.id+'\\')">✅ Confirm Contract</button>';
+                }
+                // Step 3: Upload Shipping Documents (after deposit received)
+                if (contract.status === 'active' && contract.depositPaid && !contract.documentsUploaded) {
+                    buttons += '<button class="btn secondary small" onclick="uploadDocuments(\\''+contract.id+'\\')">🚢 Upload Shipping Docs</button>';
+                }
+                // Show waiting for deposit
+                if (contract.status === 'pending_deposit') {
+                    buttons += '<span class="btn small" style="background: #6b7280; cursor: default;">⏳ Awaiting Buyer Deposit</span>';
+                }
+            } else if (userRole === 'trader') {
+                // Traders can act as both buyer and supplier
+                // Supplier actions
+                if (contract.status === 'pending_supplier_confirmation') {
+                    buttons += '<button class="btn secondary small" onclick="confirmContract(\\''+contract.id+'\\')">✅ Confirm as Supplier</button>';
+                }
+                if (contract.status === 'active' && contract.depositPaid && !contract.documentsUploaded) {
+                    buttons += '<button class="btn secondary small" onclick="uploadDocuments(\\''+contract.id+'\\')">🚢 Upload Shipping Docs</button>';
+                }
+                
+                // Buyer actions
+                if (contract.status === 'pending_deposit' || contract.status === 'pending_buyer_confirmation') {
+                    const depositAmount = Math.round(contract.totalValue * 0.20);
+                    buttons += '<button class="btn secondary small" onclick="payDeposit(\\''+contract.id+'\\', '+depositAmount+')" style="background: #f59e0b;">💰 Pay Deposit ($'+depositAmount.toLocaleString()+')</button>';
+                }
+                if (contract.status === 'active' && contract.depositPaid && contract.documentsUploaded) {
+                    const remainingAmount = contract.totalValue - (contract.depositAmount || Math.round(contract.totalValue * 0.20));
+                    buttons += '<button class="btn secondary small" onclick="releasePayment(\\''+contract.id+'\\', '+remainingAmount+')" style="background: #10b981;">📄 Release Payment ($'+remainingAmount.toLocaleString()+')</button>';
+                }
+                
+                buttons += '<button class="btn secondary small" onclick="manageTraderContract(\\''+contract.id+'\\')">🔄 Dual Contract</button>';
+            }
+            
+            return buttons;
+        }
+        
+        function getUserRole(contract, userEmail) {
+            if (contract.buyerEmail === userEmail) return 'BUYER';
+            if (contract.supplierEmail === userEmail) return 'SUPPLIER';
+            return 'TRADER';
+        }
+        
+        function createContract() { 
+            const token = localStorage.getItem('token');
+            if (!token) {
+                alert('Please login first');
+                window.location.href = '/landing-two';
+                return;
+            }
+            window.location.href = '/create-contract?token=' + encodeURIComponent(token); 
+        }
+        
+        async function payDeposit(id) {
+            try {
+                const response = await fetch('/api/contracts/' + id + '/deposit', {
+                    method: 'POST',
+                    headers: { 
+                        'Authorization': 'Bearer ' + token,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const result = await response.json();
+                if (result.success) {
+                    alert('Deposit paid successfully! Contract is now active.');
+                    location.reload();
+                } else {
+                    alert('Error: ' + result.error);
+                }
+            } catch (error) {
+                alert('Error paying deposit: ' + error.message);
+            }
+        }
+        
+        async function releasePayment(id) {
+            if (!confirm('Release payment to supplier? This action cannot be undone.')) return;
+            
+            try {
+                const response = await fetch('/api/contracts/' + id + '/release-payment', {
+                    method: 'POST',
+                    headers: { 
+                        'Authorization': 'Bearer ' + token,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const result = await response.json();
+                if (result.success) {
+                    alert('Payment released successfully! Contract completed.');
+                    location.reload();
+                } else {
+                    alert('Error: ' + result.error);
+                }
+            } catch (error) {
+                alert('Error releasing payment: ' + error.message);
+            }
+        }
+        
+        async function confirmContract(id) {
+            try {
+                const response = await fetch('/api/contracts/' + id + '/confirm', {
+                    method: 'POST',
+                    headers: { 
+                        'Authorization': 'Bearer ' + token,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const result = await response.json();
+                if (result.success) {
+                    alert('Contract confirmed successfully!');
+                    location.reload();
+                } else {
+                    alert('Error: ' + result.error);
+                }
+            } catch (error) {
+                alert('Error confirming contract: ' + error.message);
+            }
+        }
+        
+        function uploadDocuments(id) { 
+            window.location.href = '/manage-contract/' + id; 
+        }
+        
+        function manageTraderContract(id) { 
+            window.location.href = '/manage-contract/' + id; 
+        }
+        function logout() { localStorage.removeItem('token'); localStorage.removeItem('user'); window.location.href = '/landing-two'; }
+    </script>
+</body>
+</html>`;
+    
+    res.send(dashboardHTML);
+});
+
+app.get('/dashboard/:role', authenticateToken, (req, res) => {
+    const { role } = req.params;
+    
+    // Admin access
+    if (role === 'admin') {
+        if (req.user.role !== 'admin') {
+            return res.status(403).send('<h1>Access Denied</h1><p>Admin access required.</p>');
+        }
+        return res.send(createDashboard('admin', req.user));
+    }
+    
+    // Check if user needs KYC
+    if (req.user.kycStatus !== 'approved' && req.user.role !== 'admin') {
+        return res.redirect('/dashboard/kyc');
+    }
+    
+    // Role-specific routing
+    if (role === 'insurer') {
+        return res.send(createDashboard('insurer', req.user));
+    }
+    
+    // All other roles go to unified dashboard
+    res.send(createDashboard('unified', req.user));
+});
+
+// Sign In Page
+app.get('/signin', (req, res) => {
+    res.send(`
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Sign In - Tangent Protocol</title>
+        <style>
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body { 
+                font-family: 'Arial', sans-serif; 
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                min-height: 100vh;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+            .container {
+                background: white;
+                padding: 3rem;
+                border-radius: 15px;
+                box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+                max-width: 400px;
+                width: 90%;
+            }
+            h1 { color: #1e3c72; font-size: 2.2rem; margin-bottom: 2rem; text-align: center; }
+            .form-group { margin-bottom: 1.5rem; }
+            label { display: block; margin-bottom: 0.5rem; color: #333; font-weight: 600; }
+            input { width: 100%; padding: 12px; border: 2px solid #e5e5e5; border-radius: 8px; font-size: 1rem; }
+            input:focus { outline: none; border-color: #667eea; }
+            .btn { width: 100%; padding: 15px; background: #667eea; color: white; border: none; border-radius: 8px; font-size: 1.1rem; font-weight: 600; cursor: pointer; margin-top: 1rem; }
+            .btn:hover { background: #5a6fd8; }
+            .links { text-align: center; margin-top: 2rem; }
+            .links a { color: #667eea; text-decoration: none; }
+            .message { padding: 1rem; margin-bottom: 1rem; border-radius: 8px; display: none; }
+            .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+            .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1>🔐 Sign In</h1>
+            <div id="message" class="message"></div>
+            <form id="signinForm">
+                <div class="form-group">
+                    <label for="email">Email</label>
+                    <input type="email" id="email" required>
+                </div>
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" required>
+                </div>
+                <button type="submit" class="btn">Sign In</button>
+            </form>
+            <div class="links">
+                <a href="/signup">Don't have an account? Sign Up</a><br>
+                <a href="/">← Back to Home</a>
+            </div>
+        </div>
+        
+        <script>
+            console.log('✅ Signin page JavaScript loaded');
+            document.getElementById('signinForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                
+                const email = document.getElementById('email').value;
+                const password = document.getElementById('password').value;
+                const messageDiv = document.getElementById('message');
+                
+                console.log('🔑 Login form submitted:', email);
+                
+                try {
+                    console.log('🚀 Sending login request to server...');
+                    const response = await fetch('/api/auth/login', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ email, password })
+                    });
+                    
+                    console.log('📡 Response received:', response.status, response.ok);
+                    const data = await response.json();
+                    console.log('📊 Response data:', data);
+                    
+                    if (response.ok) {
+                        localStorage.setItem('token', data.token);
+                        localStorage.setItem('user', JSON.stringify(data.user));
+                        
+                        messageDiv.className = 'message success';
+                        messageDiv.textContent = 'Sign in successful! Redirecting...';
+                        messageDiv.style.display = 'block';
+                        
+                        console.log('✅ Login successful! User data:', data.user);
+                        console.log('🔍 User role:', data.user.role);
+                        console.log('🔍 KYC status:', data.user.kycStatus);
+                        console.log('🔍 Verified:', data.user.verified);
+                        
+                        // Calculate redirect URL (without token in URL) - all go to /dashboard
+                        const redirectUrl = '/dashboard';
+                        
+                        console.log('🎯 Redirect URL will be:', redirectUrl);
+                        console.log('🎯 Token stored in localStorage');
+                        
+                        // Redirect based on role and KYC status
+                        setTimeout(() => {
+                            console.log('🚀 Now redirecting to:', redirectUrl);
+                            window.location.href = redirectUrl;
+                        }, 1500);
+                    } else {
+                        messageDiv.className = 'message error';
+                        messageDiv.textContent = data.error || 'Sign in failed';
+                        messageDiv.style.display = 'block';
+                    }
+                } catch (error) {
+                    messageDiv.className = 'message error';
+                    messageDiv.textContent = 'Network error. Please try again.';
+                    messageDiv.style.display = 'block';
+                }
+            });
+        </script>
+    </body>
+    </html>
+    `);
+});
+
+// Sign Up Page
+app.get('/signup', (req, res) => {
+    res.send(`
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Sign Up - Tangent Protocol</title>
+        <style>
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body { 
+                font-family: 'Arial', sans-serif; 
+                background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+                min-height: 100vh;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                padding: 20px;
+            }
+            .container {
+                background: white;
+                padding: 3rem;
+                border-radius: 15px;
+                box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+                max-width: 500px;
+                width: 100%;
+            }
+            h1 { color: #1e3c72; font-size: 2.2rem; margin-bottom: 2rem; text-align: center; }
+            .form-group { margin-bottom: 1.5rem; }
+            label { display: block; margin-bottom: 0.5rem; color: #333; font-weight: 600; }
+            input, select { width: 100%; padding: 12px; border: 2px solid #e5e5e5; border-radius: 8px; font-size: 1rem; }
+            input:focus, select:focus { outline: none; border-color: #f5576c; }
+            .btn { width: 100%; padding: 15px; background: #f5576c; color: white; border: none; border-radius: 8px; font-size: 1.1rem; font-weight: 600; cursor: pointer; margin-top: 1rem; }
+            .btn:hover { background: #e14e63; }
+            .links { text-align: center; margin-top: 2rem; }
+            .links a { color: #f5576c; text-decoration: none; }
+            .message { padding: 1rem; margin-bottom: 1rem; border-radius: 8px; display: none; }
+            .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+            .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1>✨ Sign Up</h1>
+            <div id="message" class="message"></div>
+            <form id="signupForm">
+                <div class="form-group">
+                    <label for="email">Email</label>
+                    <input type="email" id="email" required>
+                </div>
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" required>
+                </div>
+                <div class="form-group">
+                    <label for="role">Role</label>
+                    <select id="role" required>
+                        <option value="">Select your role</option>
+                        <option value="buyer">Buyer</option>
+                        <option value="supplier">Supplier</option>
+                        <option value="trader">Trader</option>
+                        <option value="insurer">Insurer</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="companyName">Company Name</label>
+                    <input type="text" id="companyName" required>
+                </div>
+                <div class="form-group">
+                    <label for="companyType">Company Type</label>
+                    <select id="companyType" required>
+                        <option value="">Select company type</option>
+                        <option value="listed">Listed Company</option>
+                        <option value="private">Private Company</option>
+                        <option value="individual">Individual</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn">Create Account</button>
+            </form>
+            <div class="links">
+                <a href="/signin">Already have an account? Sign In</a><br>
+                <a href="/">← Back to Home</a>
+            </div>
+        </div>
+        
+        <script>
+            document.getElementById('signupForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                
+                const formData = {
+                    email: document.getElementById('email').value,
+                    password: document.getElementById('password').value,
+                    role: document.getElementById('role').value,
+                    companyName: document.getElementById('companyName').value,
+                    companyType: document.getElementById('companyType').value
+                };
+                
+                const messageDiv = document.getElementById('message');
+                
+                try {
+                    const response = await fetch('/api/auth/register', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(formData)
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (response.ok) {
+                        localStorage.setItem('token', data.token);
+                        localStorage.setItem('user', JSON.stringify(data.user));
+                        
+                        messageDiv.className = 'message success';
+                        messageDiv.textContent = 'Account created successfully! Redirecting to KYC...';
+                        messageDiv.style.display = 'block';
+                        
+                        setTimeout(() => {
+                            window.location.href = '/dashboard/kyc';
+                        }, 1500);
+                    } else {
+                        messageDiv.className = 'message error';
+                        messageDiv.textContent = data.error || 'Registration failed';
+                        messageDiv.style.display = 'block';
+                    }
+                } catch (error) {
+                    messageDiv.className = 'message error';
+                    messageDiv.textContent = 'Network error. Please try again.';
+                    messageDiv.style.display = 'block';
+                }
+            });
+        </script>
+    </body>
+    </html>
+    `);
 });
 
 // ================================
@@ -195,159 +994,210 @@ app.get('/test', (req, res) => {
 // LANDING PAGE
 // ================================
 app.get('/', (req, res) => {
-    res.send(`
-    <!DOCTYPE html>
+  res.send(`<!DOCTYPE html>
     <html lang="en">
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Tangent Protocol - Complete Trading Platform</title>
+  <title>Tangent Protocol — Advanced Trading Platform & TGT Stablecoin</title>
         <style>
-            * { margin: 0; padding: 0; box-sizing: border-box; }
             body { 
-                font-family: 'Arial', sans-serif; 
-                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                min-height: 100vh;
-                display: flex;
-                align-items: center;
-                justify-content: center;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
+      background: #0f172a; 
+      color: #f8fafc; 
+      margin: 0; 
+      padding: 0; 
             }
             .container {
-                background: rgba(255, 255, 255, 0.95);
-                padding: 3rem;
-                border-radius: 20px;
-                box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+      max-width: 1400px; 
+      margin: 0 auto; 
+      padding: 40px 20px; 
+    }
+    .header { 
                 text-align: center;
-                max-width: 600px;
-                width: 90%;
+      margin-bottom: 80px; 
             }
             h1 {
-                color: #333;
-                font-size: 2.5rem;
-                margin-bottom: 1rem;
+      font-size: 4rem; 
                 font-weight: 700;
+      margin-bottom: 20px; 
+      background: linear-gradient(135deg, #2563eb, #06b6d4); 
+      -webkit-background-clip: text; 
+      -webkit-text-fill-color: transparent; 
+      background-clip: text; 
             }
             .subtitle {
-                color: #666;
+      font-size: 1.5rem; 
+      color: #94a3b8; 
+      margin-bottom: 40px; 
+    }
+    .main-content { 
+      display: grid; 
+      grid-template-columns: 1fr 1fr; 
+      gap: 60px; 
+      margin: 80px 0; 
+    }
+    .platform-section, .tgt-section { 
+      background: #1e293b; 
+      padding: 50px; 
+      border-radius: 20px; 
+      border: 1px solid #334155; 
+      text-align: center; 
+    }
+    .platform-section h2, .tgt-section h2 { 
+      font-size: 2.5rem; 
+      margin-bottom: 30px; 
+    }
+    .platform-section h2 { 
+      color: #2563eb; 
+    }
+    .tgt-section h2 { 
+      color: #06b6d4; 
+    }
+    .section-description { 
                 font-size: 1.2rem;
-                margin-bottom: 2rem;
+      color: #94a3b8; 
+      margin-bottom: 40px; 
                 line-height: 1.6;
             }
-            .features {
-                display: grid;
-                grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-                gap: 1rem;
-                margin: 2rem 0;
-            }
-            .feature {
-                background: #f8f9fa;
-                padding: 1.5rem;
-                border-radius: 10px;
-                border-left: 4px solid #667eea;
-            }
-            .feature h3 {
-                color: #333;
-                margin-bottom: 0.5rem;
+    .features-list { 
+      text-align: left; 
+      margin: 30px 0; 
+    }
+    .features-list ul { 
+      list-style: none; 
+      padding: 0; 
+    }
+    .features-list li { 
+      padding: 12px 0; 
+      color: #cbd5e1; 
                 font-size: 1.1rem;
-            }
-            .feature p {
-                color: #666;
-                font-size: 0.9rem;
-            }
-            .buttons {
-                display: flex;
-                gap: 1rem;
-                justify-content: center;
-                flex-wrap: wrap;
-                margin-top: 2rem;
+      border-bottom: 1px solid #334155; 
+    }
+    .features-list li:last-child { 
+      border-bottom: none; 
+    }
+    .features-list li::before { 
+      content: "✓ "; 
+      color: #10b981; 
+      font-weight: bold; 
+      margin-right: 10px; 
+    }
+    .registration-section { 
+      margin-top: 80px; 
+      text-align: center; 
+      padding: 50px; 
+      background: #1e293b; 
+      border-radius: 16px; 
+      border: 1px solid #334155; 
+    }
+    .registration-section h3 { 
+      color: #2563eb; 
+      margin-bottom: 20px; 
+      font-size: 2rem; 
+    }
+    .registration-section p { 
+      color: #94a3b8; 
+      margin-bottom: 30px; 
+      font-size: 1.2rem; 
             }
             .btn {
-                padding: 12px 24px;
+      display: inline-block; 
+      padding: 15px 30px; 
+      background: #2563eb; 
+      color: white; 
+      text-decoration: none; 
+      border-radius: 12px; 
+      margin: 10px; 
                 border: none;
-                border-radius: 8px;
-                font-size: 1rem;
-                font-weight: 600;
                 cursor: pointer;
+      font-size: 16px; 
+      font-weight: 600; 
                 transition: all 0.3s ease;
-                text-decoration: none;
-                display: inline-block;
-            }
-            .btn-primary {
-                background: #667eea;
-                color: white;
-            }
-            .btn-primary:hover {
-                background: #5a6fd8;
+      box-shadow: 0 4px 15px rgba(37, 99, 235, 0.3); 
+    }
+    .btn:hover { 
+      background: #1d4ed8; 
                 transform: translateY(-2px);
-            }
-            .btn-secondary {
-                background: #f8f9fa;
-                color: #333;
-                border: 2px solid #667eea;
-            }
-            .btn-secondary:hover {
-                background: #667eea;
-                color: white;
-            }
-            .status {
-                background: #d4edda;
-                color: #155724;
-                padding: 1rem;
-                border-radius: 8px;
-                margin: 1rem 0;
-                border: 1px solid #c3e6cb;
+      box-shadow: 0 6px 20px rgba(37, 99, 235, 0.4); 
+    }
+    .btn.secondary { 
+      background: #06b6d4; 
+    }
+    .btn.secondary:hover { 
+      background: #0891b2; 
+    }
+    @media (max-width: 768px) { 
+      h1 { font-size: 2.5rem; } 
+      .main-content { grid-template-columns: 1fr; gap: 40px; }
+      .platform-section, .tgt-section { padding: 30px; }
+      .btn { display: block; width: 100%; margin: 10px 0; } 
             }
         </style>
     </head>
     <body>
         <div class="container">
-            <h1>🎯 Tangent Protocol</h1>
-            <p class="subtitle">Complete Trading Platform with Advanced Features</p>
-            
-            <div class="status">
-                ✅ Production Platform Ready | All 15 Core Features Active
+    <div class="header">
+      <h1>Tangent Protocol</h1>
+      <p class="subtitle">Advanced Trading Platform & TGT Stablecoin</p>
             </div>
             
-            <div class="features">
-                <div class="feature">
-                    <h3>🔐 Advanced KYC</h3>
-                    <p>Complete verification system with document upload and compliance checking</p>
+    <div class="main-content">
+      <!-- Platform Section -->
+      <div class="platform-section">
+        <h2>🚀 Trading Platform</h2>
+        <p class="section-description">
+          Experience next-generation trading with institutional-grade tools, real-time analytics, and seamless execution.
+        </p>
+        <div class="features-list">
+          <ul>
+            <li>Real-time market data and analytics</li>
+            <li>Advanced order types and execution</li>
+            <li>Comprehensive risk management</li>
+            <li>Portfolio analytics and reporting</li>
+            <li>Multi-asset trading support</li>
+            <li>Institutional-grade security</li>
+          </ul>
                 </div>
-                <div class="feature">
-                    <h3>💰 TGT Stablecoin</h3>
-                    <p>Integrated wallet system with TGT pool management and transfers</p>
                 </div>
-                <div class="feature">
-                    <h3>📋 Contract Management</h3>
-                    <p>Full contract lifecycle with buyer/supplier confirmations and deposits</p>
+      
+      <!-- TGT Stablecoin Section -->
+      <div class="tgt-section">
+        <h2>💎 TGT Stablecoin</h2>
+        <p class="section-description">
+          Discover the benefits of our innovative TGT stablecoin - designed for stability, transparency, and seamless integration.
+        </p>
+        <div class="features-list">
+          <ul>
+            <li>Advanced price stability mechanisms</li>
+            <li>Transparent reserve management</li>
+            <li>Ultra-low transaction costs</li>
+            <li>Seamless DeFi integration</li>
+            <li>Regulatory compliance ready</li>
+            <li>Fast settlement times</li>
+          </ul>
                 </div>
-                <div class="feature">
-                    <h3>⚡ Trading System</h3>
-                    <p>Dual contracts for traders with price validation and market integration</p>
                 </div>
-                <div class="feature">
-                    <h3>🏛️ Auction Platform</h3>
-                    <p>Automated auctions for overdue contracts with bidding system</p>
                 </div>
-                <div class="feature">
-                    <h3>🛡️ Admin Dashboard</h3>
-                    <p>Comprehensive management with fees, reports, and system controls</p>
+    
+    <!-- Registration Section -->
+    <div class="registration-section">
+      <h3>Get Started with Tangent Protocol</h3>
+      <p>Join the future of trading and discover the power of TGT stablecoin</p>
+      <div style="margin: 30px 0;">
+        <button class="btn" onclick="window.location.href='/register'">Register Interest (Early Access)</button>
+        <button class="btn secondary" onclick="window.location.href='/landing-two'">Team Portal</button>
                 </div>
             </div>
             
-            <div class="buttons">
-                <a href="/dashboard/admin" class="btn btn-primary">Admin Dashboard</a>
-                <a href="/dashboard/buyer" class="btn btn-primary">Buyer Portal</a>
-                <a href="/dashboard/supplier" class="btn btn-primary">Supplier Portal</a>
-                <a href="/dashboard/trader" class="btn btn-primary">Trader Portal</a>
-                <a href="/dashboard/insurer" class="btn btn-primary">Insurer Portal</a>
-                <a href="/landing-two" class="btn btn-secondary">Team Portal</a>
-                <a href="/test" class="btn btn-secondary">System Test</a>
+    <!-- Team Access Section -->
+    <div style="text-align: center; margin-top: 40px; padding: 30px; border-top: 1px solid #334155; background: rgba(6, 182, 212, 0.05);">
+      <p style="color: #94a3b8; font-size: 1rem; margin-bottom: 15px;">👥 Team members & new users</p>
+      <a href="/landing-two" style="color: #06b6d4; text-decoration: none; font-size: 1rem; padding: 12px 24px; border: 2px solid #06b6d4; border-radius: 8px; transition: all 0.3s; font-weight: 500;" onmouseover="this.style.background='#06b6d4'; this.style.color='white'; this.style.transform='translateY(-2px)'" onmouseout="this.style.background='transparent'; this.style.color='#06b6d4'; this.style.transform='translateY(0)'">Team Portal</a>
             </div>
         </div>
     </body>
-    </html>
-    `);
+</html>`);
 });
 
 // Landing Page Two - Sign In/Sign Up Portal
@@ -479,6 +1329,230 @@ app.get('/landing-two', (req, res) => {
     `);
 });
 
+// Register Interest Page
+app.get('/register', (req, res) => {
+    res.send(`
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Register Interest - Tangent Protocol</title>
+        <style>
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body { 
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
+                background: #0f172a; 
+                color: #f8fafc; 
+                min-height: 100vh;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                padding: 20px;
+            }
+            .container {
+                background: #1e293b;
+                padding: 3rem;
+                border-radius: 20px;
+                box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5);
+                text-align: center;
+                max-width: 500px;
+                width: 100%;
+                border: 1px solid #334155;
+            }
+            h1 { 
+                color: #2563eb; 
+                font-size: 2.5rem; 
+                margin-bottom: 1rem; 
+                font-weight: 700;
+            }
+            .subtitle { 
+                color: #94a3b8; 
+                font-size: 1.2rem; 
+                margin-bottom: 2rem; 
+                line-height: 1.6;
+            }
+            .form-group {
+                margin-bottom: 1.5rem;
+                text-align: left;
+            }
+            label {
+                display: block;
+                margin-bottom: 0.5rem;
+                color: #cbd5e1;
+                font-weight: 500;
+            }
+            input, select {
+                width: 100%;
+                padding: 15px;
+                border: 2px solid #334155;
+                border-radius: 10px;
+                background: #0f172a;
+                color: #f8fafc;
+                font-size: 1rem;
+                transition: border-color 0.3s ease;
+            }
+            input:focus, select:focus {
+                outline: none;
+                border-color: #2563eb;
+            }
+            .btn {
+                width: 100%;
+                padding: 18px;
+                background: linear-gradient(135deg, #2563eb, #06b6d4);
+                color: white;
+                border: none;
+                border-radius: 12px;
+                font-size: 1.2rem;
+                font-weight: 600;
+                cursor: pointer;
+                transition: all 0.3s ease;
+                margin-top: 1rem;
+            }
+            .btn:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 12px 35px rgba(37, 99, 235, 0.4);
+            }
+            .back-link {
+                margin-top: 2rem;
+                padding-top: 2rem;
+                border-top: 1px solid #334155;
+            }
+            .back-link a {
+                color: #94a3b8;
+                text-decoration: none;
+                font-size: 0.9rem;
+                transition: color 0.3s ease;
+            }
+            .back-link a:hover {
+                color: #2563eb;
+            }
+            .success-message {
+                background: #10b981;
+                color: white;
+                padding: 20px;
+                border-radius: 12px;
+                margin-bottom: 20px;
+                display: none;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div id="successMessage" class="success-message">
+                <h2>🎉 Thank You for Your Interest!</h2>
+                <p>We've received your registration and will keep you informed as we come alive. Stay tuned for exciting updates!</p>
+            </div>
+            
+            <div id="registrationForm">
+                <h1>🚀 Register Interest</h1>
+                <p class="subtitle">Join the waiting list for early access to Tangent Protocol</p>
+                
+                <form id="interestForm">
+                    <div class="form-group">
+                        <label for="fullName">Full Name</label>
+                        <input type="text" id="fullName" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="email">Email Address</label>
+                        <input type="email" id="email" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="company">Company/Organization (Optional)</label>
+                        <input type="text" id="company">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="interest">Primary Interest</label>
+                        <select id="interest" required>
+                            <option value="">Select your interest</option>
+                            <option value="trading">Trading Platform</option>
+                            <option value="stablecoin">TGT Stablecoin</option>
+                            <option value="both">Both Platform & Stablecoin</option>
+                            <option value="partnership">Partnership Opportunities</option>
+                        </select>
+                    </div>
+                    
+                    <button type="submit" class="btn">Register Interest</button>
+                </form>
+            </div>
+            
+            <div class="back-link">
+                <a href="/">← Back to Home</a>
+            </div>
+        </div>
+        
+        <script>
+            document.getElementById('interestForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                
+                const formData = {
+                    fullName: document.getElementById('fullName').value,
+                    email: document.getElementById('email').value,
+                    company: document.getElementById('company').value,
+                    interest: document.getElementById('interest').value,
+                    registeredAt: new Date().toISOString()
+                };
+                
+                try {
+                    const response = await fetch('/api/register-interest', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(formData)
+                    });
+                    
+                    if (response.ok) {
+                        document.getElementById('registrationForm').style.display = 'none';
+                        document.getElementById('successMessage').style.display = 'block';
+                    } else {
+                        alert('Registration failed. Please try again.');
+                    }
+                } catch (error) {
+                    console.error('Registration error:', error);
+                    alert('Registration failed. Please try again.');
+                }
+            });
+        </script>
+    </body>
+    </html>
+    `);
+});
+
+// Register Interest API
+app.post('/api/register-interest', (req, res) => {
+    try {
+        const { fullName, email, company, interest, registeredAt } = req.body;
+        
+        // Store in database (you can add this to your database structure)
+        if (!database.registrations) {
+            database.registrations = new Map();
+        }
+        
+        const registrationId = `reg-${Date.now()}`;
+        database.registrations.set(registrationId, {
+            id: registrationId,
+            fullName,
+            email,
+            company,
+            interest,
+            registeredAt
+        });
+        
+        console.log('📝 New interest registration:', email, '- Interest:', interest);
+        
+        res.json({
+            message: 'Thank you for registering your interest!',
+            registrationId
+        });
+        
+    } catch (error) {
+        console.error('Interest registration error:', error);
+        res.status(500).json({ error: 'Registration failed' });
+    }
+});
+
 // ================================
 // AUTHENTICATION ROUTES
 // ================================
@@ -543,17 +1617,23 @@ app.post('/api/auth/register', async (req, res) => {
 // Login
 app.post('/api/auth/login', async (req, res) => {
     try {
+        console.log('Login attempt for:', req.body.email);
         const { email, password } = req.body;
         
         const user = database.users.get(email);
         if (!user) {
+            console.log('User not found:', email);
             return res.status(401).json({ error: 'Invalid credentials' });
         }
         
+        console.log('User found, checking password...');
         const validPassword = await bcrypt.compare(password, user.password);
         if (!validPassword) {
+            console.log('Invalid password for:', email);
             return res.status(401).json({ error: 'Invalid credentials' });
         }
+        
+        console.log('Password valid, creating token...');
         
         const token = jwt.sign(
             { userId: user.id, email, role: user.role },
@@ -561,6 +1641,7 @@ app.post('/api/auth/login', async (req, res) => {
             { expiresIn: '24h' }
         );
         
+        console.log('Login successful for:', email, 'Role:', user.role);
         res.json({
             message: 'Login successful',
             token,
@@ -834,55 +1915,172 @@ app.post('/api/tgt/transfer', authenticateToken, (req, res) => {
 // ================================
 
 // Create Contract
-app.post('/api/contracts/create', authenticateToken, (req, res) => {
+app.post('/api/contracts/create', authenticateToken, async (req, res) => {
     try {
         const {
             supplierEmail,
+            buyerEmail,
             productDetails,
             quantity,
+            unit,
             pricePerUnit,
             totalValue,
             deliveryDate,
             paymentTerms,
-            specifications
+            origin,
+            destination,
+            specifications,
+            contractRole,
+            counterpartyEmail
         } = req.body;
         
         const contractId = `contract_${Date.now()}`;
+        
+        // Handle trader dual contracts
+        if (contractRole === 'trader') {
+            return await createTraderDualContracts(req, res, req.body);
+        }
+        
+        // Determine counterparty based on role
+        let finalSupplierEmail = supplierEmail;
+        let finalBuyerEmail = buyerEmail;
+        
+        if (contractRole === 'supplier') {
+            finalSupplierEmail = req.user.email;
+            finalBuyerEmail = counterpartyEmail;
+        } else if (contractRole === 'buyer') {
+            finalBuyerEmail = req.user.email;
+            finalSupplierEmail = counterpartyEmail;
+        }
+        
         const contract = {
             id: contractId,
-            buyerId: req.user.userId,
-            buyerEmail: req.user.email,
-            supplierEmail,
-            supplierId: null, // Will be set when supplier accepts
-            productDetails,
+            buyerId: contractRole === 'buyer' ? req.user.userId : null,
+            buyerEmail: finalBuyerEmail,
+            supplierEmail: finalSupplierEmail,
+            supplierId: contractRole === 'supplier' ? req.user.userId : null,
+            productDetails: `${productDetails} (${quantity} ${unit})`,
             quantity,
+            unit,
             pricePerUnit,
             totalValue,
             deliveryDate,
             paymentTerms,
-            specifications: specifications || {},
-            status: 'pending_supplier_confirmation',
+            specifications: {
+                ...(specifications ? { general: specifications } : {}),
+                origin: origin || '',
+                destination: destination || ''
+            },
+            status: contractRole === 'supplier' ? 'pending_buyer_confirmation' : 
+                   contractRole === 'buyer' ? 'pending_supplier_confirmation' :
+                   'pending_dual_confirmation', // For traders
             createdAt: new Date().toISOString(),
             depositAmount: totalValue * 0.1, // 10% deposit required
             depositPaid: false,
+            supplierConfirmed: contractRole === 'supplier', // Auto-confirm if created by supplier
+            buyerConfirmed: contractRole === 'buyer', // Auto-confirm if created by buyer
             documents: [],
+            shippingCountdown: null,
+            shippingStarted: false,
             timeline: [{
                 event: 'contract_created',
                 timestamp: new Date().toISOString(),
-                actor: req.user.email
-            }]
+                actor: req.user.email,
+                role: contractRole
+            }],
+            smartContract: true,
+            createdBy: req.user.userId,
+            creatorRole: contractRole,
+            // Trader-specific fields
+            isTraderContract: contractRole === 'trader',
+            traderProfit: contractRole === 'trader' ? totalValue * 0.05 : 0, // 5% trader profit
+            linkedContracts: contractRole === 'trader' ? [] : null
         };
         
         database.contracts.set(contractId, contract);
         
+        // Check if counterparty is registered
+        const counterpartyUser = database.users.get(counterpartyEmail);
+        
+        if (!counterpartyUser) {
+            // Send email notification to unregistered counterparty
+            try {
+                const roleText = contractRole === 'buyer' ? 'supplier' : 'buyer';
+                const actionRequired = contractRole === 'buyer' ? 
+                    'confirm this contract and wait for the buyer to make the deposit' :
+                    'confirm this contract and make the required deposit';
+                
+                const emailContent = {
+                    to: counterpartyEmail,
+                    subject: `Contract ${contractRole === 'buyer' ? 'Confirmation' : 'Invitation'} Required - Tangent Protocol`,
+                    html: `
+                    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                        <h2 style="color: #2563eb;">Contract ${contractRole === 'buyer' ? 'Confirmation Required' : 'Invitation'}</h2>
+                        <p>You have been ${contractRole === 'buyer' ? 'assigned' : 'invited'} to a contract on the Tangent Protocol platform as the <strong>${roleText}</strong>.</p>
+                        
+                        <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                            <h3>Contract Details</h3>
+                            <p><strong>Contract ID:</strong> ${contractId}</p>
+                            <p><strong>Product:</strong> ${productDetails}</p>
+                            <p><strong>Quantity:</strong> ${quantity} ${unit}</p>
+                            <p><strong>Price per Unit:</strong> $${pricePerUnit}</p>
+                            <p><strong>Total Value:</strong> $${totalValue}</p>
+                            <p><strong>Delivery Date:</strong> ${deliveryDate}</p>
+                            <p><strong>Payment Terms:</strong> ${paymentTerms}</p>
+                            <p><strong>Your Role:</strong> ${roleText.toUpperCase()}</p>
+                        </div>
+                        
+                        <div style="background: #fff3cd; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #ffc107;">
+                            <h4 style="color: #856404; margin-top: 0;">Action Required</h4>
+                            <p style="color: #856404; margin-bottom: 0;">You need to <strong>${actionRequired}</strong></p>
+                        </div>
+                        
+                        <p>To ${actionRequired.split(' and ')[0]}, please register/login to our platform:</p>
+                        
+                        <a href="http://localhost:4000/signup" style="display: inline-block; background: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; margin: 10px 0;">Access Platform</a>
+                        
+                        ${contractRole === 'supplier' ? 
+                            `<p style="margin-top: 20px; color: #666;">
+                                After confirmation, the buyer will need to deposit $${contract.depositAmount} (${(contract.depositAmount / totalValue * 100).toFixed(1)}%) to activate the contract.
+                            </p>` :
+                            `<p style="margin-top: 20px; color: #666;">
+                                After you confirm, you will need to deposit $${contract.depositAmount} (${(contract.depositAmount / totalValue * 100).toFixed(1)}%) to activate the contract.
+                            </p>`
+                        }
+                        
+                        <p style="color: #666; font-size: 12px;">
+                            Tangent Protocol - Secure Smart Contract Trading Platform
+                        </p>
+                    </div>
+                    `
+                };
+                
+                await transporter.sendMail(emailContent);
+                console.log(`📧 Contract invitation sent to ${counterpartyEmail}`);
+                
+                // Mark contract as awaiting counterparty registration
+                contract.awaitingRegistration = true;
+                contract.invitationSent = true;
+                contract.invitationSentAt = new Date().toISOString();
+                database.contracts.set(contractId, contract);
+                
+            } catch (emailError) {
+                console.error('Email sending failed:', emailError);
+                // Continue anyway - contract is still created
+            }
+        }
+        
         res.json({
-            message: 'Contract created successfully',
+            message: counterpartyUser ? 
+                'Contract created successfully' : 
+                'Contract created and invitation sent to counterparty',
             contractId,
             contract: {
                 id: contractId,
                 status: contract.status,
                 totalValue: contract.totalValue,
-                depositAmount: contract.depositAmount
+                depositAmount: contract.depositAmount,
+                awaitingRegistration: !counterpartyUser
             }
         });
         
@@ -923,7 +2121,7 @@ app.get('/api/contracts', authenticateToken, (req, res) => {
     }
 });
 
-// Confirm Contract (Supplier)
+// Confirm Contract (Universal - works for both buyer and supplier)
 app.post('/api/contracts/:id/confirm', authenticateToken, (req, res) => {
     try {
         const { id } = req.params;
@@ -934,29 +2132,84 @@ app.post('/api/contracts/:id/confirm', authenticateToken, (req, res) => {
             return res.status(404).json({ error: 'Contract not found' });
         }
         
-        if (contract.supplierEmail !== req.user.email) {
+        // Determine user role in this contract
+        const isSupplier = contract.supplierEmail === req.user.email;
+        const isBuyer = contract.buyerEmail === req.user.email;
+        
+        if (!isSupplier && !isBuyer) {
             return res.status(403).json({ error: 'Not authorized' });
         }
         
-        if (contract.status !== 'pending_supplier_confirmation') {
+        // Check if user can confirm
+        const canConfirm = 
+            (isSupplier && contract.status === 'pending_supplier_confirmation') ||
+            (isBuyer && contract.status === 'pending_buyer_confirmation') ||
+            (contract.status === 'pending_dual_confirmation');
+        
+        if (!canConfirm) {
             return res.status(400).json({ error: 'Contract cannot be confirmed in current status' });
         }
         
+        if (!accepted) {
+            // Rejection
+            contract.status = 'rejected';
+            contract.rejectedBy = req.user.email;
+            contract.rejectionReason = notes || '';
+            contract.timeline.push({
+                event: 'contract_rejected',
+                timestamp: new Date().toISOString(),
+                actor: req.user.email,
+                role: isSupplier ? 'supplier' : 'buyer',
+                notes: notes
+            });
+        } else {
+            // Acceptance
+            if (isSupplier) {
+                contract.supplierConfirmed = true;
         contract.supplierId = req.user.userId;
-        contract.status = accepted ? 'pending_deposit' : 'rejected';
         contract.supplierNotes = notes || '';
+            } else if (isBuyer) {
+                contract.buyerConfirmed = true;
+                contract.buyerId = req.user.userId;
+                contract.buyerNotes = notes || '';
+            }
+            
+            // Update status based on confirmations
+            if (contract.supplierConfirmed && contract.buyerConfirmed) {
+                contract.status = 'pending_deposit';
+            } else if (contract.supplierConfirmed && !contract.buyerConfirmed) {
+                contract.status = 'pending_buyer_confirmation';
+            } else if (!contract.supplierConfirmed && contract.buyerConfirmed) {
+                contract.status = 'pending_supplier_confirmation';
+            }
+            
         contract.timeline.push({
-            event: accepted ? 'supplier_confirmed' : 'supplier_rejected',
+                event: isSupplier ? 'supplier_confirmed' : 'buyer_confirmed',
             timestamp: new Date().toISOString(),
             actor: req.user.email,
+                role: isSupplier ? 'supplier' : 'buyer',
             notes: notes
         });
+            
+            // Add flag for counterparty dashboard
+            const flagKey = isSupplier ? 'buyerFlag' : 'supplierFlag';
+            contract[flagKey] = {
+                type: 'confirmation_received',
+                message: `${isSupplier ? 'Supplier' : 'Buyer'} has confirmed the contract`,
+                timestamp: new Date().toISOString(),
+                urgent: contract.status === 'pending_deposit'
+            };
+        }
         
         database.contracts.set(id, contract);
         
         res.json({
-            message: accepted ? 'Contract confirmed successfully' : 'Contract rejected',
-            status: contract.status
+            message: accepted ? 
+                `Contract confirmed successfully${contract.status === 'pending_deposit' ? '. Buyer can now pay deposit.' : ''}` : 
+                'Contract rejected',
+            status: contract.status,
+            flagCreated: accepted,
+            nextAction: contract.status === 'pending_deposit' ? 'deposit_payment' : 'wait_confirmation'
         });
         
     } catch (error) {
@@ -1016,8 +2269,245 @@ app.post('/api/contracts/:id/deposit', authenticateToken, (req, res) => {
     }
 });
 
-// Upload Contract Documents
-app.post('/api/contracts/:id/documents', authenticateToken, upload.array('documents', 10), (req, res) => {
+// CONTRACT DEPOSIT ENDPOINT
+app.post('/api/contracts/:id/deposit', authenticateToken, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const contract = database.contracts.get(id);
+        
+        if (!contract) {
+            return res.status(404).json({ error: 'Contract not found' });
+        }
+        
+        // Verify user is the buyer
+        if (contract.buyerEmail !== req.user.email) {
+            return res.status(403).json({ error: 'Only the buyer can pay the deposit' });
+        }
+        
+        // Check if contract is in valid state for deposit
+        if (contract.status !== 'pending_deposit' && contract.status !== 'pending_buyer_confirmation') {
+            return res.status(400).json({ error: 'Contract is not ready for deposit payment' });
+        }
+        
+        // Calculate deposit amount (30% of total value)
+        const depositAmount = Math.round(contract.totalValue * 0.3);
+        
+        // Get buyer's wallet
+        const buyerWallet = database.wallets.get(req.user.id);
+        if (!buyerWallet || buyerWallet.tgtBalance < depositAmount) {
+            return res.status(400).json({ error: `Insufficient TGT balance for deposit. Required: $${depositAmount.toLocaleString()}` });
+        }
+        
+        // Transfer deposit from buyer to pool
+        buyerWallet.tgtBalance -= depositAmount;
+        
+        // Get or create pool wallet
+        if (!database.wallets.has('pool-wallet')) {
+            database.wallets.set('pool-wallet', {
+                userId: 'pool',
+                tgtBalance: 0,
+                address: 'tgt_pool_main',
+                createdAt: new Date().toISOString()
+            });
+        }
+        const poolWallet = database.wallets.get('pool-wallet');
+        poolWallet.tgtBalance += depositAmount;
+        
+        // Pool finances 100% to supplier immediately
+        // Find supplier wallet
+        let supplierWallet = null;
+        for (let wallet of database.wallets.values()) {
+            if (wallet.userId && wallet.userId.includes('supplier') && contract.supplierEmail) {
+                const supplierEmailKey = contract.supplierEmail.replace('@', '_').replace('.', '_');
+                if (wallet.userId.includes(supplierEmailKey) || 
+                    contract.supplierEmail.includes(wallet.userId.replace('_', '@').replace('_', '.'))) {
+                    supplierWallet = wallet;
+                    break;
+                }
+            }
+        }
+        
+        if (!supplierWallet) {
+            // Create supplier wallet if doesn't exist
+            const supplierEmailKey = contract.supplierEmail.replace('@', '_').replace('.', '_');
+            supplierWallet = {
+                userId: `supplier_${supplierEmailKey}`,
+                tgtBalance: 0,
+                address: `tgt_${supplierEmailKey}`,
+                createdAt: new Date().toISOString()
+            };
+            database.wallets.set(supplierWallet.userId, supplierWallet);
+        }
+        
+        // Pool finances 100% to supplier
+        supplierWallet.tgtBalance += contract.totalValue;
+        poolWallet.tgtBalance -= contract.totalValue; // Pool reduces balance (financing)
+        
+        // Record the financing
+        contract.poolFinancing = {
+            amount: contract.totalValue,
+            financedAt: new Date().toISOString(),
+            depositReceived: depositAmount,
+            remainingOwed: contract.totalValue - depositAmount
+        };
+        
+        // Update contract status
+        contract.depositPaid = true;
+        contract.status = 'active';
+        contract.depositPaidAt = new Date().toISOString();
+        
+        // Add timeline entry
+        if (!contract.timeline) contract.timeline = [];
+        contract.timeline.push({
+            event: 'Deposit Paid & Pool Financing',
+            description: `Buyer paid deposit of $${depositAmount.toLocaleString()} (30%). Pool financed $${contract.totalValue.toLocaleString()} (100%) to supplier.`,
+            timestamp: new Date().toISOString(),
+            actor: req.user.email
+        });
+        
+        // Send notification email to supplier
+        const emailContent = {
+            to: contract.supplierEmail,
+            subject: 'Full Payment Received - Contract Activated',
+            html: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                <h2 style="color: #10b981;">🎉 Full Payment Received!</h2>
+                <p>Excellent news! You have received the full payment for contract ${contract.id}.</p>
+                <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                    <p><strong>Contract:</strong> ${contract.productDetails}</p>
+                    <p><strong>Quantity:</strong> ${contract.quantity} ${contract.unit}</p>
+                    <p><strong>Full Payment:</strong> $${contract.totalValue.toLocaleString()}</p>
+                    <p><strong>Buyer Deposit:</strong> $${depositAmount.toLocaleString()} (30%)</p>
+                    <p><strong>Pool Financing:</strong> $${contract.totalValue.toLocaleString()} (100%)</p>
+                    <p style="color: #059669;"><strong>Your TGT Balance Updated!</strong></p>
+                </div>
+                <p><strong>Next Steps:</strong></p>
+                <p>1. Upload shipping documents when ready</p>
+                <p>2. Buyer will pay remaining 70% to pool for document release</p>
+                <a href="http://localhost:4000/manage-contract/${contract.id}" 
+                   style="background: #10b981; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block; margin: 20px 0;">
+                   Manage Contract & Upload Documents
+                </a>
+            </div>`
+        };
+        
+        await transporter.sendMail(emailContent);
+        console.log(`📧 Deposit confirmation sent to ${contract.supplierEmail}`);
+        
+        res.json({ 
+            success: true, 
+            message: `Deposit paid successfully! Pool financed supplier. Remaining: $${(contract.totalValue - depositAmount).toLocaleString()}`,
+            contract: {
+                id: contract.id,
+                status: contract.status,
+                depositPaid: contract.depositPaid,
+                depositAmount: depositAmount,
+                remainingOwed: contract.totalValue - depositAmount,
+                buyerBalance: buyerWallet.tgtBalance,
+                supplierBalance: supplierWallet.tgtBalance,
+                poolFinancing: contract.poolFinancing
+            }
+        });
+        
+    } catch (error) {
+        console.error('Error processing deposit:', error);
+        res.status(500).json({ error: 'Failed to process deposit' });
+    }
+});
+
+// CONTRACT PAYMENT RELEASE ENDPOINT
+app.post('/api/contracts/:id/release-payment', authenticateToken, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const contract = database.contracts.get(id);
+        
+        if (!contract) {
+            return res.status(404).json({ error: 'Contract not found' });
+        }
+        
+        // Verify user is the buyer
+        if (contract.buyerEmail !== req.user.email) {
+            return res.status(403).json({ error: 'Only the buyer can release payment' });
+        }
+        
+        // Check if contract is ready for payment release
+        if (contract.status !== 'active' || !contract.depositPaid) {
+            return res.status(400).json({ error: 'Contract is not ready for payment release' });
+        }
+        
+        // Check if shipping documents have been uploaded
+        if (!contract.documents || contract.documents.length === 0) {
+            return res.status(400).json({ error: 'Shipping documents must be uploaded before payment release' });
+        }
+        
+        // Get supplier's wallet
+        const supplierWallet = database.wallets.get(contract.supplierEmail.replace('@', '_').replace('.', '_'));
+        if (!supplierWallet) {
+            return res.status(400).json({ error: 'Supplier wallet not found' });
+        }
+        
+        // Get pool wallet
+        const poolWallet = database.wallets.get('pool-wallet');
+        if (!poolWallet || poolWallet.tgtBalance < contract.totalValue) {
+            return res.status(400).json({ error: 'Insufficient funds in pool wallet' });
+        }
+        
+        // Transfer funds from pool to supplier
+        poolWallet.tgtBalance -= contract.totalValue;
+        supplierWallet.tgtBalance += contract.totalValue;
+        
+        // Update contract status
+        contract.status = 'completed';
+        contract.paymentReleasedAt = new Date().toISOString();
+        
+        // Add timeline entry
+        if (!contract.timeline) contract.timeline = [];
+        contract.timeline.push({
+            event: 'Payment Released',
+            description: `Buyer released payment of $${contract.totalValue.toLocaleString()} to supplier`,
+            timestamp: new Date().toISOString(),
+            actor: req.user.email
+        });
+        
+        // Send notification emails
+        const supplierEmail = {
+            to: contract.supplierEmail,
+            subject: 'Payment Released - Contract Completed',
+            html: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                <h2 style="color: #10b981;">🎉 Payment Released</h2>
+                <p>Congratulations! The buyer has released the payment for contract ${contract.id}.</p>
+                <p><strong>Payment Details:</strong></p>
+                <ul>
+                    <li>Amount: $${contract.totalValue.toLocaleString()}</li>
+                    <li>Contract: ${contract.productDetails}</li>
+                    <li>Status: Completed</li>
+                </ul>
+                <p>The funds have been transferred to your TGT wallet.</p>
+            </div>`
+        };
+        
+        await transporter.sendMail(supplierEmail);
+        console.log(`📧 Payment release confirmation sent to ${contract.supplierEmail}`);
+        
+        res.json({ 
+            success: true, 
+            message: 'Payment released successfully',
+            contract: {
+                id: contract.id,
+                status: contract.status,
+                supplierBalance: supplierWallet.tgtBalance
+            }
+        });
+        
+    } catch (error) {
+        console.error('Error releasing payment:', error);
+        res.status(500).json({ error: 'Failed to release payment' });
+    }
+});
+
+// Upload Contract Documents with Automatic Payment Release
+app.post('/api/contracts/:id/documents', authenticateToken, upload.array('documents', 10), async (req, res) => {
     try {
         const { id } = req.params;
         const { documentType, description } = req.body;
@@ -1041,7 +2531,9 @@ app.post('/api/contracts/:id/documents', authenticateToken, upload.array('docume
             documentType: documentType || 'general',
             description: description || '',
             uploadedBy: req.user.email,
-            uploadedAt: new Date().toISOString()
+            uploadedAt: new Date().toISOString(),
+            validated: true, // Automatically validate for blockchain upload
+            blockchainHash: `0x${Date.now().toString(16)}${Math.random().toString(16).substr(2, 8)}`
         }));
         
         contract.documents.push(...uploadedDocs);
@@ -1049,14 +2541,103 @@ app.post('/api/contracts/:id/documents', authenticateToken, upload.array('docume
             event: 'documents_uploaded',
             timestamp: new Date().toISOString(),
             actor: req.user.email,
-            documentCount: files.length
+            documentCount: files.length,
+            documentType: documentType
         });
+        
+        // Check for electronic bill of lading to start shipping countdown
+        const hasElectronicBOL = uploadedDocs.some(doc => 
+            doc.originalName.toLowerCase().includes('bill of lading') ||
+            doc.originalName.toLowerCase().includes('bol') ||
+            doc.originalName.toLowerCase().includes('lading') ||
+            documentType === 'shipping'
+        );
+        
+        if (hasElectronicBOL && contract.status === 'active' && !contract.shippingStarted) {
+            // Calculate voyage time based on route (simplified for demo)
+            const voyageDays = calculateVoyageTime(contract.specifications?.origin, contract.specifications?.destination);
+            
+            contract.shippingStarted = true;
+            contract.shippingStartDate = new Date().toISOString();
+            contract.shippingCountdown = new Date(Date.now() + voyageDays * 24 * 60 * 60 * 1000).toISOString();
+            contract.estimatedArrival = contract.shippingCountdown;
+            
+            contract.timeline.push({
+                event: 'shipping_started',
+                timestamp: new Date().toISOString(),
+                actor: req.user.email,
+                estimatedDays: voyageDays,
+                estimatedArrival: contract.shippingCountdown
+            });
+        }
+        
+        // If shipping documents are uploaded by supplier and contract is active with deposit paid
+        if (documentType === 'shipping' && 
+            contract.supplierEmail === req.user.email && 
+            contract.status === 'active' && 
+            contract.depositPaid) {
+            
+            // Mark documents as uploaded and make contract ready for buyer payment
+            contract.documentsUploaded = true;
+            contract.documentsUploadedAt = new Date().toISOString();
+            contract.status = 'documents_uploaded'; // New status indicating buyer can now pay remaining amount
+            
+            contract.timeline.push({
+                event: 'shipping_documents_uploaded',
+                timestamp: new Date().toISOString(),
+                actor: req.user.email,
+                description: 'Shipping documents uploaded. Buyer can now release final payment.',
+                nextStep: 'buyer_final_payment'
+            });
+            
+            try {
+                    
+                    // Send notification email to buyer about document upload
+                    const buyerEmailContent = {
+                        to: contract.buyerEmail,
+                        subject: 'Shipping Documents Uploaded - Payment Required',
+                        html: `
+                        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                            <h2 style="color: #2563eb;">📋 Shipping Documents Uploaded</h2>
+                            <p>The supplier has uploaded shipping documents for contract <strong>${contract.id}</strong>.</p>
+                            <p><strong>Next Step:</strong> You can now release the final payment to complete the transaction.</p>
+                            <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                                <p><strong>Contract:</strong> ${contract.productDetails}</p>
+                                <p><strong>Total Value:</strong> $${contract.totalValue.toLocaleString()}</p>
+                                <p><strong>Deposit Paid:</strong> $${(contract.totalValue * 0.3).toLocaleString()}</p>
+                                <p><strong>Remaining Payment:</strong> $${(contract.totalValue * 0.7).toLocaleString()}</p>
+                            </div>
+                            <a href="http://localhost:4000/manage-contract/${contract.id}" 
+                               style="background: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block; margin: 20px 0;">
+                               Release Payment & View Documents
+                            </a>
+                        </div>
+                        `
+                    };
+                    
+                    try {
+                        await transporter.sendMail(buyerEmailContent);
+                        console.log(`📧 Document upload notification sent to ${contract.buyerEmail}`);
+                        
+                    } catch (emailError) {
+                        console.error('Document upload notification email failed:', emailError);
+                    }
+                
+            } catch (error) {
+                console.error('Document upload notification failed:', error);
+                // Continue with document upload even if notification fails
+            }
+        }
         
         database.contracts.set(id, contract);
         
         res.json({
-            message: 'Documents uploaded successfully',
-            documents: uploadedDocs
+            message: documentType === 'shipping' && contract.status === 'completed' ? 
+                'Documents uploaded and payment automatically released!' : 
+                'Documents uploaded successfully',
+            documents: uploadedDocs,
+            paymentReleased: contract.status === 'completed',
+            contractStatus: contract.status
         });
         
     } catch (error) {
@@ -1441,6 +3022,35 @@ app.get('/api/admin/dashboard', authenticateToken, requireRole(['admin']), (req,
     }
 });
 
+// Admin endpoint to get ALL contracts on the platform
+app.get('/api/admin/contracts', authenticateToken, requireRole(['admin']), (req, res) => {
+    try {
+        const allContracts = [];
+        
+        for (let contract of database.contracts.values()) {
+            allContracts.push({
+                id: contract.id,
+                productDetails: contract.productDetails,
+                totalValue: contract.totalValue,
+                status: contract.status,
+                createdAt: contract.createdAt,
+                deliveryDate: contract.deliveryDate,
+                buyerEmail: contract.buyerEmail,
+                supplierEmail: contract.supplierEmail,
+                buyerFlag: contract.buyerFlag || '',
+                supplierFlag: contract.supplierFlag || '',
+                shippingCountdown: contract.shippingStarted ? 
+                    Math.max(0, contract.voyageTime - Math.floor((Date.now() - new Date(contract.shippingStarted).getTime()) / (1000 * 60 * 60 * 24))) : null
+            });
+        }
+        
+        res.json({ contracts: allContracts });
+    } catch (error) {
+        console.error('Error loading admin contracts:', error);
+        res.status(500).json({ error: 'Failed to load contracts' });
+    }
+});
+
 // Update System Fees
 app.post('/api/admin/fees', authenticateToken, requireRole(['admin']), (req, res) => {
     try {
@@ -1532,81 +3142,1241 @@ app.get('/api/admin/kyc-reports', authenticateToken, requireRole(['admin']), (re
     }
 });
 
-// ADMIN DASHBOARD
-app.get('/dashboard/admin', (req, res) => {
-  const html = `<!DOCTYPE html>
+// UNIFIED DASHBOARD TEMPLATE
+function createDashboard(role, user) {
+  const roleConfig = {
+    unified: { 
+      title: '📋 My Contracts', 
+      subtitle: 'Manage all your trading activities',
+      color: '#2563eb'
+    },
+    buyer: { 
+      title: '🛒 Buyer Dashboard', 
+      subtitle: 'Manage your purchases and contracts',
+      color: '#2563eb'
+    },
+    supplier: { 
+      title: '🏭 Supplier Dashboard', 
+      subtitle: 'Manage your sales and deliveries',
+      color: '#059669'
+    },
+    trader: { 
+      title: '📈 Trader Dashboard', 
+      subtitle: 'Manage your trading positions',
+      color: '#dc2626'
+    },
+    insurer: { 
+      title: '🛡️ Insurer Dashboard', 
+      subtitle: 'Manage insurance policies and risk assessment',
+      color: '#7c2d12'
+    },
+    admin: { 
+      title: '👑 Admin Dashboard', 
+      subtitle: 'Platform Management & Control Center',
+      color: '#7c3aed'
+    }
+  };
+
+  const config = roleConfig[role] || roleConfig.buyer;
+
+  return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Admin Dashboard — Tangent Protocol</title>
+  <title>${config.title} — Tangent Protocol</title>
   <style>
-    body { font-family: system-ui; background: #0f172a; color: #f8fafc; margin: 0; padding: 20px; }
-    .header { background: #1e293b; padding: 20px; border-radius: 12px; margin-bottom: 30px; border: 1px solid #334155; }
-    .header h1 { color: #2563eb; margin: 0; font-size: 2.5rem; }
-    .dashboard-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
-    .dashboard-card { background: #1e293b; padding: 25px; border-radius: 12px; border: 1px solid #334155; }
-    .dashboard-card h3 { color: #06b6d4; margin-top: 0; }
-    .btn { display: inline-block; padding: 12px 24px; background: #2563eb; color: white; text-decoration: none; border-radius: 8px; margin: 8px 8px 8px 0; font-weight: 500; }
-    .btn:hover { background: #1d4ed8; }
-    .btn.secondary { background: #06b6d4; }
-    .field-input { width: 100%; padding: 10px; background: #0f172a; border: 1px solid #334155; border-radius: 6px; color: #f8fafc; margin: 8px 0; }
-    .logout { position: fixed; top: 20px; right: 20px; background: #ef4444; }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: system-ui, -apple-system, sans-serif; background: #0f172a; color: #f8fafc; }
+    .header { background: #1e293b; padding: 2rem; border-bottom: 1px solid #334155; }
+    .header-content { max-width: 1200px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; }
+    .header h1 { color: ${config.color}; font-size: 2rem; }
+    .header p { color: #94a3b8; margin-top: 0.5rem; }
+    .user-info { display: flex; align-items: center; gap: 1rem; }
+    .logout-btn { background: #ef4444; color: white; padding: 0.5rem 1rem; border-radius: 6px; text-decoration: none; }
+    .main-content { max-width: 1200px; margin: 0 auto; padding: 2rem; }
+    .dashboard-section { background: #1e293b; border-radius: 12px; padding: 2rem; margin-bottom: 2rem; border: 1px solid #334155; }
+    .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; }
+    .section-title { color: #06b6d4; font-size: 1.5rem; margin: 0; }
+    .btn { display: inline-block; padding: 0.75rem 1.5rem; background: ${config.color}; color: white; text-decoration: none; border-radius: 8px; font-weight: 500; border: none; cursor: pointer; }
+    .btn:hover { opacity: 0.9; }
+    .btn-secondary { background: #6b7280; }
+    .contracts-table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+    .contracts-table th, .contracts-table td { padding: 1rem; text-align: left; border-bottom: 1px solid #334155; }
+    .contracts-table th { background: #0f172a; color: #06b6d4; font-weight: 600; }
+    .status-pending, .status-pending-supplier-confirmation, .status-pending-buyer-confirmation, .status-pending-deposit { background: #f59e0b; color: #000; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.8rem; }
+    .status-active { background: #10b981; color: #000; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.8rem; }
+    .status-completed, .status-rejected { background: #6b7280; color: #fff; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.8rem; }
+    .empty-state { text-align: center; padding: 3rem; color: #6b7280; }
+    .manage-btn { background: #059669; padding: 0.5rem 1rem; border-radius: 4px; color: white; text-decoration: none; font-size: 0.9rem; }
+    .role-selector { margin-bottom: 1rem; }
+    .role-selector select { background: #0f172a; color: #f8fafc; border: 1px solid #334155; padding: 0.5rem; border-radius: 6px; }
   </style>
 </head>
 <body>
-  <a href="/" class="btn logout">Logout</a>
-  
   <div class="header">
-    <h1>👑 Admin Dashboard</h1>
-    <p>Platform Management & Control Center</p>
-  </div>
-  
-  <div class="dashboard-grid">
-    <div class="dashboard-card">
-      <h3>⚙️ Platform Configuration</h3>
-      <label>Platform Fee (%)</label>
-      <input type="number" class="field-input" placeholder="2.5" step="0.1">
-      <label>Daily Interest Rate (%)</label>
-      <input type="number" class="field-input" placeholder="0.1" step="0.01">
-      <a href="#" class="btn">Save Settings</a>
-    </div>
-    
-    <div class="dashboard-card">
-      <h3>🚢 Voyage Times</h3>
-      <a href="/admin/voyage-times" class="btn">Manage Voyage Times</a>
-      <a href="/admin/basis-points" class="btn secondary">Basis Points</a>
-    </div>
-    
-    <div class="dashboard-card">
-      <h3>📊 Active Trades</h3>
-      <p>12 Active Contracts</p>
-      <p>5 Pending Confirmations</p>
-      <a href="/admin/trades" class="btn">View All Trades</a>
-    </div>
-    
-    <div class="dashboard-card">
-      <h3>🔍 KYC Management</h3>
-      <p>8 Pending Reviews</p>
-      <p>3 Flagged Applications</p>
-      <a href="/admin/kyc" class="btn">KYC Reports</a>
-    </div>
-    
-    <div class="dashboard-card">
-      <h3>🚨 Alerts & Flags</h3>
-      <p>2 Price Alerts</p>
-      <a href="/admin/flags" class="btn">Review Flags</a>
-    </div>
-    
-    <div class="dashboard-card">
-      <h3>🏛️ Auction Board</h3>
-      <p>3 Items in Auction</p>
-      <a href="/admin/auction" class="btn">Auction Board</a>
+    <div class="header-content">
+      <div>
+        <h1>${config.title}</h1>
+        <p>${config.subtitle}</p>
+      </div>
+      <div class="user-info">
+        <span>Welcome, ${user?.email || 'User'}</span>
+        <a href="/" class="logout-btn">Logout</a>
+      </div>
     </div>
   </div>
+
+  <div class="main-content">
+    ${role === 'admin' ? createAdminSections() : `
+    <!-- My Contracts Section -->
+    <div class="dashboard-section">
+      <div class="section-header">
+        <h2 class="section-title">📋 My Contracts</h2>
+        <button class="btn" onclick="createContract()">Create New Contract</button>
+      </div>
+      
+      <div id="contractsContainer">
+        <div class="empty-state">
+          <p>Loading contracts...</p>
+        </div>
+      </div>
+    </div>
+    `}
+  </div>
+
+  <script>
+    // Store user data
+    const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+    const token = localStorage.getItem('token');
+
+    // Check authentication
+    if (!token) {
+      window.location.href = '/signin';
+    }
+
+    // Load contracts on page load (skip for admin)
+    document.addEventListener('DOMContentLoaded', () => {
+      const isAdmin = '${role}' === 'admin';
+      if (!isAdmin) {
+        loadContracts();
+      }
+    });
+
+    async function loadContracts() {
+      try {
+        const apiEndpoint = '/api/contracts';
+        
+        const response = await fetch(apiEndpoint, {
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          displayContracts(data.contracts);
+        } else {
+          document.getElementById('contractsContainer').innerHTML = 
+            '<div class="empty-state"><p>Error loading contracts</p></div>';
+        }
+      } catch (error) {
+        console.error('Error loading contracts:', error);
+        document.getElementById('contractsContainer').innerHTML = 
+          '<div class="empty-state"><p>Error loading contracts</p></div>';
+      }
+    }
+
+    function displayContracts(contracts) {
+      const container = document.getElementById('contractsContainer');
+      
+      if (contracts.length === 0) {
+        container.innerHTML = '<div class="empty-state"><p>No contracts found. Create your first contract!</p></div>';
+        return;
+      }
+
+            const isAdmin = '${role}' === 'admin';
+            const tableHTML = \`
+        <table class="contracts-table">
+          <thead>
+            <tr>
+              <th>Contract ID</th>
+              <th>Product</th>
+              <th>Value</th>
+              <th>Status</th>
+              \${isAdmin ? '<th>Buyer</th><th>Supplier</th>' : '<th>Counterparty</th><th>My Role</th>'}
+              <th>Flags</th>
+              <th>Countdown</th>
+              <th>Created</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            \${contracts.map(contract => {
+              const flags = [];
+              if (contract.buyerFlag && currentUser.role === 'buyer') {
+                flags.push('<span style="background: #f59e0b; color: #000; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.8rem;">📋 ' + contract.buyerFlag.message + '</span>');
+              }
+              if (contract.supplierFlag && currentUser.role === 'supplier') {
+                flags.push('<span style="background: #059669; color: #fff; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.8rem;">✅ ' + contract.supplierFlag.message + '</span>');
+              }
+              if (contract.status === 'pending_deposit' && currentUser.role === 'buyer') {
+                flags.push('<span style="background: #dc2626; color: #fff; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.8rem;">💰 Deposit Required</span>');
+              }
+              if (contract.status === 'pending_supplier_confirmation' && currentUser.role === 'supplier') {
+                flags.push('<span style="background: #f59e0b; color: #000; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.8rem;">⏳ Confirmation Required</span>');
+              }
+              if (contract.status === 'pending_buyer_confirmation' && currentUser.role === 'buyer') {
+                flags.push('<span style="background: #f59e0b; color: #000; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.8rem;">⏳ Confirmation Required</span>');
+              }
+              
+              let countdown = '-';
+              if (contract.shippingCountdown && contract.shippingStarted) {
+                const remaining = Math.max(0, Math.ceil((new Date(contract.shippingCountdown) - new Date()) / (1000 * 60 * 60 * 24)));
+                countdown = remaining > 0 ? remaining + ' days' : 'Delivered';
+              }
+              
+              return \`
+                <tr>
+                  <td>\${contract.id}</td>
+                  <td>\${contract.productDetails}</td>
+                  <td>$\${contract.totalValue?.toLocaleString() || 'N/A'}</td>
+                  <td><span class="status-\${contract.status.replace(/_/g, '-')}">\${contract.status.replace(/_/g, ' ').toUpperCase()}</span></td>
+                  \${isAdmin ? 
+                    '<td>' + (contract.buyerEmail || 'N/A') + '</td><td>' + (contract.supplierEmail || 'N/A') + '</td>' : 
+                    '<td>' + (() => {
+                      if (currentUser.email === contract.buyerEmail) return contract.supplierEmail || 'N/A';
+                      if (currentUser.email === contract.supplierEmail) return contract.buyerEmail || 'N/A';
+                      return (contract.buyerEmail || 'N/A') + ' / ' + (contract.supplierEmail || 'N/A');
+                    })() + '</td><td>' + (() => {
+                      if (currentUser.email === contract.buyerEmail) return 'Buyer';
+                      if (currentUser.email === contract.supplierEmail) return 'Supplier'; 
+                      return 'Trader';
+                    })() + '</td>'
+                  }
+                  <td>\${flags.join('<br>')}</td>
+                  <td>\${countdown}</td>
+                  <td>\${new Date(contract.createdAt).toLocaleDateString()}</td>
+                  <td><a href="#" class="manage-btn" onclick="manageContract('\${contract.id}')">Manage</a></td>
+                </tr>
+              \`;
+            }).join('')}
+          </tbody>
+        </table>
+      \`;
+      
+      container.innerHTML = tableHTML;
+    }
+
+    function createContract() {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        alert('Please login first');
+        window.location.href = '/landing-two';
+        return;
+      }
+      window.location.href = '/create-contract?token=' + encodeURIComponent(token);
+    }
+
+    function manageContract(contractId) {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        alert('Please login first');
+        window.location.href = '/landing-two';
+        return;
+      }
+      window.location.href = '/manage-contract/' + contractId + '?token=' + encodeURIComponent(token);
+    }
+  </script>
 </body>
 </html>`;
-  res.send(html);
+}
+
+function createAdminSections() {
+  return `
+    <!-- Admin-specific sections -->
+    <div class="dashboard-section">
+      <div class="section-header">
+        <h2 class="section-title">⚙️ Platform Management</h2>
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem;">
+        <div style="background: #0f172a; padding: 1.5rem; border-radius: 8px;">
+          <h3 style="color: #06b6d4; margin-bottom: 1rem;">🚢 Voyage Times</h3>
+          <a href="/admin/voyage-times" class="btn">Manage Voyage Times</a>
+        </div>
+        <div style="background: #0f172a; padding: 1.5rem; border-radius: 8px;">
+          <h3 style="color: #06b6d4; margin-bottom: 1rem;">🔍 KYC Management</h3>
+          <a href="/admin/kyc-reports" class="btn">KYC Reports</a>
+        </div>
+        <div style="background: #0f172a; padding: 1.5rem; border-radius: 8px;">
+          <h3 style="color: #06b6d4; margin-bottom: 1rem;">📊 Active Trades</h3>
+          <a href="/admin/active-trades" class="btn">View All Trades</a>
+        </div>
+        <div style="background: #0f172a; padding: 1.5rem; border-radius: 8px;">
+          <h3 style="color: #06b6d4; margin-bottom: 1rem;">🚨 Alerts & Flags</h3>
+          <a href="/admin/flags" class="btn">Review Flags</a>
+        </div>
+        <div style="background: #0f172a; padding: 1.5rem; border-radius: 8px;">
+          <h3 style="color: #06b6d4; margin-bottom: 1rem;">🏛️ Auction Board</h3>
+          <a href="/admin/auction" class="btn">Auction Board</a>
+        </div>
+        <div style="background: #0f172a; padding: 1.5rem; border-radius: 8px;">
+          <h3 style="color: #06b6d4; margin-bottom: 1rem;">⚡ Basis Points</h3>
+          <a href="/admin/basis-points" class="btn">Basis Points</a>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// ADMIN DASHBOARD (separate from unified)
+app.get('/dashboard/admin', authenticateToken, (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).send(`
+      <h1>Access Denied</h1>
+      <p>Admin access required.</p>
+      <a href="/landing-two">← Back to Login</a>
+    `);
+  }
+  res.send(createDashboard('admin', req.user));
+});
+
+// KYC Dashboard for new users
+// API endpoint to get admin settings
+app.get('/api/admin/settings', (req, res) => {
+  res.json({
+    success: true,
+    settings: database.admin
+  });
+});
+
+app.get('/dashboard/kyc', (req, res) => {
+  res.send(`
+  <!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KYC Verification - Tangent Protocol</title>
+  <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body { font-family: system-ui, -apple-system, sans-serif; background: #0f172a; color: #f8fafc; }
+      .header { background: #1e293b; padding: 2rem; border-bottom: 1px solid #334155; }
+      .header-content { max-width: 800px; margin: 0 auto; text-align: center; }
+      .header h1 { color: #2563eb; font-size: 2rem; margin-bottom: 1rem; }
+      .main-content { max-width: 800px; margin: 0 auto; padding: 2rem; }
+      .kyc-section { background: #1e293b; border-radius: 12px; padding: 2rem; margin-bottom: 2rem; border: 1px solid #334155; }
+      .form-group { margin-bottom: 1.5rem; }
+      label { display: block; margin-bottom: 0.5rem; color: #f8fafc; font-weight: 600; }
+      input, select, textarea { width: 100%; padding: 12px; background: #0f172a; border: 1px solid #334155; border-radius: 8px; color: #f8fafc; font-size: 1rem; }
+      input:focus, select:focus, textarea:focus { outline: none; border-color: #2563eb; }
+      .btn { display: inline-block; padding: 0.75rem 1.5rem; background: #2563eb; color: white; text-decoration: none; border-radius: 8px; font-weight: 500; border: none; cursor: pointer; }
+    .btn:hover { background: #1d4ed8; }
+      .file-upload { border: 2px dashed #334155; padding: 2rem; text-align: center; border-radius: 8px; margin-top: 1rem; }
+      .status-pending { background: #f59e0b; color: #000; padding: 0.5rem 1rem; border-radius: 6px; display: inline-block; }
+      .logout-btn { background: #ef4444; color: white; padding: 0.5rem 1rem; border-radius: 6px; text-decoration: none; position: absolute; top: 2rem; right: 2rem; }
+  </style>
+</head>
+<body>
+    <a href="/" class="logout-btn">Logout</a>
+  
+  <div class="header">
+      <div class="header-content">
+        <h1>🔍 KYC Verification Required</h1>
+        <p>Complete your verification to access the trading platform</p>
+      </div>
+  </div>
+  
+    <div class="main-content">
+      <div class="kyc-section">
+        <h2 style="color: #06b6d4; margin-bottom: 2rem;">Company Information</h2>
+        <form id="kycForm">
+          <div class="form-group">
+            <label for="companyType">Company Type</label>
+            <select id="companyType" required>
+              <option value="">Select company type</option>
+              <option value="listed">Listed Company</option>
+              <option value="private">Private Company</option>
+              <option value="individual">Individual</option>
+            </select>
+    </div>
+    
+          <div class="form-group">
+            <label for="businessName">Business Name</label>
+            <input type="text" id="businessName" required>
+    </div>
+    
+          <div class="form-group">
+            <label for="registrationNumber">Registration Number</label>
+            <input type="text" id="registrationNumber" required>
+    </div>
+    
+          <div class="form-group">
+            <label for="businessAddress">Business Address</label>
+            <textarea id="businessAddress" rows="3" required></textarea>
+    </div>
+    
+          <div class="form-group">
+            <label for="contactPerson">Contact Person</label>
+            <input type="text" id="contactPerson" required>
+    </div>
+    
+          <div class="form-group">
+            <label>Required Documents</label>
+            <div class="file-upload">
+              <input type="file" id="documents" multiple accept=".pdf,.jpg,.jpeg,.png,.doc,.docx">
+              <p>Upload business registration, ID, and other required documents</p>
+    </div>
+  </div>
+          
+          <button type="submit" class="btn">Submit KYC Application</button>
+        </form>
+      </div>
+    </div>
+
+    <script>
+      document.getElementById('kycForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const formData = new FormData();
+        const files = document.getElementById('documents').files;
+        
+        // Add form data
+        formData.append('companyType', document.getElementById('companyType').value);
+        formData.append('businessDetails', JSON.stringify({
+          businessName: document.getElementById('businessName').value,
+          registrationNumber: document.getElementById('registrationNumber').value,
+          businessAddress: document.getElementById('businessAddress').value,
+          contactPerson: document.getElementById('contactPerson').value
+        }));
+        
+        // Add files
+        for (let i = 0; i < files.length; i++) {
+          formData.append('documents', files[i]);
+        }
+        
+        try {
+          const token = localStorage.getItem('token');
+          const response = await fetch('/api/kyc/submit', {
+            method: 'POST',
+            headers: { 'Authorization': 'Bearer ' + token },
+            body: formData
+          });
+          
+          if (response.ok) {
+            alert('KYC application submitted successfully! You will receive an email once reviewed.');
+            // Redirect to appropriate dashboard based on role
+            const user = JSON.parse(localStorage.getItem('user') || '{}');
+            if (user.role === 'admin') {
+                window.location.href = '/dashboard/admin';
+            } else if (user.role === 'insurer') {
+                window.location.href = '/dashboard/insurer';
+            } else {
+                // Supplier, Buyer, Trader go to unified My Contracts dashboard
+                window.location.href = '/dashboard';
+            }
+          } else {
+            const data = await response.json();
+            alert('Error: ' + (data.error || 'KYC submission failed'));
+          }
+        } catch (error) {
+          alert('Network error. Please try again.');
+        }
+      });
+    </script>
+</body>
+  </html>
+  `);
+});
+
+// Contract Creation Page
+app.get('/create-contract', authenticateToken, (req, res) => {
+  res.send(`
+  <!DOCTYPE html>
+  <html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create Contract - Tangent Protocol</title>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body { font-family: system-ui, -apple-system, sans-serif; background: #0f172a; color: #f8fafc; }
+      .header { background: #1e293b; padding: 2rem; border-bottom: 1px solid #334155; }
+      .header-content { max-width: 800px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; }
+      .main-content { max-width: 800px; margin: 0 auto; padding: 2rem; }
+      .contract-section { background: #1e293b; border-radius: 12px; padding: 2rem; margin-bottom: 2rem; border: 1px solid #334155; }
+      .form-group { margin-bottom: 1.5rem; }
+      .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+      label { display: block; margin-bottom: 0.5rem; color: #f8fafc; font-weight: 600; }
+      input, select, textarea { width: 100%; padding: 12px; background: #0f172a; border: 1px solid #334155; border-radius: 8px; color: #f8fafc; font-size: 1rem; }
+      input:focus, select:focus, textarea:focus { outline: none; border-color: #2563eb; }
+      .btn { display: inline-block; padding: 0.75rem 1.5rem; background: #2563eb; color: white; text-decoration: none; border-radius: 8px; font-weight: 500; border: none; cursor: pointer; margin-right: 1rem; }
+      .btn:hover { background: #1d4ed8; }
+      .btn-secondary { background: #6b7280; }
+      .role-selector { background: #0f172a; padding: 1rem; border-radius: 8px; margin-bottom: 2rem; }
+      .back-btn { background: #6b7280; }
+    </style>
+  </head>
+  <body>
+    <div class="header">
+      <div class="header-content">
+        <h1 style="color: #2563eb;">📋 Create New Contract</h1>
+        <a href="javascript:history.back()" class="btn back-btn">← Back to Dashboard</a>
+      </div>
+    </div>
+
+    <div class="main-content">
+      <div class="role-selector">
+        <label for="contractRole">Your Role in this Contract</label>
+        <select id="contractRole" onchange="updateFormFields()">
+          <option value="">Select your role</option>
+          <option value="supplier">Supplier (I'm selling)</option>
+          <option value="buyer">Buyer (I'm purchasing)</option>
+          <option value="trader">Trader (I'm trading)</option>
+        </select>
+      </div>
+
+      <div class="contract-section">
+        <h2 style="color: #06b6d4; margin-bottom: 2rem;">Contract Details</h2>
+        <form id="contractForm">
+          <div class="form-group">
+            <label for="productDetails">Product Details</label>
+            <select id="productDetails" required onchange="updateCommodityInfo()">
+              <option value="">Select commodity</option>
+              <option value="wheat" data-symbol="ZW">Wheat (ZW)</option>
+              <option value="corn" data-symbol="ZC">Corn (ZC)</option>
+              <option value="soybeans" data-symbol="ZS">Soybeans (ZS)</option>
+              <option value="crude_oil" data-symbol="CL">Crude Oil (CL)</option>
+              <option value="natural_gas" data-symbol="NG">Natural Gas (NG)</option>
+              <option value="gold" data-symbol="GC">Gold (GC)</option>
+              <option value="silver" data-symbol="SI">Silver (SI)</option>
+              <option value="copper" data-symbol="HG">Copper (HG)</option>
+              <option value="cotton" data-symbol="CT">Cotton (CT)</option>
+              <option value="sugar" data-symbol="SB">Sugar (SB)</option>
+              <option value="coffee" data-symbol="KC">Coffee (KC)</option>
+              <option value="cocoa" data-symbol="CC">Cocoa (CC)</option>
+            </select>
+            <div id="commodityInfo" style="margin-top: 10px; padding: 10px; background: #0f172a; border-radius: 6px; display: none;">
+              <p><strong>Symbol:</strong> <span id="commoditySymbol"></span></p>
+              <p><strong>Current Market Price:</strong> <span id="marketPrice"></span></p>
+              <p><strong>Delivery Period:</strong> <span id="deliveryPeriod"></span></p>
+              <div id="priceComparison" style="margin-top: 8px;"></div>
+            </div>
+          </div>
+          
+          <div class="form-row">
+            <div class="form-group">
+              <label for="quantity">Quantity</label>
+              <input type="number" id="quantity" placeholder="e.g., 1000" required>
+            </div>
+            <div class="form-group">
+              <label for="unit">Unit</label>
+              <select id="unit" required>
+                <option value="">Select unit</option>
+                <option value="tons">Tons</option>
+                <option value="bushels">Bushels</option>
+                <option value="pounds">Pounds</option>
+                <option value="kilograms">Kilograms</option>
+              </select>
+            </div>
+          </div>
+          
+          <div class="form-row">
+            <div class="form-group">
+              <label for="pricePerUnit">Price per Unit ($)</label>
+              <input type="number" id="pricePerUnit" step="0.01" placeholder="e.g., 250.00" required>
+            </div>
+            <div class="form-group">
+              <label for="totalValue">Total Value ($)</label>
+              <input type="number" id="totalValue" step="0.01" readonly>
+            </div>
+          </div>
+          
+          <div class="form-row">
+            <div class="form-group">
+              <label for="deliveryMonth">Delivery Month</label>
+              <select id="deliveryMonth" required>
+                <option value="">Select month</option>
+                <option value="01">January</option>
+                <option value="02">February</option>
+                <option value="03">March</option>
+                <option value="04">April</option>
+                <option value="05">May</option>
+                <option value="06">June</option>
+                <option value="07">July</option>
+                <option value="08">August</option>
+                <option value="09">September</option>
+                <option value="10">October</option>
+                <option value="11">November</option>
+                <option value="12">December</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="deliveryYear">Delivery Year</label>
+              <select id="deliveryYear" required>
+                <option value="">Select year</option>
+                <option value="2024">2024</option>
+                <option value="2025">2025</option>
+                <option value="2026">2026</option>
+              </select>
+            </div>
+          </div>
+          
+          <!-- Counterparty Information Section -->
+          <div id="counterpartySection" style="display: none; background: #1e293b; padding: 1.5rem; border-radius: 8px; border: 1px solid #334155; margin: 1rem 0;">
+            <h3 style="color: #06b6d4; margin-bottom: 1rem;">📧 Counterparty Information</h3>
+            <div class="form-group">
+              <label id="counterpartyLabel" style="color: #f8fafc; font-weight: 600;">Counterparty Email</label>
+              <input type="email" id="counterpartyEmail" placeholder="Enter email address" style="width: 100%; padding: 12px; background: #0f172a; border: 1px solid #334155; border-radius: 8px; color: #f8fafc;">
+            </div>
+          </div>
+          
+          <div class="form-group">
+            <label for="paymentTerms">Payment Terms</label>
+            <select id="paymentTerms" required>
+              <option value="at_sight" selected>At Sight (Default)</option>
+              <option value="deposit_against_docs">Deposit + Against Documents</option>
+              <option value="net_30">Net 30 days</option>
+              <option value="net_60">Net 60 days</option>
+              <option value="on_delivery">On delivery</option>
+              <option value="advance_payment">Advance payment</option>
+            </select>
+          </div>
+          
+          <div class="form-row">
+            <div class="form-group">
+              <label for="origin">Origin Port/Location</label>
+              <input type="text" id="origin" placeholder="e.g., Shanghai, Hamburg, Singapore">
+            </div>
+            <div class="form-group">
+              <label for="destination">Destination Port/Location</label>
+              <input type="text" id="destination" placeholder="e.g., Los Angeles, Rotterdam, Dubai">
+            </div>
+          </div>
+          
+          <div class="form-group">
+            <label for="specifications">Additional Specifications</label>
+            <textarea id="specifications" rows="4" placeholder="Quality standards, delivery conditions, etc."></textarea>
+          </div>
+          
+          <button type="submit" class="btn">Create Contract</button>
+          <button type="button" class="btn btn-secondary" onclick="history.back()">Cancel</button>
+        </form>
+      </div>
+    </div>
+
+    <script>
+      // Handle token from URL parameter
+      const urlParams = new URLSearchParams(window.location.search);
+      const urlToken = urlParams.get('token');
+      
+      if (urlToken) {
+        localStorage.setItem('token', urlToken);
+        // Remove token from URL for security
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
+      
+      // Check authentication
+      const token = localStorage.getItem('token');
+      if (!token) {
+        alert('Authentication required. Please login first.');
+        window.location.href = '/landing-two';
+      }
+      
+      // Commodity market prices (simulated - in production would connect to real market data)
+      const marketPrices = {
+        wheat: { price: 525.50, unit: 'per bushel' },
+        corn: { price: 425.75, unit: 'per bushel' },
+        soybeans: { price: 1125.25, unit: 'per bushel' },
+        crude_oil: { price: 75.50, unit: 'per barrel' },
+        natural_gas: { price: 2.85, unit: 'per MMBtu' },
+        gold: { price: 1955.75, unit: 'per ounce' },
+        silver: { price: 23.45, unit: 'per ounce' },
+        copper: { price: 3.85, unit: 'per pound' },
+        cotton: { price: 72.50, unit: 'per pound' },
+        sugar: { price: 21.25, unit: 'per pound' },
+        coffee: { price: 165.50, unit: 'per pound' },
+        cocoa: { price: 3250.00, unit: 'per metric ton' }
+      };
+      
+      function updateCommodityInfo() {
+        const productSelect = document.getElementById('productDetails');
+        const selectedOption = productSelect.options[productSelect.selectedIndex];
+        const commodity = productSelect.value;
+        const symbol = selectedOption.getAttribute('data-symbol');
+        
+        if (commodity && symbol) {
+          const commodityInfo = document.getElementById('commodityInfo');
+          const symbolSpan = document.getElementById('commoditySymbol');
+          const marketPriceSpan = document.getElementById('marketPrice');
+          const deliveryPeriodSpan = document.getElementById('deliveryPeriod');
+          const priceComparisonDiv = document.getElementById('priceComparison');
+          
+          symbolSpan.textContent = symbol;
+          
+          if (marketPrices[commodity]) {
+            marketPriceSpan.textContent = '$' + marketPrices[commodity].price + ' ' + marketPrices[commodity].unit;
+          } else {
+            marketPriceSpan.textContent = 'Market data unavailable';
+          }
+          
+          // Generate delivery period based on current month selection
+          const monthSelect = document.getElementById('deliveryMonth');
+          const yearSelect = document.getElementById('deliveryYear');
+          if (monthSelect.value && yearSelect.value) {
+            const monthName = monthSelect.options[monthSelect.selectedIndex].text;
+            deliveryPeriodSpan.textContent = monthName + ' ' + yearSelect.value;
+          } else {
+            deliveryPeriodSpan.textContent = 'Select delivery month/year';
+          }
+          
+          commodityInfo.style.display = 'block';
+          
+          // Update price comparison when user enters price
+          updatePriceComparison();
+        } else {
+          document.getElementById('commodityInfo').style.display = 'none';
+        }
+      }
+      
+      async function updatePriceComparison() {
+        const commodity = document.getElementById('productDetails').value;
+        const userPrice = parseFloat(document.getElementById('pricePerUnit').value);
+        const priceComparisonDiv = document.getElementById('priceComparison');
+        
+        if (commodity && userPrice && marketPrices[commodity]) {
+          // Get admin settings for basis points tolerance
+          let basisPointsTolerance = 100; // Default 10% (100 basis points)
+          try {
+            const settingsResponse = await fetch('/api/admin/settings');
+            const settingsData = await settingsResponse.json();
+            if (settingsData.success && settingsData.settings.basisPoints) {
+              basisPointsTolerance = settingsData.settings.basisPoints;
+            }
+          } catch (error) {
+            console.log('Using default basis points tolerance');
+          }
+          
+          const marketPrice = marketPrices[commodity].price;
+          const difference = userPrice - marketPrice;
+          const percentageDiff = ((difference / marketPrice) * 100).toFixed(2);
+          const tolerancePercentage = basisPointsTolerance / 100; // Convert basis points to percentage
+          
+          let comparisonText = '';
+          let colorClass = '';
+          let warningFlag = '';
+          
+          const absDifference = Math.abs(parseFloat(percentageDiff));
+          
+          if (difference > 0) {
+            comparisonText = '+$' + difference.toFixed(2) + ' (+' + percentageDiff + '%) above market';
+            if (absDifference > tolerancePercentage) {
+              colorClass = 'color: #ef4444;'; // Red for exceeding tolerance
+              warningFlag = ' ⚠️ EXCEEDS TOLERANCE';
+            } else {
+              colorClass = 'color: #f59e0b;'; // Orange for above market but within tolerance
+            }
+          } else if (difference < 0) {
+            comparisonText = '-$' + Math.abs(difference).toFixed(2) + ' (' + percentageDiff + '%) below market';
+            if (absDifference > tolerancePercentage) {
+              colorClass = 'color: #ef4444;'; // Red for exceeding tolerance
+              warningFlag = ' ⚠️ EXCEEDS TOLERANCE';
+            } else {
+              colorClass = 'color: #10b981;'; // Green for below market within tolerance
+            }
+          } else {
+            comparisonText = 'At market price';
+            colorClass = 'color: #06b6d4;'; // Blue for at market
+          }
+          
+          priceComparisonDiv.innerHTML = '<p style="' + colorClass + '"><strong>Price vs Market:</strong> ' + comparisonText + warningFlag + '</p><p style="color: #64748b; font-size: 0.9em;">Tolerance: ±' + tolerancePercentage + '% (' + basisPointsTolerance + ' basis points)</p>';
+        }
+      }
+      
+      // Add event listener to price field for real-time comparison
+      document.addEventListener('DOMContentLoaded', function() {
+        const priceField = document.getElementById('pricePerUnit');
+        if (priceField) {
+          priceField.addEventListener('input', updatePriceComparison);
+        }
+        
+        const monthField = document.getElementById('deliveryMonth');
+        const yearField = document.getElementById('deliveryYear');
+        if (monthField) monthField.addEventListener('change', updateCommodityInfo);
+        if (yearField) yearField.addEventListener('change', updateCommodityInfo);
+      });
+      
+      function updateFormFields() {
+        const role = document.getElementById('contractRole').value;
+        const counterpartySection = document.getElementById('counterpartySection');
+        const counterpartyLabel = document.getElementById('counterpartyLabel');
+        
+        console.log('updateFormFields called with role:', role); // Debug log
+        
+        if (role) {
+          counterpartySection.style.display = 'block';
+          document.getElementById('counterpartyEmail').required = true;
+          
+          if (role === 'supplier') {
+            counterpartyLabel.textContent = 'Buyer Email';
+            counterpartyLabel.style.color = '#f8fafc';
+          } else if (role === 'buyer') {
+            counterpartyLabel.textContent = 'Supplier Email';
+            counterpartyLabel.style.color = '#f8fafc';
+          } else if (role === 'trader') {
+            counterpartyLabel.textContent = 'End Buyer Email (Final Customer)';
+            counterpartyLabel.style.color = '#f8fafc';
+            // Add additional field for supplier email
+            if (!document.getElementById('supplierEmailField')) {
+              const supplierDiv = document.createElement('div');
+              supplierDiv.className = 'form-group';
+              supplierDiv.id = 'supplierEmailField';
+              supplierDiv.innerHTML = '<label for="supplierEmail" style="color: #f8fafc;">Supplier Email</label><input type="email" id="supplierEmail" placeholder="Enter supplier email address" required>';
+              counterpartySection.appendChild(supplierDiv);
+            }
+          }
+          console.log('Counterparty section should now be visible'); // Debug log
+        } else {
+          counterpartySection.style.display = 'none';
+          document.getElementById('counterpartyEmail').required = false;
+        }
+      }
+      
+      // Auto-calculate total value
+      document.getElementById('quantity').addEventListener('input', calculateTotal);
+      document.getElementById('pricePerUnit').addEventListener('input', calculateTotal);
+      
+      function calculateTotal() {
+        const quantity = parseFloat(document.getElementById('quantity').value) || 0;
+        const pricePerUnit = parseFloat(document.getElementById('pricePerUnit').value) || 0;
+        const total = quantity * pricePerUnit;
+        document.getElementById('totalValue').value = total.toFixed(2);
+      }
+      
+      document.getElementById('contractForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const formData = {
+          productDetails: document.getElementById('productDetails').value,
+          quantity: parseFloat(document.getElementById('quantity').value),
+          unit: document.getElementById('unit').value,
+          pricePerUnit: parseFloat(document.getElementById('pricePerUnit').value),
+          totalValue: parseFloat(document.getElementById('totalValue').value),
+          deliveryDate: document.getElementById('deliveryMonth').value + '/' + document.getElementById('deliveryYear').value,
+          paymentTerms: document.getElementById('paymentTerms').value,
+          origin: document.getElementById('origin').value,
+          destination: document.getElementById('destination').value,
+          specifications: document.getElementById('specifications').value,
+          contractRole: document.getElementById('contractRole').value,
+          supplierEmail: '',
+          buyerEmail: '',
+          counterpartyEmail: document.getElementById('counterpartyEmail').value
+        };
+        
+        // Set emails based on role
+        const user = JSON.parse(localStorage.getItem('user') || '{}');
+        if (formData.contractRole === 'supplier') {
+          formData.supplierEmail = user.email;
+          formData.buyerEmail = formData.counterpartyEmail;
+        } else if (formData.contractRole === 'buyer') {
+          formData.buyerEmail = user.email;
+          formData.supplierEmail = formData.counterpartyEmail;
+        } else if (formData.contractRole === 'trader') {
+          // For traders, get both supplier and buyer emails
+          formData.supplierEmail = document.getElementById('supplierEmail').value;
+          formData.buyerEmail = formData.counterpartyEmail; // End buyer
+          formData.traderEmail = user.email;
+        }
+        
+        try {
+          const token = localStorage.getItem('token');
+          const response = await fetch('/api/contracts/create', {
+            method: 'POST',
+            headers: { 
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer ' + token 
+            },
+            body: JSON.stringify(formData)
+          });
+          
+          const data = await response.json();
+          
+          if (response.ok) {
+            alert('Contract created successfully!');
+            window.location.href = '/dashboard';
+          } else {
+            alert('Error: ' + (data.error || 'Contract creation failed'));
+          }
+        } catch (error) {
+          alert('Network error. Please try again.');
+        }
+      });
+    </script>
+  </body>
+  </html>
+  `);
+});
+
+// Contract Management Page
+app.get('/manage-contract/:contractId', authenticateToken, (req, res) => {
+  const { contractId } = req.params;
+  
+  res.send(`
+  <!DOCTYPE html>
+  <html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manage Contract - Tangent Protocol</title>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body { font-family: system-ui, -apple-system, sans-serif; background: #0f172a; color: #f8fafc; }
+      .header { background: #1e293b; padding: 2rem; border-bottom: 1px solid #334155; }
+      .header-content { max-width: 1000px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; }
+      .main-content { max-width: 1000px; margin: 0 auto; padding: 2rem; }
+      .contract-section { background: #1e293b; border-radius: 12px; padding: 2rem; margin-bottom: 2rem; border: 1px solid #334155; }
+      .section-title { color: #06b6d4; font-size: 1.5rem; margin-bottom: 1.5rem; }
+      .contract-details { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; }
+      .detail-card { background: #0f172a; padding: 1.5rem; border-radius: 8px; }
+      .detail-label { color: #94a3b8; font-size: 0.9rem; margin-bottom: 0.5rem; }
+      .detail-value { color: #f8fafc; font-size: 1.1rem; font-weight: 600; }
+      .status-pending { background: #f59e0b; color: #000; padding: 0.5rem 1rem; border-radius: 6px; font-size: 0.9rem; }
+      .status-active { background: #10b981; color: #000; padding: 0.5rem 1rem; border-radius: 6px; font-size: 0.9rem; }
+      .status-completed { background: #6b7280; color: #fff; padding: 0.5rem 1rem; border-radius: 6px; font-size: 0.9rem; }
+      .btn { display: inline-block; padding: 0.75rem 1.5rem; background: #2563eb; color: white; text-decoration: none; border-radius: 8px; font-weight: 500; border: none; cursor: pointer; margin-right: 1rem; margin-bottom: 1rem; }
+      .btn:hover { background: #1d4ed8; }
+      .btn-success { background: #059669; }
+      .btn-warning { background: #f59e0b; }
+      .btn-danger { background: #dc2626; }
+      .btn:disabled { background: #6b7280; cursor: not-allowed; opacity: 0.6; }
+      .timeline { margin-top: 2rem; }
+      .timeline-item { display: flex; gap: 1rem; padding: 1rem 0; border-bottom: 1px solid #334155; }
+      .timeline-icon { width: 40px; height: 40px; border-radius: 50%; background: #2563eb; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+      .timeline-content { flex: 1; }
+      .timeline-title { color: #f8fafc; font-weight: 600; }
+      .timeline-time { color: #94a3b8; font-size: 0.9rem; }
+      .upload-section { border: 2px dashed #334155; padding: 2rem; text-align: center; border-radius: 8px; margin-top: 1rem; }
+      .back-btn { background: #6b7280; }
+    </style>
+  </head>
+  <body>
+    <div class="header">
+      <div class="header-content">
+        <h1 style="color: #2563eb;">📋 Manage Contract</h1>
+        <a href="javascript:history.back()" class="btn back-btn">← Back to Dashboard</a>
+      </div>
+    </div>
+
+    <div class="main-content">
+      <!-- Contract Details Section -->
+      <div class="contract-section">
+        <h2 class="section-title">Contract Details</h2>
+        <div id="contractDetails">
+          <div style="text-align: center; padding: 2rem; color: #6b7280;">
+            Loading contract details...
+          </div>
+        </div>
+      </div>
+
+      <!-- Actions Section -->
+      <div class="contract-section">
+        <h2 class="section-title">Contract Actions</h2>
+        <div id="contractActions">
+          <div style="text-align: center; padding: 2rem; color: #6b7280;">
+            Loading actions...
+          </div>
+        </div>
+      </div>
+
+      <!-- Document Upload Section -->
+      <div class="contract-section" id="documentSection" style="display: none;">
+        <h2 class="section-title">📄 Upload Shipping Documents</h2>
+        <div class="upload-section">
+          <input type="file" id="shippingDocuments" multiple accept=".pdf,.jpg,.jpeg,.png,.doc,.docx">
+          <p>Upload shipping documents, bills of lading, and delivery confirmations</p>
+          <button class="btn btn-success" onclick="uploadDocuments()" id="uploadBtn" disabled>Upload Documents</button>
+        </div>
+        <div id="documentslist" style="margin-top: 1rem;"></div>
+      </div>
+
+      <!-- Timeline Section -->
+      <div class="contract-section">
+        <h2 class="section-title">📅 Contract Timeline</h2>
+        <div id="contractTimeline">
+          <div style="text-align: center; padding: 2rem; color: #6b7280;">
+            Loading timeline...
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const contractId = '${contractId}';
+      const token = localStorage.getItem('token');
+      const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+      let contractData = null;
+
+      // Load contract details on page load
+      document.addEventListener('DOMContentLoaded', loadContractDetails);
+
+      async function loadContractDetails() {
+        try {
+          const response = await fetch('/api/contracts/' + contractId, {
+            headers: { 'Authorization': 'Bearer ' + token }
+          });
+          
+          if (response.ok) {
+            contractData = await response.json();
+            displayContractDetails(contractData);
+            displayContractActions(contractData);
+            displayTimeline(contractData.timeline || []);
+            
+            // Show document upload section if user is supplier and contract is active
+            if (contractData.supplierEmail === currentUser.email && contractData.status === 'active') {
+              document.getElementById('documentSection').style.display = 'block';
+              document.getElementById('uploadBtn').disabled = false;
+            }
+          } else {
+            document.getElementById('contractDetails').innerHTML = 
+              '<div style="text-align: center; padding: 2rem; color: #dc2626;">Contract not found or access denied</div>';
+          }
+        } catch (error) {
+          console.error('Error loading contract:', error);
+          document.getElementById('contractDetails').innerHTML = 
+            '<div style="text-align: center; padding: 2rem; color: #dc2626;">Error loading contract details</div>';
+        }
+      }
+
+      function displayContractDetails(contract) {
+        const detailsHTML = \`
+          <div class="contract-details">
+            <div class="detail-card">
+              <div class="detail-label">Contract ID</div>
+              <div class="detail-value">\${contract.id}</div>
+            </div>
+            <div class="detail-card">
+              <div class="detail-label">Product</div>
+              <div class="detail-value">\${contract.productDetails}</div>
+            </div>
+            <div class="detail-card">
+              <div class="detail-label">Total Value</div>
+              <div class="detail-value">$\${contract.totalValue?.toLocaleString()}</div>
+            </div>
+            <div class="detail-card">
+              <div class="detail-label">Status</div>
+              <div class="detail-value">
+                <span class="status-\${contract.status.replace(/_/g, '-')}">\${contract.status.replace(/_/g, ' ').toUpperCase()}</span>
+              </div>
+            </div>
+            <div class="detail-card">
+              <div class="detail-label">Delivery Date</div>
+              <div class="detail-value">\${new Date(contract.deliveryDate).toLocaleDateString()}</div>
+            </div>
+            <div class="detail-card">
+              <div class="detail-label">Deposit Amount</div>
+              <div class="detail-value">$\${contract.depositAmount?.toLocaleString()} \${contract.depositPaid ? '✅ Paid' : '⏳ Pending'}</div>
+            </div>
+          </div>
+        \`;
+        
+        document.getElementById('contractDetails').innerHTML = detailsHTML;
+      }
+
+      function displayContractActions(contract) {
+        let actionsHTML = '';
+        
+        if (contract.buyerEmail === currentUser.email) {
+          // Buyer actions
+          if (contract.status === 'pending_deposit' || contract.status === 'pending_buyer_deposit') {
+            actionsHTML += '<button class="btn btn-success" onclick="payDeposit()">Pay Deposit ($' + contract.depositAmount + ')</button>';
+          }
+          if (contract.status === 'active' && contract.depositPaid) {
+            actionsHTML += '<button class="btn btn-warning" onclick="releasePayment()">Release Payment</button>';
+          }
+        } else if (contract.supplierEmail === currentUser.email) {
+          // Supplier actions
+          if (contract.status === 'pending_supplier_confirmation') {
+            actionsHTML += '<button class="btn btn-success" onclick="confirmContract(true)">Accept Contract</button>';
+            actionsHTML += '<button class="btn btn-danger" onclick="confirmContract(false)">Reject Contract</button>';
+          }
+          if (contract.status === 'active' && contract.depositPaid) {
+            actionsHTML += '<p style="color: #10b981; margin-bottom: 1rem;">✅ Contract is active! You can now upload shipping documents.</p>';
+          }
+        }
+        
+        // Universal confirmation actions
+        if ((contract.buyerEmail === currentUser.email && contract.status === 'pending_buyer_confirmation') ||
+            (contract.supplierEmail === currentUser.email && contract.status === 'pending_supplier_confirmation')) {
+          if (!actionsHTML.includes('confirmContract')) {
+            actionsHTML += '<button class="btn btn-success" onclick="confirmContract(true)">Confirm Contract</button>';
+            actionsHTML += '<button class="btn btn-danger" onclick="confirmContract(false)">Reject Contract</button>';
+          }
+        }
+        
+        if (!actionsHTML) {
+          actionsHTML = '<p style="color: #6b7280;">No actions available at this time.</p>';
+        }
+        
+        document.getElementById('contractActions').innerHTML = actionsHTML;
+      }
+
+      function displayTimeline(timeline) {
+        const timelineHTML = timeline.map(item => \`
+          <div class="timeline-item">
+            <div class="timeline-icon">📋</div>
+            <div class="timeline-content">
+              <div class="timeline-title">\${item.event.replace(/_/g, ' ').toUpperCase()}</div>
+              <div class="timeline-time">\${new Date(item.timestamp).toLocaleString()}</div>
+              <div style="color: #94a3b8;">By: \${item.actor}</div>
+            </div>
+          </div>
+        \`).join('');
+        
+        document.getElementById('contractTimeline').innerHTML = timelineHTML || 
+          '<div style="text-align: center; padding: 2rem; color: #6b7280;">No timeline events yet</div>';
+      }
+
+      async function payDeposit() {
+        if (!confirm('Pay deposit of $' + contractData.depositAmount + '?')) return;
+        
+        try {
+          const response = await fetch('/api/contracts/' + contractId + '/deposit', {
+            method: 'POST',
+            headers: { 
+              'Authorization': 'Bearer ' + token,
+              'Content-Type': 'application/json'
+            }
+          });
+          
+          const data = await response.json();
+          
+          if (response.ok) {
+            alert('Deposit paid successfully!');
+            location.reload();
+          } else {
+            alert('Error: ' + (data.error || 'Deposit payment failed'));
+          }
+        } catch (error) {
+          alert('Network error. Please try again.');
+        }
+      }
+
+      async function uploadDocuments() {
+        const files = document.getElementById('shippingDocuments').files;
+        
+        if (files.length === 0) {
+          alert('Please select documents to upload');
+          return;
+        }
+        
+        const formData = new FormData();
+        formData.append('documentType', 'shipping');
+        formData.append('description', 'Shipping and delivery documents');
+        
+        for (let i = 0; i < files.length; i++) {
+          formData.append('documents', files[i]);
+        }
+        
+        try {
+          const response = await fetch('/api/contracts/' + contractId + '/documents', {
+            method: 'POST',
+            headers: { 'Authorization': 'Bearer ' + token },
+            body: formData
+          });
+          
+          const data = await response.json();
+          
+          if (response.ok) {
+            alert('Documents uploaded successfully! Payment will be processed automatically.');
+            location.reload();
+          } else {
+            alert('Error: ' + (data.error || 'Document upload failed'));
+          }
+        } catch (error) {
+          alert('Network error. Please try again.');
+        }
+      }
+
+      async function confirmContract(accepted) {
+        const action = accepted ? 'confirm' : 'reject';
+        const notes = accepted ? '' : prompt('Please provide a reason for rejection (optional):') || '';
+        
+        if (!accepted && notes === null) return; // User cancelled
+        
+        try {
+          const response = await fetch('/api/contracts/' + contractId + '/confirm', {
+            method: 'POST',
+            headers: { 
+              'Authorization': 'Bearer ' + token,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ accepted, notes })
+          });
+          
+          const data = await response.json();
+          
+          if (response.ok) {
+            alert(data.message);
+            location.reload();
+          } else {
+            alert('Error: ' + (data.error || 'Confirmation failed'));
+          }
+        } catch (error) {
+          alert('Network error. Please try again.');
+        }
+      }
+
+      async function releasePayment() {
+        if (!confirm('Release payment to supplier? This action cannot be undone.')) return;
+        
+        try {
+          const response = await fetch('/api/contracts/' + contractId + '/release-payment', {
+            method: 'POST',
+            headers: { 
+              'Authorization': 'Bearer ' + token,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ confirm: true })
+          });
+          
+          const data = await response.json();
+          
+          if (response.ok) {
+            alert('Payment released successfully!');
+            location.reload();
+          } else {
+            alert('Error: ' + (data.error || 'Payment release failed'));
+          }
+        } catch (error) {
+          alert('Network error. Please try again.');
+        }
+      }
+    </script>
+  </body>
+  </html>
+  `);
+});
+
+// Get Single Contract
+app.get('/api/contracts/:id', authenticateToken, (req, res) => {
+    try {
+        const { id } = req.params;
+        const contract = database.contracts.get(id);
+        
+        if (!contract) {
+            return res.status(404).json({ error: 'Contract not found' });
+        }
+        
+        // Check if user has access to this contract
+        if (contract.buyerEmail !== req.user.email && 
+            contract.supplierEmail !== req.user.email) {
+            return res.status(403).json({ error: 'Access denied' });
+        }
+        
+        res.json(contract);
+        
+    } catch (error) {
+        console.error('Contract fetch error:', error);
+        res.status(500).json({ error: 'Failed to fetch contract' });
+    }
 });
 
 // ADMIN SUB-ROUTES WITH TABLES
@@ -1709,6 +4479,16 @@ app.get('/admin/kyc-reports', (req, res) => {
 });
 
 app.get('/admin/active-trades', (req, res) => {
+  // Calculate real statistics from database
+  const allContracts = Array.from(database.contracts.values());
+  const activeContracts = allContracts.filter(c => c.status === 'active');
+  const pendingContracts = allContracts.filter(c => c.status.includes('pending'));
+  const totalValue = allContracts.reduce((sum, c) => sum + (c.totalValue || 0), 0);
+  const todayCompleted = allContracts.filter(c => {
+    const today = new Date().toDateString();
+    return c.status === 'completed' && new Date(c.completedAt || c.createdAt).toDateString() === today;
+  }).length;
+
   const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1723,12 +4503,19 @@ app.get('/admin/active-trades', (req, res) => {
     .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 30px; }
     .stat-card { background: #1e293b; padding: 20px; border-radius: 12px; border: 1px solid #334155; text-align: center; }
     .stat-number { font-size: 2rem; font-weight: bold; color: #10b981; }
-    .table { background: #1e293b; border-radius: 12px; overflow: hidden; border: 1px solid #334155; }
+    .table { background: #1e293b; border-radius: 12px; overflow: hidden; border: 1px solid #334155; margin-bottom: 30px; }
     table { width: 100%; border-collapse: collapse; }
-    th, td { padding: 15px; text-align: left; border-bottom: 1px solid #334155; }
+    th, td { padding: 12px; text-align: left; border-bottom: 1px solid #334155; font-size: 0.9rem; }
     th { background: #0f172a; color: #06b6d4; font-weight: 600; }
     .status-active { background: #10b981; color: #000; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; }
     .status-pending { background: #f59e0b; color: #000; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; }
+    .status-completed { background: #06b6d4; color: #000; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; }
+    .btn { background: #2563eb; color: white; padding: 6px 12px; border-radius: 4px; text-decoration: none; font-size: 0.8rem; }
+    .btn:hover { background: #1d4ed8; }
+    .filters { background: #1e293b; padding: 20px; border-radius: 12px; margin-bottom: 20px; border: 1px solid #334155; }
+    .filter-group { display: inline-block; margin-right: 20px; }
+    .filter-group label { color: #94a3b8; margin-right: 8px; }
+    .filter-group select { background: #0f172a; color: #f8fafc; border: 1px solid #334155; border-radius: 4px; padding: 6px; }
     .btn { background: #2563eb; color: white; padding: 8px 16px; text-decoration: none; border-radius: 4px; font-size: 0.9rem; }
   </style>
 </head>
@@ -1740,20 +4527,40 @@ app.get('/admin/active-trades', (req, res) => {
   </div>
   <div class="stats">
     <div class="stat-card">
-      <div class="stat-number">12</div>
+      <div class="stat-number">${activeContracts.length}</div>
       <div>Active Contracts</div>
     </div>
     <div class="stat-card">
-      <div class="stat-number">5</div>
+      <div class="stat-number">${pendingContracts.length}</div>
       <div>Pending Confirmation</div>
     </div>
     <div class="stat-card">
-      <div class="stat-number">$2.5M</div>
+      <div class="stat-number">$${totalValue.toLocaleString()}</div>
       <div>Total Value</div>
     </div>
     <div class="stat-card">
-      <div class="stat-number">7</div>
+      <div class="stat-number">${todayCompleted}</div>
       <div>Completed Today</div>
+    </div>
+  </div>
+  
+  <div class="filters">
+    <div class="filter-group">
+      <label>Status:</label>
+      <select id="statusFilter">
+        <option value="">All Statuses</option>
+        <option value="active">Active</option>
+        <option value="pending">Pending</option>
+        <option value="completed">Completed</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <label>Sort by:</label>
+      <select id="sortBy">
+        <option value="createdAt">Date Created</option>
+        <option value="totalValue">Value</option>
+        <option value="status">Status</option>
+      </select>
     </div>
   </div>
   <div class="table">
@@ -1762,41 +4569,37 @@ app.get('/admin/active-trades', (req, res) => {
         <tr>
           <th>Contract ID</th>
           <th>Product</th>
-          <th>Quantity</th>
           <th>Value</th>
           <th>Status</th>
+          <th>Buyer</th>
+          <th>Supplier</th>
+          <th>Created</th>
           <th>Delivery</th>
           <th>Actions</th>
         </tr>
       </thead>
       <tbody>
-        <tr>
-          <td>CT-001</td>
-          <td>Wheat (ZW)</td>
-          <td>500 tons</td>
-          <td>$125,000</td>
-          <td><span class="status-active">Active</span></td>
-          <td>Jan 2025</td>
-          <td><a href="#" class="btn">Manage</a></td>
+        ${allContracts.map(contract => {
+          const statusClass = contract.status === 'active' ? 'status-active' : 
+                            contract.status === 'completed' ? 'status-completed' : 'status-pending';
+          
+          return `
+            <tr>
+              <td>${contract.id || 'N/A'}</td>
+              <td>${contract.productDetails || 'N/A'}</td>
+              <td>$${(contract.totalValue || 0).toLocaleString()}</td>
+              <td><span class="${statusClass}">${(contract.status || 'unknown').replace(/_/g, ' ').toUpperCase()}</span></td>
+              <td>${contract.buyerEmail || 'N/A'}</td>
+              <td>${contract.supplierEmail || 'N/A'}</td>
+              <td>${new Date(contract.createdAt).toLocaleDateString()}</td>
+              <td>${contract.deliveryDate ? new Date(contract.deliveryDate).toLocaleDateString() : 'TBD'}</td>
+              <td>
+                <a href="/manage-contract/${contract.id}" class="btn">Manage</a>
+              </td>
         </tr>
-        <tr>
-          <td>CT-002</td>
-          <td>Corn (ZC)</td>
-          <td>300 tons</td>
-          <td>$60,000</td>
-          <td><span class="status-pending">Pending</span></td>
-          <td>Feb 2025</td>
-          <td><a href="#" class="btn">Review</a></td>
-        </tr>
-        <tr>
-          <td>CT-003</td>
-          <td>Soybeans (ZS)</td>
-          <td>200 tons</td>
-          <td>$90,000</td>
-          <td><span class="status-active">Active</span></td>
-          <td>Mar 2025</td>
-          <td><a href="#" class="btn">Manage</a></td>
-        </tr>
+          `;
+        }).join('')}
+        ${allContracts.length === 0 ? '<tr><td colspan="9" style="text-align: center; color: #94a3b8; padding: 40px;">No contracts found</td></tr>' : ''}
       </tbody>
     </table>
   </div>
@@ -1952,6 +4755,240 @@ function calculateRiskLevel(contract) {
     return 'low';
 }
 
+// Calculate voyage time based on origin and destination
+function calculateVoyageTime(origin, destination) {
+    // Simplified voyage time calculation based on common routes
+    const voyageRoutes = {
+        // Key format: "origin-destination" (case insensitive)
+        'shanghai-los angeles': 14,
+        'shanghai-long beach': 14,
+        'shenzhen-los angeles': 16,
+        'hamburg-new york': 7,
+        'hamburg-santos': 21,
+        'singapore-dubai': 7,
+        'singapore-rotterdam': 21,
+        'rotterdam-new york': 7,
+        'buenos aires-hamburg': 18,
+        'santos-rotterdam': 18,
+        'mumbai-hamburg': 16,
+        'mumbai-felixstowe': 18,
+        'yokohama-long beach': 12,
+        'busan-los angeles': 13,
+        'default': 14 // Default voyage time if route not found
+    };
+    
+    if (!origin || !destination) {
+        return voyageRoutes.default;
+    }
+    
+    const routeKey = `${origin.toLowerCase()}-${destination.toLowerCase()}`;
+    const reverseRouteKey = `${destination.toLowerCase()}-${origin.toLowerCase()}`;
+    
+    return voyageRoutes[routeKey] || voyageRoutes[reverseRouteKey] || voyageRoutes.default;
+}
+
+// Create trader dual contracts (buy from supplier, sell to buyer)
+async function createTraderDualContracts(req, res, contractData) {
+    try {
+        const {
+            supplierEmail,
+            buyerEmail,
+            traderEmail,
+            productDetails,
+            quantity,
+            unit,
+            pricePerUnit,
+            totalValue,
+            deliveryDate,
+            paymentTerms,
+            origin,
+            destination,
+            specifications
+        } = contractData;
+
+        const traderProfit = totalValue * 0.05; // 5% trader profit
+        const buyContractValue = totalValue; // Price trader pays supplier
+        const sellContractValue = totalValue + traderProfit; // Price end buyer pays trader
+
+        const timestamp = Date.now();
+        const buyContractId = `buy_contract_${timestamp}`;
+        const sellContractId = `sell_contract_${timestamp + 1}`;
+
+        // Contract 1: Trader buys from Supplier
+        const buyContract = {
+            id: buyContractId,
+            buyerId: req.user.userId,
+            buyerEmail: traderEmail,
+            supplierEmail: supplierEmail,
+            supplierId: null,
+            productDetails: `${productDetails} (${quantity} ${unit})`,
+            quantity,
+            unit,
+            pricePerUnit,
+            totalValue: buyContractValue,
+            deliveryDate,
+            paymentTerms,
+            specifications: {
+                ...(specifications ? { general: specifications } : {}),
+                origin: origin || '',
+                destination: destination || ''
+            },
+            status: 'pending_supplier_confirmation',
+            createdAt: new Date().toISOString(),
+            depositAmount: buyContractValue * 0.1,
+            depositPaid: false,
+            supplierConfirmed: false,
+            buyerConfirmed: true, // Trader auto-confirms
+            documents: [],
+            shippingCountdown: null,
+            shippingStarted: false,
+            timeline: [{
+                event: 'contract_created',
+                timestamp: new Date().toISOString(),
+                actor: traderEmail,
+                role: 'trader_as_buyer'
+            }],
+            smartContract: true,
+            createdBy: req.user.userId,
+            creatorRole: 'trader',
+            isTraderContract: true,
+            traderRole: 'buyer',
+            linkedContractId: sellContractId,
+            linkedContracts: [sellContractId]
+        };
+
+        // Contract 2: Trader sells to End Buyer
+        const sellContract = {
+            id: sellContractId,
+            buyerId: null,
+            buyerEmail: buyerEmail,
+            supplierEmail: traderEmail,
+            supplierId: req.user.userId,
+            productDetails: `${productDetails} (${quantity} ${unit})`,
+            quantity,
+            unit,
+            pricePerUnit: (sellContractValue / quantity),
+            totalValue: sellContractValue,
+            deliveryDate,
+            paymentTerms,
+            specifications: {
+                ...(specifications ? { general: specifications } : {}),
+                origin: origin || '',
+                destination: destination || '',
+                traderProfit: traderProfit
+            },
+            status: 'pending_buyer_confirmation',
+            createdAt: new Date().toISOString(),
+            depositAmount: sellContractValue * 0.1,
+            depositPaid: false,
+            supplierConfirmed: true, // Trader auto-confirms
+            buyerConfirmed: false,
+            documents: [],
+            shippingCountdown: null,
+            shippingStarted: false,
+            timeline: [{
+                event: 'contract_created',
+                timestamp: new Date().toISOString(),
+                actor: traderEmail,
+                role: 'trader_as_supplier'
+            }],
+            smartContract: true,
+            createdBy: req.user.userId,
+            creatorRole: 'trader',
+            isTraderContract: true,
+            traderRole: 'supplier',
+            linkedContractId: buyContractId,
+            linkedContracts: [buyContractId],
+            traderProfit: traderProfit,
+            canTransferDocuments: true // Special flag for document transfer
+        };
+
+        // Save both contracts
+        database.contracts.set(buyContractId, buyContract);
+        database.contracts.set(sellContractId, sellContract);
+
+        // Send email notifications
+        try {
+            // Email to supplier
+            const supplierEmailContent = {
+                to: supplierEmail,
+                subject: 'Contract Confirmation Required - Tangent Protocol',
+                html: `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                    <h2 style="color: #2563eb;">Contract Confirmation Required</h2>
+                    <p>A trader wants to purchase from you on the Tangent Protocol platform.</p>
+                    
+                    <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                        <h3>Contract Details</h3>
+                        <p><strong>Contract ID:</strong> ${buyContractId}</p>
+                        <p><strong>Product:</strong> ${productDetails}</p>
+                        <p><strong>Quantity:</strong> ${quantity} ${unit}</p>
+                        <p><strong>Price per Unit:</strong> $${pricePerUnit}</p>
+                        <p><strong>Total Value:</strong> $${buyContractValue}</p>
+                        <p><strong>Buyer:</strong> Trader (${traderEmail})</p>
+                    </div>
+                    
+                    <a href="http://localhost:4000/signup" style="display: inline-block; background: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; margin: 10px 0;">Access Platform</a>
+                </div>
+                `
+            };
+
+            // Email to end buyer
+            const buyerEmailContent = {
+                to: buyerEmail,
+                subject: 'Contract Confirmation Required - Tangent Protocol',
+                html: `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                    <h2 style="color: #2563eb;">Contract Confirmation Required</h2>
+                    <p>A trader is offering to sell to you on the Tangent Protocol platform.</p>
+                    
+                    <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                        <h3>Contract Details</h3>
+                        <p><strong>Contract ID:</strong> ${sellContractId}</p>
+                        <p><strong>Product:</strong> ${productDetails}</p>
+                        <p><strong>Quantity:</strong> ${quantity} ${unit}</p>
+                        <p><strong>Price per Unit:</strong> $${(sellContractValue / quantity).toFixed(2)}</p>
+                        <p><strong>Total Value:</strong> $${sellContractValue}</p>
+                        <p><strong>Supplier:</strong> Trader (${traderEmail})</p>
+                    </div>
+                    
+                    <a href="http://localhost:4000/signup" style="display: inline-block; background: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; margin: 10px 0;">Access Platform</a>
+                </div>
+                `
+            };
+
+            await transporter.sendMail(supplierEmailContent);
+            await transporter.sendMail(buyerEmailContent);
+
+        } catch (emailError) {
+            console.error('Email sending failed:', emailError);
+        }
+
+        res.json({
+            message: 'Trader dual contracts created successfully',
+            contracts: {
+                buyContract: {
+                    id: buyContractId,
+                    status: buyContract.status,
+                    totalValue: buyContract.totalValue,
+                    role: 'buyer'
+                },
+                sellContract: {
+                    id: sellContractId,
+                    status: sellContract.status,
+                    totalValue: sellContract.totalValue,
+                    role: 'supplier'
+                }
+            },
+            traderProfit: traderProfit
+        });
+
+    } catch (error) {
+        console.error('Trader dual contracts creation error:', error);
+        res.status(500).json({ error: 'Trader contracts creation failed' });
+    }
+}
+
 // Create Insurance Policy
 app.post('/api/insurer/create-policy', authenticateToken, requireRole(['insurer']), (req, res) => {
     try {
@@ -2016,6 +5053,142 @@ app.use((error, req, res, next) => {
     });
 });
 
+// Admin Auction Dashboard
+app.get('/admin/auction', (req, res) => {
+  // Get all auctions from database
+  const allAuctions = Array.from(database.auctions.values());
+  const activeAuctions = allAuctions.filter(a => a.status === 'active' && new Date() <= new Date(a.endTime));
+  const endedAuctions = allAuctions.filter(a => a.status === 'ended' || new Date() > new Date(a.endTime));
+  const totalBids = allAuctions.reduce((sum, a) => sum + (a.bids ? a.bids.length : 0), 0);
+  const totalValue = allAuctions.reduce((sum, a) => sum + (a.currentBid || 0), 0);
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Auction Board - Admin Panel</title>
+  <style>
+    body { font-family: system-ui; background: #0f172a; color: #f8fafc; margin: 0; padding: 20px; }
+    .back-btn { background: #ef4444; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px; display: inline-block; margin-bottom: 20px; }
+    .header { background: #1e293b; padding: 20px; border-radius: 12px; margin-bottom: 30px; border: 1px solid #334155; }
+    .header h1 { color: #2563eb; margin: 0; font-size: 2.5rem; }
+    .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 30px; }
+    .stat-card { background: #1e293b; padding: 20px; border-radius: 12px; border: 1px solid #334155; text-align: center; }
+    .stat-number { font-size: 2rem; font-weight: bold; color: #10b981; }
+    .table { background: #1e293b; border-radius: 12px; overflow: hidden; border: 1px solid #334155; margin-bottom: 30px; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 12px; text-align: left; border-bottom: 1px solid #334155; font-size: 0.9rem; }
+    th { background: #0f172a; color: #06b6d4; font-weight: 600; }
+    .status-active { background: #10b981; color: #000; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; }
+    .status-ended { background: #ef4444; color: #fff; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; }
+    .btn { background: #2563eb; color: white; padding: 6px 12px; border-radius: 4px; text-decoration: none; font-size: 0.8rem; }
+    .btn:hover { background: #1d4ed8; }
+    .section-title { color: #06b6d4; font-size: 1.5rem; margin-bottom: 20px; }
+  </style>
+</head>
+<body>
+  <a href="/dashboard/admin" class="back-btn">← Back to Admin</a>
+  <div class="header">
+    <h1>🏛️ Auction Board Management</h1>
+    <p>Monitor and manage all platform auctions</p>
+  </div>
+  <div class="stats">
+    <div class="stat-card">
+      <div class="stat-number">${activeAuctions.length}</div>
+      <div>Active Auctions</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-number">${endedAuctions.length}</div>
+      <div>Ended Auctions</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-number">${totalBids}</div>
+      <div>Total Bids</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-number">$${totalValue.toLocaleString()}</div>
+      <div>Total Value</div>
+    </div>
+  </div>
+  
+  <h2 class="section-title">Active Auctions</h2>
+  <div class="table">
+    <table>
+      <thead>
+        <tr>
+          <th>Auction ID</th>
+          <th>Contract</th>
+          <th>Starting Bid</th>
+          <th>Current Bid</th>
+          <th>Bids Count</th>
+          <th>Ends At</th>
+          <th>Status</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${activeAuctions.map(auction => {
+          const timeRemaining = new Date(auction.endTime) - new Date();
+          const hoursRemaining = Math.max(0, Math.floor(timeRemaining / (1000 * 60 * 60)));
+          
+          return `
+            <tr>
+              <td>${auction.id}</td>
+              <td>${auction.contractDetails || 'N/A'}</td>
+              <td>$${(auction.startingBid || 0).toLocaleString()}</td>
+              <td>$${(auction.currentBid || 0).toLocaleString()}</td>
+              <td>${auction.bids ? auction.bids.length : 0}</td>
+              <td>${new Date(auction.endTime).toLocaleString()}</td>
+              <td><span class="status-active">${hoursRemaining}h remaining</span></td>
+              <td>
+                <a href="/manage-auction/${auction.id}" class="btn">Manage</a>
+              </td>
+            </tr>
+          `;
+        }).join('')}
+        ${activeAuctions.length === 0 ? '<tr><td colspan="8" style="text-align: center; color: #94a3b8; padding: 40px;">No active auctions</td></tr>' : ''}
+      </tbody>
+    </table>
+  </div>
+
+  <h2 class="section-title">Recent Ended Auctions</h2>
+  <div class="table">
+    <table>
+      <thead>
+        <tr>
+          <th>Auction ID</th>
+          <th>Contract</th>
+          <th>Final Bid</th>
+          <th>Winner</th>
+          <th>Ended At</th>
+          <th>Status</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${endedAuctions.slice(0, 10).map(auction => `
+          <tr>
+            <td>${auction.id}</td>
+            <td>${auction.contractDetails || 'N/A'}</td>
+            <td>$${(auction.currentBid || 0).toLocaleString()}</td>
+            <td>${auction.highestBidder || 'No bids'}</td>
+            <td>${new Date(auction.endTime).toLocaleString()}</td>
+            <td><span class="status-ended">Ended</span></td>
+            <td>
+              <a href="/manage-auction/${auction.id}" class="btn">View</a>
+            </td>
+          </tr>
+        `).join('')}
+        ${endedAuctions.length === 0 ? '<tr><td colspan="7" style="text-align: center; color: #94a3b8; padding: 40px;">No ended auctions</td></tr>' : ''}
+      </tbody>
+    </table>
+  </div>
+</body>
+</html>`;
+  res.send(html);
+});
+
 // 404 Handler
 app.use('*', (req, res) => {
     res.status(404).json({ error: 'Route not found' });
@@ -2024,19 +5197,19 @@ app.use('*', (req, res) => {
 // ================================
 // SERVER STARTUP
 // ================================
-const server = app.listen(PORT, '0.0.0.0', () => {
+const server = app.listen(PORT, 'localhost', () => {
     console.log('✅ TANGENT COMPLETE PRODUCTION PLATFORM RUNNING ON PORT', PORT);
-    console.log('🌐 Landing Page:', `http://0.0.0.0:${PORT}/`);
-    console.log('👥 Team Portal:', `http://0.0.0.0:${PORT}/landing-two`);
-    console.log('🔍 Health Check:', `http://0.0.0.0:${PORT}/health`);
-    console.log('🧪 System Test:', `http://0.0.0.0:${PORT}/test`);
+    console.log('🌐 Landing Page:', `http://localhost:${PORT}/`);
+    console.log('👥 Team Portal:', `http://localhost:${PORT}/landing-two`);
+    console.log('🔍 Health Check:', `http://localhost:${PORT}/health`);
+    console.log('🧪 System Test:', `http://localhost:${PORT}/test`);
     console.log('');
     console.log('🎯 DASHBOARD ROUTES:');
-    console.log('   👑 Admin:', `http://0.0.0.0:${PORT}/dashboard/admin`);
-    console.log('   🛒 Buyer:', `http://0.0.0.0:${PORT}/dashboard/buyer`);
-    console.log('   🏭 Supplier:', `http://0.0.0.0:${PORT}/dashboard/supplier`);
-    console.log('   📈 Trader:', `http://0.0.0.0:${PORT}/dashboard/trader`);
-    console.log('   🛡️ Insurer:', `http://0.0.0.0:${PORT}/dashboard/insurer`);
+    console.log('   👑 Admin:', `http://localhost:${PORT}/dashboard/admin`);
+    console.log('   🛒 Buyer:', `http://localhost:${PORT}/dashboard/buyer`);
+    console.log('   🏭 Supplier:', `http://localhost:${PORT}/dashboard/supplier`);
+    console.log('   📈 Trader:', `http://localhost:${PORT}/dashboard/trader`);
+    console.log('   🛡️ Insurer:', `http://localhost:${PORT}/dashboard/insurer`);
     console.log('');
     console.log('🚀 ALL 15 FUNCTIONALITIES IMPLEMENTED');
     console.log('✅ PRODUCTION READY - NO PLACEHOLDERS');
