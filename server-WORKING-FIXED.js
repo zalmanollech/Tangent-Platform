@@ -2037,7 +2037,7 @@ app.post('/api/contracts/create', authenticateToken, async (req, res) => {
                         
                         <p>To ${actionRequired.split(' and ')[0]}, please register/login to our platform:</p>
                         
-                        <a href="http://localhost:4000/signup" style="display: inline-block; background: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; margin: 10px 0;">Access Platform</a>
+                        <a href="${process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : 'http://localhost:4000'}/signup" style="display: inline-block; background: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; margin: 10px 0;">Access Platform</a>
                         
                         ${contractRole === 'supplier' ? 
                             `<p style="margin-top: 20px; color: #666;">
@@ -2384,7 +2384,7 @@ app.post('/api/contracts/:id/deposit', authenticateToken, async (req, res) => {
                 <p><strong>Next Steps:</strong></p>
                 <p>1. Upload shipping documents when ready</p>
                 <p>2. Buyer will pay remaining 70% to pool for document release</p>
-                <a href="http://localhost:4000/manage-contract/${contract.id}" 
+                <a href="${process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : 'http://localhost:4000'}/manage-contract/${contract.id}" 
                    style="background: #10b981; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block; margin: 20px 0;">
                    Manage Contract & Upload Documents
                 </a>
@@ -2607,7 +2607,7 @@ app.post('/api/contracts/:id/documents', authenticateToken, upload.array('docume
                                 <p><strong>Deposit Paid:</strong> $${(contract.totalValue * 0.3).toLocaleString()}</p>
                                 <p><strong>Remaining Payment:</strong> $${(contract.totalValue * 0.7).toLocaleString()}</p>
                             </div>
-                            <a href="http://localhost:4000/manage-contract/${contract.id}" 
+                            <a href="${process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : 'http://localhost:4000'}/manage-contract/${contract.id}" 
                                style="background: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block; margin: 20px 0;">
                                Release Payment & View Documents
                             </a>
@@ -4928,7 +4928,7 @@ async function createTraderDualContracts(req, res, contractData) {
                         <p><strong>Buyer:</strong> Trader (${traderEmail})</p>
                     </div>
                     
-                    <a href="http://localhost:4000/signup" style="display: inline-block; background: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; margin: 10px 0;">Access Platform</a>
+                    <a href="${process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : 'http://localhost:4000'}/signup" style="display: inline-block; background: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; margin: 10px 0;">Access Platform</a>
                 </div>
                 `
             };
@@ -4952,7 +4952,7 @@ async function createTraderDualContracts(req, res, contractData) {
                         <p><strong>Supplier:</strong> Trader (${traderEmail})</p>
                     </div>
                     
-                    <a href="http://localhost:4000/signup" style="display: inline-block; background: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; margin: 10px 0;">Access Platform</a>
+                    <a href="${process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : 'http://localhost:4000'}/signup" style="display: inline-block; background: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; margin: 10px 0;">Access Platform</a>
                 </div>
                 `
             };
