@@ -4,7 +4,7 @@
   "description": "Tangent Platform - Secure Commodity Trading & Blockchain Finance",
   "main": "server.js",
   "scripts": {
-    "start": "node server-ULTIMATE-CLEAN.js",
+    "start": "node server-WORKING-FIXED.js",
     "dev": "nodemon server-original.js",
     "test": "jest"
   },
