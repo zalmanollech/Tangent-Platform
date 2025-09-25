@@ -4,6 +4,12 @@ const path = require('path');
 const fs = require('fs');
 const app = express();
 
+// In-memory storage for demo (in production, use a real database)
+let registeredUsers = {};
+let contracts = [];
+let pendingRequests = [];
+let contractNotifications = [];
+
 // Configure multer for file uploads
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
@@ -39,7 +45,7 @@ const upload = multer({
 
 // In-memory storage for demo
 const users = new Map();
-const contracts = new Map();
+// contracts already declared above as array
 const kycApplications = new Map();
 const auctions = new Map();
 const platformSettings = {
@@ -584,6 +590,14 @@ app.get('/dashboard/admin', (req, res) => {
 
 // BUYER DASHBOARD  
 app.get('/dashboard/buyer', (req, res) => {
+  // Get current buyer email (in real app, from session)
+  const buyerEmail = 'current_buyer@demo.com'; // Replace with actual session email
+  
+  // Get contracts for this buyer
+  const buyerContracts = contracts.filter(contract => 
+    contract.buyerEmail === buyerEmail
+  );
+  
   res.send(`<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -640,40 +654,49 @@ app.get('/dashboard/buyer', (req, res) => {
     
     <div class="dashboard-card">
       <h3>📋 My Contracts</h3>
+      <p>Your contracts and their current status (${buyerContracts.length} total)</p>
       
-      <div style="border: 1px solid #334155; border-radius: 8px; padding: 15px; margin: 15px 0;">
-        <h4>Contract #TNG-2024-001</h4>
-        <p><strong>Commodity:</strong> Wheat - 5,000 MT</p>
-        <p><strong>Price:</strong> $280.50/MT</p>
-        <p><strong>Supplier:</strong> Global Grains Ltd</p>
-        <span class="contract-status">Pending Confirmation</span>
-        <div style="margin-top: 15px;">
-          <button class="btn" style="opacity: 0.5;" disabled>Deposit (Waiting for Confirmation)</button>
-        </div>
-      </div>
-      
-      <div style="border: 1px solid #334155; border-radius: 8px; padding: 15px; margin: 15px 0;">
-        <h4>Contract #TNG-2024-002</h4>
-        <p><strong>Commodity:</strong> Corn - 3,000 MT</p>
-        <p><strong>Price:</strong> $195.75/MT</p>
-        <p><strong>Supplier:</strong> Midwest Farms Co</p>
-        <span class="contract-status" style="background: #10b981; color: #fff;">Confirmed - Ready for Deposit</span>
-        <div style="margin-top: 15px;">
-          <button class="btn success" onclick="makeDeposit('TNG-2024-002')">Make Deposit ($590,325)</button>
-        </div>
-      </div>
-      
-      <div style="border: 1px solid #334155; border-radius: 8px; padding: 15px; margin: 15px 0;">
-        <h4>Contract #TNG-2024-003</h4>
-        <p><strong>Commodity:</strong> Soybeans - 2,000 MT</p>
-        <p><strong>Price:</strong> $425.00/MT</p>
-        <p><strong>Supplier:</strong> Premium Soy Inc</p>
-        <span class="contract-status" style="background: #06b6d4; color: #fff;">Documents Uploaded - Payment Due</span>
-        <div style="margin-top: 15px;">
-          <button class="btn" style="background: #f59e0b;" onclick="releasePayment('TNG-2024-003')">Release Payment</button>
-          <button class="btn" style="background: #ef4444;" onclick="viewDocuments('TNG-2024-003')">View Documents</button>
-        </div>
-      </div>
+      ${buyerContracts.length === 0 ? 
+        '<p style="color: #94a3b8; font-style: italic;">No contracts yet. Create your first contract using the unified trading dashboard.</p>' 
+        : 
+        buyerContracts.map(contract => {
+          let statusColor = '#f59e0b'; // Default yellow for pending
+          let statusText = contract.status;
+          let buttonHtml = '';
+          
+          if (contract.status === 'pending_supplier_confirmation') {
+            statusColor = '#f59e0b';
+            statusText = 'Pending - Waiting for Supplier Confirmation';
+            buttonHtml = '<button class="btn" style="opacity: 0.5;" disabled>Deposit (Waiting for Confirmation)</button>';
+          } else if (contract.status === 'pending_deposit') {
+            statusColor = '#10b981';
+            statusText = 'Pending Deposit - Supplier Confirmed';
+            buttonHtml = `<button class="btn success" onclick="makeDeposit('${contract.id}')">Make Deposit ($${contract.estimatedDeposit.toLocaleString()})</button>`;
+          } else if (contract.status === 'active') {
+            statusColor = '#06b6d4';
+            statusText = 'Active - Deposit Paid';
+            buttonHtml = `
+              <button class="btn" style="background: #8b5cf6;" onclick="viewContract('${contract.id}')">View Details</button>
+              <button class="btn" style="background: #ef4444;" onclick="viewDocuments('${contract.id}')">View Documents</button>
+            `;
+          }
+          
+          return `
+          <div style="border: 1px solid #334155; border-radius: 8px; padding: 15px; margin: 15px 0;">
+            <h4>Contract #${contract.id}</h4>
+            <p><strong>Commodity:</strong> ${contract.product} - ${contract.quantity} MT</p>
+            <p><strong>Max Price:</strong> $${contract.maxPrice}/MT</p>
+            <p><strong>Total Value:</strong> $${contract.estimatedValue.toLocaleString()}</p>
+            <p><strong>Supplier:</strong> ${contract.supplierEmail}</p>
+            <p><strong>Required By:</strong> ${contract.requiredBy}</p>
+            <p><strong>Created:</strong> ${new Date(contract.createdAt).toLocaleDateString()}</p>
+            <span class="contract-status" style="background: ${statusColor}; color: #fff;">${statusText}</span>
+            <div style="margin-top: 15px;">
+              ${buttonHtml}
+            </div>
+          </div>`;
+        }).join('')
+      }
     </div>
     
     <div class="dashboard-card">
@@ -703,19 +726,43 @@ app.get('/dashboard/buyer', (req, res) => {
     }
     
     function makeDeposit(contractId) {
-      if(confirm('Proceed with deposit for ' + contractId + '?')) {
-        alert('Deposit processing...');
+      if(confirm('Proceed with deposit payment for contract ' + contractId + '? This will activate the contract.')) {
+        fetch('/api/buyer/make-deposit', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            contractId, 
+            buyerEmail: '${buyerEmail}' 
+          })
+        })
+        .then(response => response.json())
+        .then(data => {
+          if (data.success) {
+            alert('✅ ' + data.message);
+            location.reload();
+          } else {
+            alert('❌ Error: ' + data.message);
+          }
+        })
+        .catch(error => {
+          alert('❌ Error processing deposit: ' + error.message);
+        });
       }
     }
     
     function releasePayment(contractId) {
       if(confirm('Release payment for ' + contractId + '? This action cannot be undone.')) {
-        alert('Payment released to supplier');
+        alert('Payment release functionality - coming soon');
+        // TODO: Implement payment release API
       }
     }
     
+    function viewContract(contractId) {
+      alert('Contract details for ' + contractId + ' - detailed view coming soon');
+    }
+    
     function viewDocuments(contractId) {
-      alert('Opening documents for ' + contractId);
+      alert('Document viewer for ' + contractId + ' - coming soon');
     }
   </script>
 </body>
@@ -724,6 +771,30 @@ app.get('/dashboard/buyer', (req, res) => {
 
 // SUPPLIER DASHBOARD
 app.get('/dashboard/supplier', (req, res) => {
+  // Get current supplier email (in real app, from session)
+  const supplierEmail = 'zo@sadotagri.com'; // This should come from logged-in user session
+  
+  // Get notifications for this supplier (contracts awaiting confirmation)
+  const supplierNotifications = contractNotifications.filter(notif => 
+    notif.supplierEmail === supplierEmail && notif.status === 'unread'
+  );
+  
+  // Get contracts for this supplier at different stages
+  const supplierContracts = contracts.filter(contract => 
+    contract.supplierEmail === supplierEmail
+  );
+  
+  // Debug logging
+  console.log('SUPPLIER DASHBOARD DEBUG:', {
+    supplierEmail,
+    totalContracts: contracts.length,
+    totalNotifications: contractNotifications.length,
+    supplierNotifications: supplierNotifications.length,
+    supplierContracts: supplierContracts.length,
+    allContractEmails: contracts.map(c => c.supplierEmail),
+    allNotificationEmails: contractNotifications.map(n => n.supplierEmail)
+  });
+  
   res.send(`<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -755,33 +826,30 @@ app.get('/dashboard/supplier', (req, res) => {
   <div class="dashboard-grid">
     <div class="dashboard-card">
       <h3>📞 Contract Confirmations</h3>
-      <p>New contracts requiring your confirmation</p>
+      <p>New buyer requests requiring your confirmation (${supplierNotifications.length} pending)</p>
       
-      <div style="border: 1px solid #334155; border-radius: 8px; padding: 15px; margin: 15px 0; background: rgba(251, 191, 36, 0.1);">
-        <h4>Contract #TNG-2024-001</h4>
-        <p><strong>Buyer:</strong> International Foods Corp</p>
-        <p><strong>Commodity:</strong> Wheat - 5,000 MT</p>
-        <p><strong>Price:</strong> $280.50/MT</p>
-        <p><strong>Total Value:</strong> $1,402,500</p>
-        <p><strong>Delivery:</strong> March 15, 2024</p>
-        <div style="margin-top: 15px;">
-          <button class="btn" onclick="confirmContract('TNG-2024-001')">✅ Confirm Contract</button>
-          <button class="btn danger" onclick="declineContract('TNG-2024-001')">❌ Decline</button>
-        </div>
-      </div>
-      
-      <div style="border: 1px solid #334155; border-radius: 8px; padding: 15px; margin: 15px 0; background: rgba(251, 191, 36, 0.1);">
-        <h4>Contract #TNG-2024-004</h4>
-        <p><strong>Buyer:</strong> Pacific Trading Ltd</p>
-        <p><strong>Commodity:</strong> Barley - 2,500 MT</p>
-        <p><strong>Price:</strong> $220.00/MT</p>
-        <p><strong>Total Value:</strong> $550,000</p>
-        <p><strong>Delivery:</strong> April 1, 2024</p>
-        <div style="margin-top: 15px;">
-          <button class="btn" onclick="confirmContract('TNG-2024-004')">✅ Confirm Contract</button>
-          <button class="btn danger" onclick="declineContract('TNG-2024-004')">❌ Decline</button>
-        </div>
-      </div>
+      ${supplierNotifications.length === 0 ? 
+        '<p style="color: #94a3b8; font-style: italic;">No pending buyer requests at the moment. New requests will appear here automatically.</p>' 
+        : 
+        supplierNotifications.map(notification => {
+          const request = notification.data;
+          return `
+          <div style="border: 1px solid #334155; border-radius: 8px; padding: 15px; margin: 15px 0; background: rgba(251, 191, 36, 0.1);">
+            <h4>Contract #${request.id}</h4>
+            <p><strong>Buyer:</strong> ${request.buyerEmail}</p>
+            <p><strong>Commodity:</strong> ${request.product} - ${request.quantity} MT</p>
+            <p><strong>Max Price:</strong> $${request.maxPrice}/MT</p>
+            <p><strong>Total Value:</strong> $${request.estimatedValue.toLocaleString()}</p>
+            <p><strong>Required By:</strong> ${request.requiredBy}</p>
+            <p><strong>Destination:</strong> ${request.destination}</p>
+            <p><strong>Posted:</strong> ${new Date(request.createdAt).toLocaleDateString()}</p>
+            <div style="margin-top: 15px;">
+              <button class="btn" onclick="confirmContract('${request.id}')">✅ Confirm Contract</button>
+              <button class="btn danger" onclick="declineContract('${request.id}')">❌ Decline</button>
+            </div>
+          </div>`;
+        }).join('')
+      }
     </div>
     
     <div class="dashboard-card">
@@ -835,16 +903,52 @@ app.get('/dashboard/supplier', (req, res) => {
   
   <script>
     function confirmContract(contractId) {
-      if(confirm('Confirm contract ' + contractId + '?')) {
-        alert('Contract confirmed! Buyer will be notified.');
-        location.reload();
+      if(confirm('Confirm contract ' + contractId + '? You will be able to upload documents after buyer makes deposit.')) {
+        fetch('/api/supplier/confirm-contract', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            contractId, 
+            supplierEmail: '${supplierEmail}' 
+          })
+        })
+        .then(response => response.json())
+        .then(data => {
+          if (data.success) {
+            alert('✅ ' + data.message);
+            location.reload();
+          } else {
+            alert('❌ Error: ' + data.message);
+          }
+        })
+        .catch(error => {
+          alert('❌ Error confirming contract: ' + error.message);
+        });
       }
     }
     
     function declineContract(contractId) {
       if(confirm('Decline contract ' + contractId + '? This action cannot be undone.')) {
-        alert('Contract declined. Buyer will be notified.');
-        location.reload();
+        fetch('/api/supplier/decline-contract', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            contractId, 
+            supplierEmail: '${supplierEmail}' 
+          })
+        })
+        .then(response => response.json())
+        .then(data => {
+          if (data.success) {
+            alert('✅ ' + data.message);
+            location.reload();
+          } else {
+            alert('❌ Error: ' + data.message);
+          }
+        })
+        .catch(error => {
+          alert('❌ Error declining contract: ' + error.message);
+        });
       }
     }
     
@@ -988,6 +1092,11 @@ app.get('/dashboard/trader', (req, res) => {
             <label>Destination Port *</label>
             <input type="text" id="buyerDestination" class="field-input" placeholder="e.g. Hamburg, Germany">
           </div>
+          
+          <div class="form-group">
+            <label>Supplier Email *</label>
+            <input type="email" id="supplierEmail" class="field-input" placeholder="e.g. supplier@company.com" required>
+          </div>
         </div>
         
         <!-- Trader-specific fields -->
@@ -1105,6 +1214,7 @@ app.get('/dashboard/trader', (req, res) => {
         formData.requiredBy = document.getElementById('requiredBy').value;
         formData.preferredOrigin = document.getElementById('preferredOrigin').value;
         formData.destination = document.getElementById('buyerDestination').value;
+        formData.supplierEmail = document.getElementById('supplierEmail').value;
       } else if (role === 'trader') {
         formData.buyPrice = document.getElementById('traderBuyPrice').value;
         formData.sellPrice = document.getElementById('traderSellPrice').value;
@@ -1263,10 +1373,457 @@ app.post('/auth/login', (req, res) => {
   }
 });
 
+// Registration endpoint
+app.post('/auth/register', (req, res) => {
+  const { firstName, lastName, email, phone, country, role, password } = req.body;
+  
+  console.log('REGISTRATION ATTEMPT:', email);
+  
+  // Simple validation
+  if (!firstName || !lastName || !email || !phone || !country || !role || !password) {
+    return res.status(400).json({ success: false, message: 'All fields are required' });
+  }
+  
+  if (password.length < 8) {
+    return res.status(400).json({ success: false, message: 'Password must be at least 8 characters' });
+  }
+  
+  // Check if email already exists (in a real app, check database)
+  const existingEmails = [
+    'admin@tangent-protocol.com', 
+    'dudiollech@gmail.com', 
+    'zo@sadotagri.com',
+    'buyer@demo.com',
+    'supplier@demo.com', 
+    'trader@demo.com',
+    'insurer@demo.com'
+  ];
+  
+  if (existingEmails.includes(email)) {
+    return res.status(400).json({ success: false, message: 'Email already registered. Please use a different email or sign in.' });
+  }
+  
+  // In a real application, you would:
+  // 1. Hash the password with bcrypt
+  // 2. Save user to database
+  // 3. Send verification email
+  
+  // Store the user for notifications
+  registeredUsers[email] = {
+    id: 'USR-' + Date.now(),
+    firstName, 
+    lastName, 
+    email, 
+    role,
+    country,
+    password, // In production: hash this
+    status: 'pending_kyc'
+  };
+  
+  console.log('✅ NEW USER REGISTERED:', { 
+    name: `${firstName} ${lastName}`, 
+    email, 
+    country, 
+    role 
+  });
+  
+  // For demo purposes, simulate successful registration
+  res.json({ 
+    success: true, 
+    message: 'Account created successfully! Please complete KYC verification.',
+    user: { 
+      id: 'USR-' + Date.now(),
+      firstName, 
+      lastName, 
+      email, 
+      role,
+      country,
+      status: 'pending_kyc'
+    }
+  });
+});
+
+// KYC page route
+app.get('/kyc', (req, res) => {
+  res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KYC Verification - Tangent Protocol</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; padding: 20px; }
+    .container { max-width: 800px; margin: 0 auto; background: rgba(255, 255, 255, 0.95); border-radius: 20px; padding: 40px; box-shadow: 0 20px 40px rgba(0,0,0,0.1); }
+    .logo { text-align: center; margin-bottom: 30px; }
+    .logo h1 { color: #667eea; font-size: 2.5rem; margin-bottom: 10px; }
+    .logo p { color: #6b7280; font-size: 1.1rem; }
+    .steps { display: flex; justify-content: center; margin-bottom: 40px; }
+    .step { display: flex; align-items: center; margin: 0 10px; }
+    .step-number { width: 30px; height: 30px; border-radius: 50%; background: #667eea; color: white; display: flex; align-items: center; justify-content: center; margin-right: 10px; font-weight: bold; }
+    .step-text { color: #374151; font-weight: 600; }
+    .step.active .step-number { background: #10b981; }
+    .company-type { margin-bottom: 30px; }
+    .company-type h3 { color: #374151; margin-bottom: 20px; font-size: 1.3rem; }
+    .type-options { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    .type-card { border: 2px solid #e5e7eb; border-radius: 12px; padding: 20px; cursor: pointer; transition: all 0.3s; text-align: center; }
+    .type-card:hover { border-color: #667eea; background: #f8faff; }
+    .type-card.selected { border-color: #667eea; background: #f8faff; }
+    .type-card h4 { color: #374151; margin-bottom: 10px; }
+    .type-card p { color: #6b7280; font-size: 0.9rem; }
+    .upload-section { margin-top: 30px; display: none; }
+    .upload-section.show { display: block; }
+    .upload-item { margin-bottom: 25px; padding: 20px; border: 2px dashed #d1d5db; border-radius: 12px; }
+    .upload-item h4 { color: #374151; margin-bottom: 10px; }
+    .upload-item p { color: #6b7280; font-size: 0.9rem; margin-bottom: 15px; }
+    .file-input { display: none; }
+    .upload-btn { background: #667eea; color: white; padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; transition: background 0.3s; }
+    .upload-btn:hover { background: #5a67d8; }
+    .submit-btn { width: 100%; background: #10b981; color: white; padding: 15px; border: none; border-radius: 8px; font-size: 16px; font-weight: 600; cursor: pointer; transition: background 0.3s; margin-top: 30px; display: none; }
+    .submit-btn:hover { background: #059669; }
+    .submit-btn.show { display: block; }
+    .progress { background: #e5e7eb; height: 8px; border-radius: 4px; margin: 20px 0; }
+    .progress-bar { background: #10b981; height: 100%; border-radius: 4px; width: 0%; transition: width 0.3s; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="logo">
+      <h1>🔐 KYC Verification</h1>
+      <p>Complete your Know Your Customer verification to access the platform</p>
+    </div>
+    
+    <div class="steps">
+      <div class="step active">
+        <div class="step-number">1</div>
+        <div class="step-text">Company Type</div>
+      </div>
+      <div class="step">
+        <div class="step-number">2</div>
+        <div class="step-text">Upload Documents</div>
+      </div>
+      <div class="step">
+        <div class="step-number">3</div>
+        <div class="step-text">Verification</div>
+      </div>
+    </div>
+    
+    <div class="progress">
+      <div class="progress-bar" id="progressBar"></div>
+    </div>
+    
+    <div class="company-type">
+      <h3>Select Your Company Type</h3>
+      <div class="type-options">
+        <div class="type-card" onclick="selectCompanyType('listed')">
+          <h4>📈 Listed Company</h4>
+          <p>Publicly traded company with shares on stock exchange</p>
+          <ul style="text-align: left; margin-top: 10px; color: #6b7280;">
+            <li>Stock exchange listing</li>
+            <li>Annual reports required</li>
+            <li>Enhanced compliance</li>
+          </ul>
+        </div>
+        <div class="type-card" onclick="selectCompanyType('private')">
+          <h4>🏢 Privately Held Company</h4>
+          <p>Private company not publicly traded</p>
+          <ul style="text-align: left; margin-top: 10px; color: #6b7280;">
+            <li>Private ownership</li>
+            <li>Standard documentation</li>
+            <li>Regular compliance</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    
+    <div class="upload-section" id="uploadSection">
+      <h3>Upload Required Documents</h3>
+      
+      <div class="upload-item">
+        <h4>📄 Certificate of Incorporation</h4>
+        <p>Official document proving company registration</p>
+        <input type="file" id="incorporation" class="file-input" accept=".pdf,.jpg,.png" onchange="handleFileUpload('incorporation')">
+        <button class="upload-btn" onclick="document.getElementById('incorporation').click()">Choose File</button>
+        <span id="incorporation-status"></span>
+      </div>
+      
+      <div class="upload-item">
+        <h4>🆔 Director Identification</h4>
+        <p>Passport or national ID of company directors</p>
+        <input type="file" id="director-id" class="file-input" accept=".pdf,.jpg,.png" onchange="handleFileUpload('director-id')">
+        <button class="upload-btn" onclick="document.getElementById('director-id').click()">Choose File</button>
+        <span id="director-id-status"></span>
+      </div>
+      
+      <div class="upload-item">
+        <h4>🏦 Bank Statement</h4>
+        <p>Recent bank statement (last 3 months)</p>
+        <input type="file" id="bank-statement" class="file-input" accept=".pdf" onchange="handleFileUpload('bank-statement')">
+        <button class="upload-btn" onclick="document.getElementById('bank-statement').click()">Choose File</button>
+        <span id="bank-statement-status"></span>
+      </div>
+      
+      <div class="upload-item" id="listed-docs" style="display: none;">
+        <h4>📊 Financial Statements</h4>
+        <p>Latest audited financial statements</p>
+        <input type="file" id="financial" class="file-input" accept=".pdf" onchange="handleFileUpload('financial')">
+        <button class="upload-btn" onclick="document.getElementById('financial').click()">Choose File</button>
+        <span id="financial-status"></span>
+      </div>
+    </div>
+    
+    <button class="submit-btn" id="submitBtn" onclick="submitKYC()">Submit KYC Application</button>
+  </div>
+  
+  <script>
+    let selectedType = '';
+    let uploadedFiles = {};
+    
+    function selectCompanyType(type) {
+      selectedType = type;
+      
+      // Update UI
+      document.querySelectorAll('.type-card').forEach(card => card.classList.remove('selected'));
+      event.target.closest('.type-card').classList.add('selected');
+      
+      // Show upload section
+      document.getElementById('uploadSection').classList.add('show');
+      
+      // Show/hide listed company specific docs
+      const listedDocs = document.getElementById('listed-docs');
+      if (type === 'listed') {
+        listedDocs.style.display = 'block';
+      } else {
+        listedDocs.style.display = 'none';
+      }
+      
+      updateProgress();
+      checkSubmitReady();
+    }
+    
+    function handleFileUpload(docType) {
+      const fileInput = document.getElementById(docType);
+      const statusSpan = document.getElementById(docType + '-status');
+      
+      if (fileInput.files.length > 0) {
+        const file = fileInput.files[0];
+        uploadedFiles[docType] = file;
+        statusSpan.innerHTML = ' ✅ ' + file.name;
+        statusSpan.style.color = '#10b981';
+      }
+      
+      updateProgress();
+      checkSubmitReady();
+    }
+    
+    function updateProgress() {
+      let progress = 0;
+      
+      if (selectedType) progress += 25;
+      
+      const requiredDocs = selectedType === 'listed' ? 4 : 3;
+      const uploadedCount = Object.keys(uploadedFiles).length;
+      progress += (uploadedCount / requiredDocs) * 75;
+      
+      document.getElementById('progressBar').style.width = progress + '%';
+    }
+    
+    function checkSubmitReady() {
+      const requiredDocs = selectedType === 'listed' ? 
+        ['incorporation', 'director-id', 'bank-statement', 'financial'] :
+        ['incorporation', 'director-id', 'bank-statement'];
+      
+      const isReady = selectedType && requiredDocs.every(doc => uploadedFiles[doc]);
+      
+      if (isReady) {
+        document.getElementById('submitBtn').classList.add('show');
+      }
+    }
+    
+    function submitKYC() {
+      // Simulate KYC submission
+      document.getElementById('submitBtn').textContent = 'Processing...';
+      document.getElementById('submitBtn').disabled = true;
+      
+      setTimeout(() => {
+        alert('KYC Application Submitted Successfully!\\n\\nYour application is now under review. You will receive an email notification within 24-48 hours with the verification results.\\n\\nRedirecting to dashboard...');
+        window.location.href = '/dashboard/trader';
+      }, 2000);
+    }
+  </script>
+</body>
+</html>`);
+});
+
 // Additional routes
 app.get('/register', (req, res) => res.redirect('/sign-up'));
 app.get('/login', (req, res) => res.redirect('/sign-in'));
-app.get('/sign-up', (req, res) => res.send('<h1>Sign Up Page - To be implemented</h1>'));
+app.get('/sign-up', (req, res) => {
+  res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sign Up - Tangent Protocol</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+    .container { background: rgba(255, 255, 255, 0.95); padding: 40px; border-radius: 20px; box-shadow: 0 20px 40px rgba(0,0,0,0.1); width: 100%; max-width: 500px; }
+    .logo { text-align: center; margin-bottom: 30px; }
+    .logo h1 { color: #667eea; font-size: 2.5rem; margin-bottom: 10px; }
+    .logo p { color: #6b7280; }
+    .form-group { margin-bottom: 20px; }
+    .form-group label { display: block; margin-bottom: 8px; color: #374151; font-weight: 600; }
+    .form-group input, .form-group select { width: 100%; padding: 12px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 16px; transition: border-color 0.3s; }
+    .form-group input:focus, .form-group select:focus { outline: none; border-color: #667eea; }
+    .btn { width: 100%; background: #667eea; color: white; padding: 15px; border: none; border-radius: 8px; font-size: 16px; font-weight: 600; cursor: pointer; transition: background 0.3s; margin-top: 20px; }
+    .btn:hover { background: #5a67d8; }
+    .back-link { text-align: center; margin-top: 20px; }
+    .back-link a { color: #667eea; text-decoration: none; }
+    .back-link a:hover { text-decoration: underline; }
+    .error { color: #ef4444; font-size: 14px; margin-top: 5px; }
+    .success { color: #10b981; font-size: 14px; margin-top: 5px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="logo">
+      <h1>🎯 Tangent Protocol</h1>
+      <p>Create Your Account</p>
+    </div>
+    
+    <form id="signupForm" onsubmit="handleSignup(event)">
+      <div class="form-group">
+        <label for="firstName">First Name *</label>
+        <input type="text" id="firstName" name="firstName" required>
+      </div>
+      
+      <div class="form-group">
+        <label for="lastName">Last Name *</label>
+        <input type="text" id="lastName" name="lastName" required>
+      </div>
+      
+      <div class="form-group">
+        <label for="email">Email Address *</label>
+        <input type="email" id="email" name="email" required>
+      </div>
+      
+      <div class="form-group">
+        <label for="phone">Phone Number *</label>
+        <input type="tel" id="phone" name="phone" required>
+      </div>
+      
+      <div class="form-group">
+        <label for="country">Country *</label>
+        <select id="country" name="country" required>
+          <option value="">Select your country...</option>
+          <option value="US">United States</option>
+          <option value="UK">United Kingdom</option>
+          <option value="CA">Canada</option>
+          <option value="AU">Australia</option>
+          <option value="DE">Germany</option>
+          <option value="FR">France</option>
+          <option value="JP">Japan</option>
+          <option value="SG">Singapore</option>
+          <option value="BR">Brazil</option>
+          <option value="IN">India</option>
+          <option value="IL">Israel</option>
+          <option value="OTHER">Other</option>
+        </select>
+      </div>
+      
+      <div class="form-group">
+        <label for="role">Primary Role *</label>
+        <select id="role" name="role" required>
+          <option value="">Select your primary role...</option>
+          <option value="supplier">Supplier - I sell commodities</option>
+          <option value="buyer">Buyer - I purchase commodities</option>
+          <option value="trader">Trader - I trade commodities</option>
+          <option value="insurer">Insurer - I provide trade insurance</option>
+        </select>
+      </div>
+      
+      <div class="form-group">
+        <label for="password">Password *</label>
+        <input type="password" id="password" name="password" required minlength="8">
+        <div class="error" style="display: none;" id="passwordError">Password must be at least 8 characters</div>
+      </div>
+      
+      <div class="form-group">
+        <label for="confirmPassword">Confirm Password *</label>
+        <input type="password" id="confirmPassword" name="confirmPassword" required>
+        <div class="error" style="display: none;" id="confirmError">Passwords do not match</div>
+      </div>
+      
+      <button type="submit" class="btn">Create Account & Continue to KYC</button>
+      
+      <div id="responseMessage" style="margin-top: 15px;"></div>
+    </form>
+    
+    <div class="back-link">
+      <a href="/landing-two">← Back to Sign In</a>
+    </div>
+  </div>
+  
+  <script>
+    function handleSignup(event) {
+      event.preventDefault();
+      
+      const password = document.getElementById('password').value;
+      const confirmPassword = document.getElementById('confirmPassword').value;
+      const responseDiv = document.getElementById('responseMessage');
+      
+      // Reset errors
+      document.getElementById('passwordError').style.display = 'none';
+      document.getElementById('confirmError').style.display = 'none';
+      
+      // Validate password
+      if (password.length < 8) {
+        document.getElementById('passwordError').style.display = 'block';
+        return;
+      }
+      
+      if (password !== confirmPassword) {
+        document.getElementById('confirmError').style.display = 'block';
+        return;
+      }
+      
+      // Collect form data
+      const formData = {
+        firstName: document.getElementById('firstName').value,
+        lastName: document.getElementById('lastName').value,
+        email: document.getElementById('email').value,
+        phone: document.getElementById('phone').value,
+        country: document.getElementById('country').value,
+        role: document.getElementById('role').value,
+        password: password
+      };
+      
+      // Submit registration
+      fetch('/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData)
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          responseDiv.innerHTML = '<div class="success">Account created successfully! Redirecting to KYC...</div>';
+          setTimeout(() => {
+            window.location.href = '/kyc';
+          }, 2000);
+        } else {
+          responseDiv.innerHTML = '<div class="error">' + data.message + '</div>';
+        }
+      })
+      .catch(error => {
+        responseDiv.innerHTML = '<div class="error">Registration failed. Please try again.</div>';
+      });
+    }
+  </script>
+</body>
+</html>`);
+});
 app.get('/tgt-info', (req, res) => res.send('<h1>TGT Information - To be implemented</h1>'));
 
 // Test routes
@@ -1351,22 +1908,60 @@ app.post('/api/create-contract', async (req, res) => {
       });
       
     } else if (type === 'buyer_request') {
-      // BUYER REQUEST CREATION
+      // DIRECT BUYER CONTRACT CREATION WITH SPECIFIC SUPPLIER
+      const { supplierEmail } = req.body;
       const estimatedValue = parseFloat(quantity) * parseFloat(maxPrice);
       const estimatedDeposit = estimatedValue * 0.1; // 10% estimated deposit
       
-      console.log('✅ BUYER REQUEST CREATED:', {
-        contractId,
+      // Create direct contract between buyer and specified supplier
+      const contract = {
+        id: contractId,
+        type: 'buyer_contract',
+        product,
+        quantity,
+        maxPrice,
+        requiredBy,
+        destination,
         estimatedValue,
-        estimatedDeposit
+        estimatedDeposit,
+        status: 'pending_supplier_confirmation',
+        supplierEmail,
+        buyerEmail: 'current_buyer@demo.com', // In real app, get from session
+        createdAt: currentTime,
+        statusHistory: [
+          { status: 'pending_supplier_confirmation', timestamp: currentTime, note: 'Contract created, awaiting supplier confirmation' }
+        ]
+      };
+      
+      contracts.push(contract);
+      
+      // Create notification for the specific supplier
+      contractNotifications.push({
+        id: 'NOTIF-' + Date.now(),
+        type: 'contract_confirmation_request',
+        contractId,
+        supplierEmail,
+        message: `New contract from buyer requires your confirmation: ${quantity} MT of ${product} at $${maxPrice}/MT`,
+        data: contract,
+        status: 'unread',
+        createdAt: currentTime
+      });
+      
+      console.log('✅ DIRECT BUYER CONTRACT CREATED:', {
+        contractId,
+        supplierEmail,
+        estimatedValue,
+        estimatedDeposit,
+        status: 'pending_supplier_confirmation'
       });
       
       return res.json({
         success: true,
         contractId,
-        message: 'Buyer request created - suppliers will be notified',
+        message: `Contract created and sent to ${supplierEmail} for confirmation. Status: Pending`,
         estimatedValue: '$' + estimatedValue.toLocaleString(),
-        estimatedDeposit: estimatedDeposit + ' TGT'
+        estimatedDeposit: estimatedDeposit + ' TGT',
+        status: 'pending_supplier_confirmation'
       });
     }
     
@@ -1374,6 +1969,139 @@ app.post('/api/create-contract', async (req, res) => {
     console.error('Contract creation error:', error);
     res.status(500).json({ success: false, message: error.message });
   }
+});
+
+// SUPPLIER CONFIRMATION/DECLINE ENDPOINTS
+app.post('/api/supplier/confirm-contract', (req, res) => {
+  const { contractId, supplierEmail } = req.body;
+  
+  // Find the contract
+  const contractIndex = contracts.findIndex(contract => contract.id === contractId);
+  if (contractIndex === -1) {
+    return res.json({ success: false, message: 'Contract not found' });
+  }
+  
+  const contract = contracts[contractIndex];
+  
+  // Update contract status to pending deposit
+  contract.status = 'pending_deposit';
+  contract.confirmedAt = new Date();
+  contract.statusHistory.push({
+    status: 'pending_deposit',
+    timestamp: new Date(),
+    note: 'Supplier confirmed contract, awaiting buyer deposit'
+  });
+  
+  // Mark notifications as confirmed for this supplier
+  contractNotifications.forEach(notif => {
+    if (notif.contractId === contractId && notif.supplierEmail === supplierEmail) {
+      notif.status = 'confirmed';
+    }
+  });
+  
+  console.log('✅ CONTRACT CONFIRMED BY SUPPLIER:', { 
+    contractId, 
+    supplierEmail,
+    newStatus: 'pending_deposit'
+  });
+  
+  res.json({
+    success: true,
+    message: 'Contract confirmed! Status changed to "Pending Deposit" - waiting for buyer payment.',
+    contractId,
+    newStatus: 'pending_deposit'
+  });
+});
+
+app.post('/api/supplier/decline-contract', (req, res) => {
+  const { contractId, supplierEmail } = req.body;
+  
+  // Mark notifications as declined for this supplier
+  contractNotifications.forEach(notif => {
+    if (notif.contractId === contractId && notif.supplierEmail === supplierEmail) {
+      notif.status = 'declined';
+    }
+  });
+  
+  console.log('✅ CONTRACT DECLINED BY SUPPLIER:', { contractId, supplierEmail });
+  
+  res.json({
+    success: true,
+    message: 'Contract declined.',
+    contractId
+  });
+});
+
+// BUYER DEPOSIT PAYMENT ENDPOINT
+app.post('/api/buyer/make-deposit', (req, res) => {
+  const { contractId, buyerEmail } = req.body;
+  
+  // Find the contract
+  const contractIndex = contracts.findIndex(contract => contract.id === contractId);
+  if (contractIndex === -1) {
+    return res.json({ success: false, message: 'Contract not found' });
+  }
+  
+  const contract = contracts[contractIndex];
+  
+  if (contract.status !== 'pending_deposit') {
+    return res.json({ success: false, message: 'Contract is not ready for deposit. Current status: ' + contract.status });
+  }
+  
+  // Process deposit payment
+  const depositAmount = contract.estimatedDeposit;
+  
+  // Update contract status to active
+  contract.status = 'active';
+  contract.depositPaidAt = new Date();
+  contract.statusHistory.push({
+    status: 'active',
+    timestamp: new Date(),
+    note: `Buyer paid deposit of ${depositAmount} TGT. Contract is now active.`
+  });
+  
+  console.log('✅ DEPOSIT PAID BY BUYER:', { 
+    contractId, 
+    buyerEmail,
+    depositAmount,
+    newStatus: 'active'
+  });
+  
+  res.json({
+    success: true,
+    message: `Deposit of ${depositAmount} TGT paid successfully! Contract is now Active.`,
+    contractId,
+    newStatus: 'active',
+    depositAmount
+  });
+});
+
+// DEBUG ENDPOINT TO CHECK CURRENT STATE
+app.get('/api/debug/state', (req, res) => {
+  res.json({
+    contracts: contracts.length,
+    notifications: contractNotifications.length,
+    registeredUsers: Object.keys(registeredUsers).length,
+    contractsData: contracts,
+    notificationsData: contractNotifications,
+    usersData: registeredUsers
+  });
+});
+
+// GET SUPPLIER NOTIFICATIONS
+app.get('/api/supplier/notifications/:email', (req, res) => {
+  const { email } = req.params;
+  
+  // Get pending requests for this supplier
+  const supplierNotifications = contractNotifications.filter(notif => 
+    notif.supplierEmail === email && notif.status === 'unread'
+  );
+  
+  res.json({
+    success: true,
+    notifications: supplierNotifications,
+    pendingRequests: pendingRequests
+  });
 });
 
 // ADMIN BUTTON ROUTES WITH TABLES

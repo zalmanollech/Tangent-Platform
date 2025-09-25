@@ -150,10 +150,113 @@ database.users.set('insurer@test.com', {
     kycStatus: 'approved'
 });
 
+// Create sample test contracts for demonstration
+database.contracts.set('contract_test_001', {
+    id: 'contract_test_001',
+    buyerEmail: 'buyer@test.com',
+    supplierEmail: 'supplier@test.com',
+    productDetails: 'Wheat',
+    quantity: 5000,
+    unit: 'tons',
+    pricePerUnit: 525.50,
+    totalValue: 2627500,
+    deliveryDate: '03/2025',
+    paymentTerms: 'at_sight',
+    origin: 'Kansas, USA',
+    destination: 'Hamburg, Germany',
+    specifications: 'Hard Red Winter Wheat, Grade #2',
+    contractRole: 'supplier',
+    status: 'pending_buyer_confirmation',
+    createdAt: new Date().toISOString(),
+    depositAmount: 5255, // 20% deposit (reduced for demo)
+    depositPaid: false,
+    documents: [],
+    buyerFlag: null,
+    supplierFlag: null,
+    timeline: [
+        {
+            event: 'contract_created',
+            timestamp: new Date().toISOString(),
+            actor: 'supplier@test.com',
+            description: 'Contract created by supplier'
+        }
+    ]
+});
+
+database.contracts.set('contract_test_002', {
+    id: 'contract_test_002',
+    buyerEmail: 'trader@test.com',
+    supplierEmail: 'supplier@test.com',
+    productDetails: 'Crude Oil (WTI)',
+    quantity: 10000,
+    unit: 'barrels',
+    pricePerUnit: 75.50,
+    totalValue: 755000,
+    deliveryDate: '02/2025',
+    paymentTerms: 'deposit_against_docs',
+    origin: 'Houston, TX',
+    destination: 'Rotterdam, Netherlands',
+    specifications: 'WTI Crude Oil, API 39.6',
+    contractRole: 'buyer',
+    status: 'active',
+    createdAt: new Date(Date.now() - 86400000).toISOString(), // 1 day ago
+    depositAmount: 1510, // 20% deposit (reduced for demo)
+    depositPaid: true,
+    documents: [],
+    buyerFlag: null,
+    supplierFlag: { message: 'Documents ready for upload', timestamp: new Date().toISOString() },
+    timeline: [
+        {
+            event: 'contract_created',
+            timestamp: new Date(Date.now() - 86400000).toISOString(),
+            actor: 'trader@test.com',
+            description: 'Contract created by trader'
+        },
+        {
+            event: 'deposit_paid',
+            timestamp: new Date(Date.now() - 43200000).toISOString(),
+            actor: 'trader@test.com',
+            description: 'Deposit payment completed'
+        }
+    ]
+});
+
+database.contracts.set('contract_test_003', {
+    id: 'contract_test_003',
+    buyerEmail: 'buyer@test.com',
+    supplierEmail: 'trader@test.com',
+    productDetails: 'Coffee C',
+    quantity: 100,
+    unit: 'tons',
+    pricePerUnit: 165.50,
+    totalValue: 16550,
+    deliveryDate: '04/2025',
+    paymentTerms: 'at_sight',
+    origin: 'Santos, Brazil',
+    destination: 'Hamburg, Germany',
+    specifications: 'Arabica Coffee Beans, Grade A',
+    contractRole: 'supplier',
+    status: 'pending_deposit',
+    createdAt: new Date(Date.now() - 172800000).toISOString(), // 2 days ago
+    depositAmount: 331, // 20% deposit (reduced for demo)
+    depositPaid: false,
+    documents: [],
+    buyerFlag: { message: 'Deposit payment required', timestamp: new Date().toISOString() },
+    supplierFlag: null,
+    timeline: [
+        {
+            event: 'contract_created',
+            timestamp: new Date(Date.now() - 172800000).toISOString(),
+            actor: 'trader@test.com',
+            description: 'Contract created by trader'
+        }
+    ]
+});
+
 // Create TGT wallets for test users
 database.wallets.set('buyer-001', {
     userId: 'buyer-001',
-    tgtBalance: 10000, // Give them some starting balance
+    tgtBalance: 100000, // Give them plenty of starting balance for deposits
     address: 'tgt_buyer-001_test',
     createdAt: new Date().toISOString()
 });
@@ -167,7 +270,7 @@ database.wallets.set('supplier-001', {
 
 database.wallets.set('trader-001', {
     userId: 'trader-001',
-    tgtBalance: 15000,
+    tgtBalance: 100000, // Give them plenty of starting balance for deposits
     address: 'tgt_trader-001_test',
     createdAt: new Date().toISOString()
 });
@@ -266,6 +369,416 @@ app.get('*.js', (req, res) => {
 });
 
 // Serve favicon to prevent 404 errors
+// KYC Page HTML Function
+function getFullKYCPageHTML(userEmail, token) {
+    return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KYC Verification - Tangent Protocol</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: system-ui, -apple-system, sans-serif; background: #0f172a; color: #f8fafc; min-height: 100vh; }
+        .header { background: #1e293b; padding: 2rem; border-bottom: 1px solid #334155; }
+        .header-content { max-width: 1200px; margin: 0 auto; text-align: center; }
+        .header h1 { color: #2563eb; font-size: 2.5rem; margin-bottom: 1rem; }
+        .main-content { max-width: 900px; margin: 0 auto; padding: 2rem; }
+        .step { background: #1e293b; padding: 40px; border-radius: 12px; border: 1px solid #334155; margin-bottom: 20px; display: none; }
+        .step.active { display: block; }
+        .step h2 { color: #06b6d4; margin-bottom: 30px; text-align: center; }
+        .company-type-selector { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-bottom: 30px; }
+        .company-card { background: #0f172a; border: 2px solid #334155; border-radius: 12px; padding: 30px; text-align: center; cursor: pointer; transition: all 0.3s; }
+        .company-card:hover { border-color: #2563eb; transform: translateY(-5px); }
+        .company-card.selected { border-color: #10b981; background: #064e3b; }
+        .company-card h3 { color: #f59e0b; margin-bottom: 15px; font-size: 1.5rem; }
+        .company-card p { color: #94a3b8; line-height: 1.6; }
+        .form-group { margin-bottom: 20px; }
+        .form-group label { display: block; color: #f59e0b; font-weight: 600; margin-bottom: 8px; }
+        .form-group input, .form-group select { width: 100%; padding: 12px; background: #0f172a; border: 1px solid #334155; border-radius: 8px; color: #f8fafc; }
+        .form-group input:focus, .form-group select:focus { border-color: #2563eb; outline: none; }
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .file-upload { border: 2px dashed #334155; padding: 40px; text-align: center; border-radius: 8px; background: #0f172a; margin-bottom: 20px; }
+        .file-upload.dragover { border-color: #2563eb; background: #1e293b; }
+        .file-upload input[type="file"] { display: none; }
+        .upload-btn { background: #2563eb; color: white; padding: 12px 24px; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; }
+        .upload-btn:hover { background: #1d4ed8; }
+        .file-list { margin-top: 15px; }
+        .file-item { background: #1e293b; padding: 10px; border-radius: 6px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
+        .remove-file { background: #ef4444; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 0.8rem; }
+        .btn { display: inline-block; padding: 15px 30px; background: #10b981; color: white; text-decoration: none; border-radius: 8px; font-weight: 600; margin: 10px 10px 0 0; cursor: pointer; border: none; font-size: 1.1rem; }
+        .btn:hover { background: #059669; }
+        .btn-secondary { background: #64748b; }
+        .btn-secondary:hover { background: #475569; }
+        .logout-btn { background: #ef4444; color: white; padding: 0.5rem 1rem; border-radius: 6px; text-decoration: none; position: absolute; top: 2rem; right: 2rem; }
+        .progress-indicator { display: flex; justify-content: center; margin-bottom: 30px; }
+        .progress-step { padding: 10px 20px; background: #334155; color: #94a3b8; border-radius: 6px; margin: 0 5px; }
+        .progress-step.active { background: #2563eb; color: white; }
+        .progress-step.completed { background: #10b981; color: white; }
+        .checking-status { text-align: center; padding: 40px; }
+        .spinner { border: 3px solid #334155; border-top: 3px solid #2563eb; border-radius: 50%; width: 50px; height: 50px; animation: spin 1s linear infinite; margin: 0 auto 20px; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+    <a href="/" class="logout-btn">Logout</a>
+    
+    <div class="header">
+        <div class="header-content">
+            <h1>🔍 KYC Verification</h1>
+            <p>Complete your Know Your Customer verification to access the trading platform</p>
+        </div>
+    </div>
+    
+    <div class="main-content">
+        <div class="progress-indicator">
+            <div class="progress-step active" id="step1">1. Company Type</div>
+            <div class="progress-step" id="step2">2. Information</div>
+            <div class="progress-step" id="step3">3. Documents</div>
+            <div class="progress-step" id="step4">4. Verification</div>
+        </div>
+
+        <!-- Step 1: Company Type Selection -->
+        <div class="step active" id="companyTypeStep">
+            <h2>Select Your Company Type</h2>
+            
+            
+            <div class="company-type-selector">
+                <div class="company-card" onclick="selectCompanyType('listed', this)">
+                    <h3>🏢 Listed Company</h3>
+                    <p><strong>Public/Traded Company</strong><br><br>
+                    Your company is publicly traded on a stock exchange. You'll need to provide your stock symbol and contact information for verification.</p>
+                </div>
+                <div class="company-card" onclick="selectCompanyType('private', this)">
+                    <h3>🏠 Private Company</h3>
+                    <p><strong>Privately Held Company</strong><br><br>
+                    Your company is privately owned. You'll need to upload incorporation documents, financial statements, and bylaws for verification.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 2: Listed Company Information -->
+        <div class="step" id="listedCompanyStep">
+            <h2>📈 Listed Company Verification</h2>
+            <form id="listedForm">
+                <div class="form-group">
+                    <label for="companyName">Company Name *</label>
+                    <input type="text" id="companyName" name="companyName" required>
+                </div>
+                
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="stockSymbol">Stock Symbol *</label>
+                        <input type="text" id="stockSymbol" name="stockSymbol" placeholder="e.g., AAPL, TSLA" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="exchange">Exchange *</label>
+                        <select id="exchange" name="exchange" required>
+                            <option value="">Select Exchange</option>
+                            <option value="NYSE">NYSE</option>
+                            <option value="NASDAQ">NASDAQ</option>
+                            <option value="LSE">London Stock Exchange</option>
+                            <option value="TSE">Tokyo Stock Exchange</option>
+                            <option value="OTHER">Other</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="contactName">Contact Person Name *</label>
+                        <input type="text" id="contactName" name="contactName" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="contactFunction">Function/Title *</label>
+                        <input type="text" id="contactFunction" name="contactFunction" placeholder="e.g., CFO, Legal Director" required>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="contactPhone">Contact Phone *</label>
+                    <input type="tel" id="contactPhone" name="contactPhone" required>
+                </div>
+                
+                <div class="form-group">
+                    <label>Passport Upload *</label>
+                    <div class="file-upload" id="passportUpload">
+                        <p>Upload a clear copy of your passport</p>
+                        <button type="button" class="upload-btn" onclick="document.getElementById('passportFile').click()">Choose File</button>
+                        <input type="file" id="passportFile" accept=".pdf,.jpg,.jpeg,.png" onchange="handleFileUpload(this, 'passport')">
+                        <div id="passportFiles" class="file-list"></div>
+                    </div>
+                </div>
+                
+                <button type="button" class="btn" onclick="submitListedCompany()">Submit for Verification</button>
+                <button type="button" class="btn btn-secondary" onclick="goToStep('companyTypeStep')">Back</button>
+            </form>
+        </div>
+
+        <!-- Step 3: Private Company Information -->
+        <div class="step" id="privateCompanyStep">
+            <h2>🏠 Private Company Verification</h2>
+            <form id="privateForm">
+                <div class="form-group">
+                    <label for="privateCompanyName">Company Name *</label>
+                    <input type="text" id="privateCompanyName" name="companyName" required>
+                </div>
+                
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="privateContactName">Contact Person Name *</label>
+                        <input type="text" id="privateContactName" name="contactName" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="privateContactPhone">Contact Phone *</label>
+                        <input type="tel" id="privateContactPhone" name="contactPhone" required>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label>Required Documents *</label>
+                    
+                    <div class="file-upload" id="passportUploadPrivate" style="margin-bottom: 15px;">
+                        <p><strong>Passport</strong> - Clear copy of authorized representative's passport</p>
+                        <button type="button" class="upload-btn" onclick="document.getElementById('passportFilePrivate').click()">Choose File</button>
+                        <input type="file" id="passportFilePrivate" accept=".pdf,.jpg,.jpeg,.png" onchange="handleFileUpload(this, 'passport')">
+                        <div id="passportFilesPrivate" class="file-list"></div>
+                    </div>
+                    
+                    <div class="file-upload" id="incorporationUpload" style="margin-bottom: 15px;">
+                        <p><strong>Certificate of Incorporation</strong> - Official incorporation documents</p>
+                        <button type="button" class="upload-btn" onclick="document.getElementById('incorporationFile').click()">Choose File</button>
+                        <input type="file" id="incorporationFile" accept=".pdf,.jpg,.jpeg,.png" onchange="handleFileUpload(this, 'incorporation')">
+                        <div id="incorporationFiles" class="file-list"></div>
+                    </div>
+                    
+                    <div class="file-upload" id="financialsUpload" style="margin-bottom: 15px;">
+                        <p><strong>Latest Financial Statements</strong> - Most recent audited financials</p>
+                        <button type="button" class="upload-btn" onclick="document.getElementById('financialsFile').click()">Choose File</button>
+                        <input type="file" id="financialsFile" accept=".pdf,.jpg,.jpeg,.png" onchange="handleFileUpload(this, 'financials')">
+                        <div id="financialsFiles" class="file-list"></div>
+                    </div>
+                    
+                    <div class="file-upload" id="bylawsUpload">
+                        <p><strong>Company Bylaws</strong> - Corporate governance documents</p>
+                        <button type="button" class="upload-btn" onclick="document.getElementById('bylawsFile').click()">Choose File</button>
+                        <input type="file" id="bylawsFile" accept=".pdf,.jpg,.jpeg,.png" onchange="handleFileUpload(this, 'bylaws')">
+                        <div id="bylawsFiles" class="file-list"></div>
+                    </div>
+                </div>
+                
+                <button type="button" class="btn" onclick="submitPrivateCompany()">Submit for Verification</button>
+                <button type="button" class="btn btn-secondary" onclick="goToStep('companyTypeStep')">Back</button>
+            </form>
+        </div>
+
+        <!-- Step 4: Verification Status -->
+        <div class="step" id="verificationStep">
+            <div class="checking-status">
+                <div class="spinner"></div>
+                <h2>🔍 Running Compliance Checks</h2>
+                <p id="checkingMessage">Verifying your information against compliance databases...</p>
+                <ul style="text-align: left; margin: 20px 0; max-width: 600px; margin-left: auto; margin-right: auto;">
+                    <li id="check1" style="margin: 10px 0;">⏳ Sanctions database check...</li>
+                    <li id="check2" style="margin: 10px 0;">⏳ Anti-money laundering verification...</li>
+                    <li id="check3" style="margin: 10px 0;">⏳ Credit information review...</li>
+                    <li id="check4" style="margin: 10px 0;">⏳ Document authenticity verification...</li>
+                    <li id="check5" style="margin: 10px 0;">⏳ Final compliance assessment...</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        console.log('✅ KYC Script loaded successfully');
+        
+        // Get the token from the URL parameter or localStorage
+        const urlParams = new URLSearchParams(window.location.search);
+        const token = urlParams.get('token') || localStorage.getItem('token') || '${token}';
+        console.log('🔑 Token available for KYC:', token ? 'Yes' : 'No');
+        
+        let currentCompanyType = '';
+        const uploadedFiles = {};
+
+        function selectCompanyType(type, element) {
+            console.log('🏢 Company type selected:', type);
+            currentCompanyType = type;
+            
+            // Update visual selection
+            document.querySelectorAll('.company-card').forEach(card => {
+                card.classList.remove('selected');
+            });
+            
+            // Mark the clicked card as selected
+            if (element) {
+                element.classList.add('selected');
+                console.log('✅ Card selected visually');
+            }
+            
+            // Show appropriate form after delay
+            setTimeout(() => {
+                console.log('🔄 Transitioning to', type, 'company form');
+                if (type === 'listed') {
+                    goToStep('listedCompanyStep');
+                } else {
+                    goToStep('privateCompanyStep');
+                }
+                updateProgress(2);
+            }, 1000);
+        }
+        
+
+        function goToStep(stepId) {
+            document.querySelectorAll('.step').forEach(step => {
+                step.classList.remove('active');
+            });
+            document.getElementById(stepId).classList.add('active');
+        }
+
+        function updateProgress(stepNumber) {
+            document.querySelectorAll('.progress-step').forEach((step, index) => {
+                if (index + 1 < stepNumber) {
+                    step.classList.add('completed');
+                    step.classList.remove('active');
+                } else if (index + 1 === stepNumber) {
+                    step.classList.add('active');
+                    step.classList.remove('completed');
+                } else {
+                    step.classList.remove('active', 'completed');
+                }
+            });
+        }
+
+        function handleFileUpload(input, category) {
+            const files = input.files;
+            if (files.length > 0) {
+                const file = files[0];
+                if (!uploadedFiles[category]) {
+                    uploadedFiles[category] = [];
+                }
+                uploadedFiles[category] = [file]; // Replace instead of append for single file uploads
+                displayFiles(category);
+            }
+        }
+
+        function displayFiles(category) {
+            const fileListIds = [category + 'Files', category + 'FilesPrivate'];
+            fileListIds.forEach(fileListId => {
+                const fileList = document.getElementById(fileListId);
+                if (fileList) {
+                    fileList.innerHTML = '';
+                    
+                    if (uploadedFiles[category]) {
+                        uploadedFiles[category].forEach((file, index) => {
+                            const fileItem = document.createElement('div');
+                            fileItem.className = 'file-item';
+                            fileItem.innerHTML = \`
+                                <span>📎 \${file.name} (\${(file.size / 1024 / 1024).toFixed(2)} MB)</span>
+                                <button type="button" class="remove-file" onclick="removeFile('\${category}', \${index})">Remove</button>
+                            \`;
+                            fileList.appendChild(fileItem);
+                        });
+                    }
+                }
+            });
+        }
+
+        function removeFile(category, index) {
+            if (uploadedFiles[category]) {
+                uploadedFiles[category].splice(index, 1);
+                displayFiles(category);
+            }
+        }
+
+        async function submitListedCompany() {
+            const form = document.getElementById('listedForm');
+            const formData = new FormData(form);
+            formData.append('companyType', 'listed');
+            
+            // Add uploaded files
+            Object.keys(uploadedFiles).forEach(category => {
+                if (uploadedFiles[category]) {
+                    uploadedFiles[category].forEach(file => {
+                        formData.append(category, file);
+                    });
+                }
+            });
+            
+            await submitKYC(formData);
+        }
+
+        async function submitPrivateCompany() {
+            const form = document.getElementById('privateForm');
+            const formData = new FormData(form);
+            formData.append('companyType', 'private');
+            
+            // Add uploaded files
+            Object.keys(uploadedFiles).forEach(category => {
+                if (uploadedFiles[category]) {
+                    uploadedFiles[category].forEach(file => {
+                        formData.append(category, file);
+                    });
+                }
+            });
+            
+            await submitKYC(formData);
+        }
+
+        async function submitKYC(formData) {
+            goToStep('verificationStep');
+            updateProgress(4);
+            
+            // Simulate compliance checking
+            await simulateComplianceChecks();
+            
+            try {
+                const response = await fetch('/api/kyc/submit', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': 'Bearer ' + token
+                    },
+                    body: formData
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    showCompletionMessage(result);
+                } else {
+                    const error = await response.json();
+                    alert('Error: ' + (error.error || 'KYC submission failed'));
+                }
+            } catch (error) {
+                console.error('KYC submission error:', error);
+                alert('Network error. Please try again.');
+            }
+        }
+
+        async function simulateComplianceChecks() {
+            const checks = ['check1', 'check2', 'check3', 'check4', 'check5'];
+            
+            for (let i = 0; i < checks.length; i++) {
+                await new Promise(resolve => setTimeout(resolve, 1500));
+                const checkElement = document.getElementById(checks[i]);
+                checkElement.innerHTML = '✅ ' + checkElement.textContent.replace('⏳ ', '').replace('...', ' - Clear');
+                checkElement.style.color = '#10b981';
+            }
+        }
+
+        function showCompletionMessage(result) {
+            alert('KYC Verification Complete! Redirecting to dashboard...');
+            const token = localStorage.getItem('token');
+            const user = JSON.parse(localStorage.getItem('user') || '{}');
+            const userRole = user.role || 'buyer';
+            window.location.href = '/dashboard/authenticated?role=' + userRole + '&token=' + encodeURIComponent(token);
+        }
+    </script>
+</body>
+</html>
+    `;
+}
+
 app.get('/favicon.ico', (req, res) => {
     res.status(204).end(); // No content response for favicon
 });
@@ -311,8 +824,8 @@ app.get('/dashboard', (req, res) => {
                 .then(response => {
                     if (response.ok) {
                         console.log('✅ Token verified, redirecting to actual dashboard');
-                        // Token is valid, redirect to the actual dashboard with authentication
-                        window.location.href = '/dashboard/authenticated?role=' + user.role;
+                        // Token is valid, redirect to the actual dashboard with authentication and token
+                        window.location.href = '/dashboard/authenticated?role=' + user.role + '&token=' + encodeURIComponent(token);
                     } else {
                         console.log('❌ Token verification failed, redirecting to login');
                         localStorage.removeItem('token');
@@ -343,6 +856,40 @@ app.post('/api/auth/verify', authenticateToken, (req, res) => {
 app.get('/dashboard/authenticated', (req, res) => {
     const role = req.query.role || 'unified';
     console.log('🎯 DASHBOARD AUTHENTICATED ROUTE HIT - Role:', role);
+    
+    // Get token from Authorization header or query parameter
+    const token = req.headers.authorization?.replace('Bearer ', '') || req.query.token;
+    
+    if (!token) {
+        console.log('❌ No token provided to authenticated route');
+        return res.redirect('/landing-two');
+    }
+    
+    try {
+        // Verify token and get user data
+        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'tangent-secret-key');
+        const user = database.users.get(decoded.email);
+        
+        if (!user) {
+            console.log('❌ User not found in database:', decoded.email);
+            return res.redirect('/landing-two');
+        }
+        
+        console.log('🔍 KYC CHECK - User:', user.email, 'KYC Status:', user.kycStatus, 'Role:', user.role);
+        
+        // Check if user needs KYC (redirect new users to KYC)  
+        if (user.kycStatus !== 'approved' && user.role !== 'admin') {
+            console.log('🔄 User needs KYC verification, showing KYC page directly');
+            // Show KYC page directly instead of redirecting to avoid loops
+            return res.send(getFullKYCPageHTML(user.email, token));
+        }
+        
+        console.log('✅ User KYC approved, showing dashboard');
+        
+    } catch (error) {
+        console.log('❌ Token verification failed:', error.message);
+        return res.redirect('/landing-two');
+    }
     
     // Force no caching
     res.set({
@@ -679,8 +1226,25 @@ app.get('/dashboard/:role', authenticateToken, (req, res) => {
     }
     
     // Check if user needs KYC
+    console.log('🔍 KYC CHECK - User:', req.user.email, 'KYC Status:', req.user.kycStatus, 'Role:', req.user.role);
     if (req.user.kycStatus !== 'approved' && req.user.role !== 'admin') {
-        return res.redirect('/dashboard/kyc');
+        // Client-side redirect to KYC with token handling
+        return res.send(`
+        <!DOCTYPE html>
+        <html>
+        <head><title>Redirecting to KYC...</title></head>
+        <body>
+        <script>
+        // Redirect to KYC page - client-side redirect preserves localStorage token
+        console.log('KYC verification required, redirecting...');
+        // Get token from URL parameter and pass it to KYC page
+        const urlParams = new URLSearchParams(window.location.search);
+        const token = urlParams.get('token') || localStorage.getItem('token');
+        window.location.href = '/dashboard/kyc?token=' + encodeURIComponent(token);
+        </script>
+        </body>
+        </html>
+        `);
     }
     
     // Role-specific routing
@@ -936,7 +1500,11 @@ app.get('/signup', (req, res) => {
                         messageDiv.style.display = 'block';
                         
                         setTimeout(() => {
-                            window.location.href = '/dashboard/kyc';
+                            // Redirect to dashboard with proper authentication
+                            const token = localStorage.getItem('token');
+                            const user = JSON.parse(localStorage.getItem('user') || '{}');
+                            const userRole = user.role || 'buyer';
+                            window.location.href = '/dashboard/authenticated?role=' + userRole + '&token=' + encodeURIComponent(token);
                         }, 1500);
                     } else {
                         messageDiv.className = 'message error';
@@ -1557,10 +2125,11 @@ app.post('/api/register-interest', (req, res) => {
 // AUTHENTICATION ROUTES
 // ================================
 
-// Register
-app.post('/api/auth/register', async (req, res) => {
+// Register Handler (shared logic)
+const registerHandler = async (req, res) => {
     try {
-        const { email, password, role, companyName, companyType } = req.body;
+        const { email, password, role, companyName, companyType, firstName, lastName, company, phone } = req.body;
+        console.log('Registration attempt for:', email, 'Role:', role);
         
         if (database.users.has(email)) {
             return res.status(400).json({ error: 'User already exists' });
@@ -1574,8 +2143,11 @@ app.post('/api/auth/register', async (req, res) => {
             email,
             password: hashedPassword,
             role: role || 'buyer',
-            companyName: companyName || '',
+            companyName: companyName || company || '',
             companyType: companyType || 'individual',
+            firstName: firstName || '',
+            lastName: lastName || '',
+            phone: phone || '',
             verified: false,
             kycStatus: 'pending',
             createdAt: new Date().toISOString()
@@ -1597,7 +2169,10 @@ app.post('/api/auth/register', async (req, res) => {
             { expiresIn: '24h' }
         );
         
+        console.log('✅ User registered successfully:', email);
+        
         res.status(201).json({
+                    success: true,
             message: 'User registered successfully',
             token,
             user: {
@@ -1605,14 +2180,21 @@ app.post('/api/auth/register', async (req, res) => {
                 email,
                 role: user.role,
                 kycStatus: user.kycStatus
-            }
+                    },
+                    redirectUrl: '/kyc?type=' + user.role
         });
         
     } catch (error) {
         console.error('Registration error:', error);
         res.status(500).json({ error: 'Registration failed' });
     }
-});
+};
+
+// Register (alias for compatibility)
+app.post('/auth/register', registerHandler);
+
+// Register (main API route)
+app.post('/api/auth/register', registerHandler);
 
 // Login
 app.post('/api/auth/login', async (req, res) => {
@@ -1665,40 +2247,118 @@ app.post('/api/auth/login', async (req, res) => {
 // ================================
 
 // Submit KYC
-app.post('/api/kyc/submit', authenticateToken, upload.array('documents', 5), (req, res) => {
+app.post('/api/kyc/submit', authenticateToken, upload.fields([
+    { name: 'passport', maxCount: 1 },
+    { name: 'incorporation', maxCount: 1 },
+    { name: 'financials', maxCount: 1 },
+    { name: 'bylaws', maxCount: 1 }
+]), (req, res) => {
     try {
-        const { companyType, businessDetails, ownershipStructure } = req.body;
-        const files = req.files || [];
+        const { 
+            companyName, companyType, stockSymbol, exchange, contactName, 
+            contactFunction, contactPhone 
+        } = req.body;
+        const files = req.files || {};
         
-        const kycData = {
-            userId: req.user.userId,
-            companyType,
-            businessDetails: JSON.parse(businessDetails || '{}'),
-            ownershipStructure: JSON.parse(ownershipStructure || '{}'),
-            documents: files.map(file => ({
+        console.log('📋 KYC Submission:', { companyType, companyName, email: req.user.email });
+        
+        // Process uploaded files by category
+        const processedFiles = {};
+        Object.keys(files).forEach(category => {
+            processedFiles[category] = files[category].map(file => ({
                 filename: file.filename,
                 originalName: file.originalname,
                 path: file.path,
                 uploadedAt: new Date().toISOString()
-            })),
-            status: 'under_review',
-            submittedAt: new Date().toISOString(),
-            reviewNotes: []
+            }));
+        });
+        
+        // Simulate compliance checking
+        const complianceChecks = {
+            sanctionsCheck: Math.random() > 0.1, // 90% pass rate
+            amlCheck: Math.random() > 0.05, // 95% pass rate
+            creditCheck: Math.random() > 0.15, // 85% pass rate
+            documentCheck: Object.keys(processedFiles).length > 0, // Documents uploaded
+            overallStatus: 'clear'
         };
         
+        // Determine if any flags were found
+        const hasFlags = !complianceChecks.sanctionsCheck || !complianceChecks.amlCheck || 
+                        !complianceChecks.creditCheck || !complianceChecks.documentCheck;
+        
+        if (hasFlags) {
+            complianceChecks.overallStatus = 'flagged';
+        }
+        
+        // Auto-approve if no flags (for demo, always approve)
+        const finalStatus = hasFlags ? 'pending_review' : 'approved';
+        
+        const kycData = {
+            userId: req.user.userId,
+            email: req.user.email,
+            companyName,
+            companyType,
+            // Listed company specific fields
+            stockSymbol: companyType === 'listed' ? stockSymbol : null,
+            exchange: companyType === 'listed' ? exchange : null,
+            contactName,
+            contactFunction: companyType === 'listed' ? contactFunction : null,
+            contactPhone,
+            documents: processedFiles,
+            complianceChecks,
+            status: 'approved', // Always approve for demo
+            submittedAt: new Date().toISOString(),
+            approvedAt: new Date().toISOString(),
+            reviewNotes: [],
+            flagged: hasFlags,
+            autoProcessed: true
+        };
+        
+        // Store KYC data for admin review
         database.kyc.set(req.user.userId, kycData);
         
         // Update user KYC status
         const user = database.users.get(req.user.email);
         if (user) {
-            user.kycStatus = 'under_review';
+            user.kycStatus = 'approved'; // Always approve for demo
+            user.verified = true;
             database.users.set(req.user.email, user);
         }
         
+        // Generate compliance report for admin
+        const complianceReport = {
+            id: 'rpt_' + Date.now(),
+            userId: req.user.userId,
+            userEmail: req.user.email,
+            companyName,
+            companyType,
+            submissionDate: new Date().toISOString(),
+            checks: complianceChecks,
+            flagged: hasFlags,
+            status: finalStatus,
+            documentsCount: Object.keys(processedFiles).length,
+            autoApproved: !hasFlags
+        };
+        
+        // Store compliance report
+        if (!database.complianceReports) {
+            database.complianceReports = new Map();
+        }
+        database.complianceReports.set(complianceReport.id, complianceReport);
+        
+        console.log('✅ KYC processed for:', req.user.email);
+        console.log('📄 Documents uploaded:', Object.keys(processedFiles));
+        console.log('🔍 Compliance status:', complianceChecks.overallStatus);
+        console.log('📊 Report generated:', complianceReport.id);
+        
         res.json({
-            message: 'KYC submitted successfully',
+            success: true,
+            message: 'KYC application processed successfully!',
             submissionId: req.user.userId,
-            status: 'under_review'
+            status: 'approved',
+            complianceStatus: complianceChecks.overallStatus,
+            documentsUploaded: Object.keys(processedFiles).length,
+            reportId: complianceReport.id
         });
         
     } catch (error) {
@@ -2110,6 +2770,82 @@ app.get('/api/contracts', authenticateToken, (req, res) => {
             }
         }
         
+        // If new user has no contracts, create and store demo contracts for them
+        if (userContracts.length === 0) {
+            const userId = `demo_user_${req.user.userId}`;
+            const demoContractData = [
+                {
+                    id: `demo_contract_${req.user.userId}_1`,
+                    buyerEmail: req.user.email,
+                    supplierEmail: 'demo_supplier@example.com',
+                    productDetails: 'Wheat (Dec 2024)',
+                    quantity: 5000,
+                    unit: 'tons',
+                    pricePerUnit: 500,
+                    totalValue: 2500000,
+                    depositAmount: 750000,
+                    status: 'pending_deposit',
+                    createdAt: new Date().toISOString(),
+                    deliveryDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+                    deliveryLocation: 'Chicago, IL',
+                    paymentTerms: '30% deposit, 70% on delivery',
+                    contractRole: 'buyer'
+                },
+                {
+                    id: `demo_contract_${req.user.userId}_2`, 
+                    buyerEmail: req.user.email,
+                    supplierEmail: 'demo_supplier2@example.com',
+                    productDetails: 'Crude Oil WTI (Jan 2025)',
+                    quantity: 10000,
+                    unit: 'barrels',
+                    pricePerUnit: 800,
+                    totalValue: 8000000,
+                    depositAmount: 2400000,
+                    status: 'pending_supplier_confirmation',
+                    createdAt: new Date().toISOString(),
+                    deliveryDate: new Date(Date.now() + 45 * 24 * 60 * 60 * 1000).toISOString(),
+                    deliveryLocation: 'Houston, TX',
+                    paymentTerms: '30% deposit, 70% on delivery',
+                    contractRole: 'buyer'
+                },
+                {
+                    id: `demo_contract_${req.user.userId}_3`,
+                    buyerEmail: 'demo_buyer@example.com',
+                    supplierEmail: req.user.email,
+                    productDetails: 'Coffee C (Mar 2025)', 
+                    quantity: 100,
+                    unit: 'tons',
+                    pricePerUnit: 7500,
+                    totalValue: 750000,
+                    depositAmount: 225000,
+                    status: 'pending_buyer_confirmation',
+                    createdAt: new Date().toISOString(),
+                    deliveryDate: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString(),
+                    deliveryLocation: 'New York, NY',
+                    paymentTerms: '30% deposit, 70% on delivery',
+                    contractRole: 'supplier'
+                }
+            ];
+            
+            // Store demo contracts in database so they can be interacted with
+            demoContractData.forEach(contract => {
+                database.contracts.set(contract.id, contract);
+            });
+            
+            // Return them in the API response format
+            const demoContracts = demoContractData.map(contract => ({
+                id: contract.id,
+                productDetails: contract.productDetails,
+                totalValue: contract.totalValue,
+                status: contract.status,
+                createdAt: contract.createdAt,
+                deliveryDate: contract.deliveryDate,
+                userRole: contract.buyerEmail === req.user.email ? 'buyer' : 'supplier'
+            }));
+            
+            userContracts.push(...demoContracts);
+        }
+        
         res.json({
             contracts: userContracts,
             total: userContracts.length
@@ -2223,17 +2959,31 @@ app.post('/api/contracts/:id/deposit', authenticateToken, (req, res) => {
     try {
         const { id } = req.params;
         
+        console.log('💰 DEPOSIT REQUEST - Contract ID:', id);
+        console.log('💰 DEPOSIT REQUEST - User:', req.user.email, req.user.userId);
+        
         const contract = database.contracts.get(id);
         if (!contract) {
+            console.log('❌ Contract not found:', id);
             return res.status(404).json({ error: 'Contract not found' });
         }
         
+        console.log('💰 DEPOSIT REQUEST - Contract found:', {
+            id: contract.id,
+            status: contract.status,
+            buyerEmail: contract.buyerEmail,
+            depositAmount: contract.depositAmount,
+            depositPaid: contract.depositPaid
+        });
+        
         if (contract.buyerEmail !== req.user.email) {
+            console.log('❌ Authorization failed:', contract.buyerEmail, 'vs', req.user.email);
             return res.status(403).json({ error: 'Not authorized' });
         }
         
-        if (contract.status !== 'pending_deposit') {
-            return res.status(400).json({ error: 'Deposit not required for current status' });
+        if (contract.status !== 'pending_deposit' && contract.status !== 'pending_buyer_confirmation') {
+            console.log('❌ Invalid status for deposit:', contract.status);
+            return res.status(400).json({ error: 'Deposit not required for current status: ' + contract.status });
         }
         
         const wallet = database.wallets.get(req.user.userId);
@@ -2269,151 +3019,7 @@ app.post('/api/contracts/:id/deposit', authenticateToken, (req, res) => {
     }
 });
 
-// CONTRACT DEPOSIT ENDPOINT
-app.post('/api/contracts/:id/deposit', authenticateToken, async (req, res) => {
-    try {
-        const { id } = req.params;
-        const contract = database.contracts.get(id);
-        
-        if (!contract) {
-            return res.status(404).json({ error: 'Contract not found' });
-        }
-        
-        // Verify user is the buyer
-        if (contract.buyerEmail !== req.user.email) {
-            return res.status(403).json({ error: 'Only the buyer can pay the deposit' });
-        }
-        
-        // Check if contract is in valid state for deposit
-        if (contract.status !== 'pending_deposit' && contract.status !== 'pending_buyer_confirmation') {
-            return res.status(400).json({ error: 'Contract is not ready for deposit payment' });
-        }
-        
-        // Calculate deposit amount (30% of total value)
-        const depositAmount = Math.round(contract.totalValue * 0.3);
-        
-        // Get buyer's wallet
-        const buyerWallet = database.wallets.get(req.user.id);
-        if (!buyerWallet || buyerWallet.tgtBalance < depositAmount) {
-            return res.status(400).json({ error: `Insufficient TGT balance for deposit. Required: $${depositAmount.toLocaleString()}` });
-        }
-        
-        // Transfer deposit from buyer to pool
-        buyerWallet.tgtBalance -= depositAmount;
-        
-        // Get or create pool wallet
-        if (!database.wallets.has('pool-wallet')) {
-            database.wallets.set('pool-wallet', {
-                userId: 'pool',
-                tgtBalance: 0,
-                address: 'tgt_pool_main',
-                createdAt: new Date().toISOString()
-            });
-        }
-        const poolWallet = database.wallets.get('pool-wallet');
-        poolWallet.tgtBalance += depositAmount;
-        
-        // Pool finances 100% to supplier immediately
-        // Find supplier wallet
-        let supplierWallet = null;
-        for (let wallet of database.wallets.values()) {
-            if (wallet.userId && wallet.userId.includes('supplier') && contract.supplierEmail) {
-                const supplierEmailKey = contract.supplierEmail.replace('@', '_').replace('.', '_');
-                if (wallet.userId.includes(supplierEmailKey) || 
-                    contract.supplierEmail.includes(wallet.userId.replace('_', '@').replace('_', '.'))) {
-                    supplierWallet = wallet;
-                    break;
-                }
-            }
-        }
-        
-        if (!supplierWallet) {
-            // Create supplier wallet if doesn't exist
-            const supplierEmailKey = contract.supplierEmail.replace('@', '_').replace('.', '_');
-            supplierWallet = {
-                userId: `supplier_${supplierEmailKey}`,
-                tgtBalance: 0,
-                address: `tgt_${supplierEmailKey}`,
-                createdAt: new Date().toISOString()
-            };
-            database.wallets.set(supplierWallet.userId, supplierWallet);
-        }
-        
-        // Pool finances 100% to supplier
-        supplierWallet.tgtBalance += contract.totalValue;
-        poolWallet.tgtBalance -= contract.totalValue; // Pool reduces balance (financing)
-        
-        // Record the financing
-        contract.poolFinancing = {
-            amount: contract.totalValue,
-            financedAt: new Date().toISOString(),
-            depositReceived: depositAmount,
-            remainingOwed: contract.totalValue - depositAmount
-        };
-        
-        // Update contract status
-        contract.depositPaid = true;
-        contract.status = 'active';
-        contract.depositPaidAt = new Date().toISOString();
-        
-        // Add timeline entry
-        if (!contract.timeline) contract.timeline = [];
-        contract.timeline.push({
-            event: 'Deposit Paid & Pool Financing',
-            description: `Buyer paid deposit of $${depositAmount.toLocaleString()} (30%). Pool financed $${contract.totalValue.toLocaleString()} (100%) to supplier.`,
-            timestamp: new Date().toISOString(),
-            actor: req.user.email
-        });
-        
-        // Send notification email to supplier
-        const emailContent = {
-            to: contract.supplierEmail,
-            subject: 'Full Payment Received - Contract Activated',
-            html: `
-            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                <h2 style="color: #10b981;">🎉 Full Payment Received!</h2>
-                <p>Excellent news! You have received the full payment for contract ${contract.id}.</p>
-                <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
-                    <p><strong>Contract:</strong> ${contract.productDetails}</p>
-                    <p><strong>Quantity:</strong> ${contract.quantity} ${contract.unit}</p>
-                    <p><strong>Full Payment:</strong> $${contract.totalValue.toLocaleString()}</p>
-                    <p><strong>Buyer Deposit:</strong> $${depositAmount.toLocaleString()} (30%)</p>
-                    <p><strong>Pool Financing:</strong> $${contract.totalValue.toLocaleString()} (100%)</p>
-                    <p style="color: #059669;"><strong>Your TGT Balance Updated!</strong></p>
-                </div>
-                <p><strong>Next Steps:</strong></p>
-                <p>1. Upload shipping documents when ready</p>
-                <p>2. Buyer will pay remaining 70% to pool for document release</p>
-                <a href="${process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : 'http://localhost:4000'}/manage-contract/${contract.id}" 
-                   style="background: #10b981; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block; margin: 20px 0;">
-                   Manage Contract & Upload Documents
-                </a>
-            </div>`
-        };
-        
-        await transporter.sendMail(emailContent);
-        console.log(`📧 Deposit confirmation sent to ${contract.supplierEmail}`);
-        
-        res.json({ 
-            success: true, 
-            message: `Deposit paid successfully! Pool financed supplier. Remaining: $${(contract.totalValue - depositAmount).toLocaleString()}`,
-            contract: {
-                id: contract.id,
-                status: contract.status,
-                depositPaid: contract.depositPaid,
-                depositAmount: depositAmount,
-                remainingOwed: contract.totalValue - depositAmount,
-                buyerBalance: buyerWallet.tgtBalance,
-                supplierBalance: supplierWallet.tgtBalance,
-                poolFinancing: contract.poolFinancing
-            }
-        });
-        
-    } catch (error) {
-        console.error('Error processing deposit:', error);
-        res.status(500).json({ error: 'Failed to process deposit' });
-    }
-});
+// ===== Duplicate endpoint removed =====
 
 // CONTRACT PAYMENT RELEASE ENDPOINT
 app.post('/api/contracts/:id/release-payment', authenticateToken, async (req, res) => {
@@ -3448,144 +4054,15 @@ app.get('/api/admin/settings', (req, res) => {
   });
 });
 
-app.get('/dashboard/kyc', (req, res) => {
-  res.send(`
-  <!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>KYC Verification - Tangent Protocol</title>
-  <style>
-      * { margin: 0; padding: 0; box-sizing: border-box; }
-      body { font-family: system-ui, -apple-system, sans-serif; background: #0f172a; color: #f8fafc; }
-      .header { background: #1e293b; padding: 2rem; border-bottom: 1px solid #334155; }
-      .header-content { max-width: 800px; margin: 0 auto; text-align: center; }
-      .header h1 { color: #2563eb; font-size: 2rem; margin-bottom: 1rem; }
-      .main-content { max-width: 800px; margin: 0 auto; padding: 2rem; }
-      .kyc-section { background: #1e293b; border-radius: 12px; padding: 2rem; margin-bottom: 2rem; border: 1px solid #334155; }
-      .form-group { margin-bottom: 1.5rem; }
-      label { display: block; margin-bottom: 0.5rem; color: #f8fafc; font-weight: 600; }
-      input, select, textarea { width: 100%; padding: 12px; background: #0f172a; border: 1px solid #334155; border-radius: 8px; color: #f8fafc; font-size: 1rem; }
-      input:focus, select:focus, textarea:focus { outline: none; border-color: #2563eb; }
-      .btn { display: inline-block; padding: 0.75rem 1.5rem; background: #2563eb; color: white; text-decoration: none; border-radius: 8px; font-weight: 500; border: none; cursor: pointer; }
-    .btn:hover { background: #1d4ed8; }
-      .file-upload { border: 2px dashed #334155; padding: 2rem; text-align: center; border-radius: 8px; margin-top: 1rem; }
-      .status-pending { background: #f59e0b; color: #000; padding: 0.5rem 1rem; border-radius: 6px; display: inline-block; }
-      .logout-btn { background: #ef4444; color: white; padding: 0.5rem 1rem; border-radius: 6px; text-decoration: none; position: absolute; top: 2rem; right: 2rem; }
-  </style>
-</head>
-<body>
-    <a href="/" class="logout-btn">Logout</a>
-  
-  <div class="header">
-      <div class="header-content">
-        <h1>🔍 KYC Verification Required</h1>
-        <p>Complete your verification to access the trading platform</p>
-      </div>
-  </div>
-  
-    <div class="main-content">
-      <div class="kyc-section">
-        <h2 style="color: #06b6d4; margin-bottom: 2rem;">Company Information</h2>
-        <form id="kycForm">
-          <div class="form-group">
-            <label for="companyType">Company Type</label>
-            <select id="companyType" required>
-              <option value="">Select company type</option>
-              <option value="listed">Listed Company</option>
-              <option value="private">Private Company</option>
-              <option value="individual">Individual</option>
-            </select>
-    </div>
-    
-          <div class="form-group">
-            <label for="businessName">Business Name</label>
-            <input type="text" id="businessName" required>
-    </div>
-    
-          <div class="form-group">
-            <label for="registrationNumber">Registration Number</label>
-            <input type="text" id="registrationNumber" required>
-    </div>
-    
-          <div class="form-group">
-            <label for="businessAddress">Business Address</label>
-            <textarea id="businessAddress" rows="3" required></textarea>
-    </div>
-    
-          <div class="form-group">
-            <label for="contactPerson">Contact Person</label>
-            <input type="text" id="contactPerson" required>
-    </div>
-    
-          <div class="form-group">
-            <label>Required Documents</label>
-            <div class="file-upload">
-              <input type="file" id="documents" multiple accept=".pdf,.jpg,.jpeg,.png,.doc,.docx">
-              <p>Upload business registration, ID, and other required documents</p>
-    </div>
-  </div>
-          
-          <button type="submit" class="btn">Submit KYC Application</button>
-        </form>
-      </div>
-    </div>
-
-    <script>
-      document.getElementById('kycForm').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        
-        const formData = new FormData();
-        const files = document.getElementById('documents').files;
-        
-        // Add form data
-        formData.append('companyType', document.getElementById('companyType').value);
-        formData.append('businessDetails', JSON.stringify({
-          businessName: document.getElementById('businessName').value,
-          registrationNumber: document.getElementById('registrationNumber').value,
-          businessAddress: document.getElementById('businessAddress').value,
-          contactPerson: document.getElementById('contactPerson').value
-        }));
-        
-        // Add files
-        for (let i = 0; i < files.length; i++) {
-          formData.append('documents', files[i]);
-        }
-        
-        try {
-          const token = localStorage.getItem('token');
-          const response = await fetch('/api/kyc/submit', {
-            method: 'POST',
-            headers: { 'Authorization': 'Bearer ' + token },
-            body: formData
-          });
-          
-          if (response.ok) {
-            alert('KYC application submitted successfully! You will receive an email once reviewed.');
-            // Redirect to appropriate dashboard based on role
-            const user = JSON.parse(localStorage.getItem('user') || '{}');
-            if (user.role === 'admin') {
-                window.location.href = '/dashboard/admin';
-            } else if (user.role === 'insurer') {
-                window.location.href = '/dashboard/insurer';
-            } else {
-                // Supplier, Buyer, Trader go to unified My Contracts dashboard
-                window.location.href = '/dashboard';
-            }
-          } else {
-            const data = await response.json();
-            alert('Error: ' + (data.error || 'KYC submission failed'));
-          }
-        } catch (error) {
-          alert('Network error. Please try again.');
-        }
-      });
-    </script>
-</body>
-  </html>
-  `);
+// KYC Route - Redirect to dashboard KYC page
+app.get('/kyc', (req, res) => {
+  console.log('KYC REDIRECT ROUTE HIT! Redirecting to /dashboard/kyc');
+  const queryParams = req.query.type ? `?type=${req.query.type}` : '';
+  res.redirect(`/dashboard/kyc${queryParams}`);
 });
+
+// KYC route removed to prevent conflicts - KYC is now handled directly in dashboard/authenticated
+
 
 // Contract Creation Page
 app.get('/create-contract', authenticateToken, (req, res) => {
@@ -3641,19 +4118,41 @@ app.get('/create-contract', authenticateToken, (req, res) => {
             <label for="productDetails">Product Details</label>
             <select id="productDetails" required onchange="updateCommodityInfo()">
               <option value="">Select commodity</option>
-              <option value="wheat" data-symbol="ZW">Wheat (ZW)</option>
-              <option value="corn" data-symbol="ZC">Corn (ZC)</option>
-              <option value="soybeans" data-symbol="ZS">Soybeans (ZS)</option>
-              <option value="crude_oil" data-symbol="CL">Crude Oil (CL)</option>
-              <option value="natural_gas" data-symbol="NG">Natural Gas (NG)</option>
-              <option value="gold" data-symbol="GC">Gold (GC)</option>
-              <option value="silver" data-symbol="SI">Silver (SI)</option>
-              <option value="copper" data-symbol="HG">Copper (HG)</option>
-              <option value="cotton" data-symbol="CT">Cotton (CT)</option>
-              <option value="sugar" data-symbol="SB">Sugar (SB)</option>
-              <option value="coffee" data-symbol="KC">Coffee (KC)</option>
-              <option value="cocoa" data-symbol="CC">Cocoa (CC)</option>
+              <optgroup label="Agricultural Commodities">
+                <option value="wheat" data-symbol="DYNAMIC">Wheat</option>
+                <option value="corn" data-symbol="DYNAMIC">Corn</option>
+                <option value="soybeans" data-symbol="DYNAMIC">Soybeans</option>
+                <option value="rice" data-symbol="DYNAMIC">Rice</option>
+                <option value="cotton" data-symbol="DYNAMIC">Cotton</option>
+                <option value="sugar" data-symbol="DYNAMIC">Sugar</option>
+                <option value="coffee" data-symbol="DYNAMIC">Coffee</option>
+                <option value="cocoa" data-symbol="DYNAMIC">Cocoa</option>
+              </optgroup>
+              <optgroup label="Energy Commodities">
+                <option value="crude_oil" data-symbol="DYNAMIC">Crude Oil</option>
+                <option value="natural_gas" data-symbol="DYNAMIC">Natural Gas</option>
+                <option value="heating_oil" data-symbol="DYNAMIC">Heating Oil</option>
+                <option value="gasoline" data-symbol="DYNAMIC">Gasoline</option>
+              </optgroup>
+              <optgroup label="Metals">
+                <option value="gold" data-symbol="DYNAMIC">Gold</option>
+                <option value="silver" data-symbol="DYNAMIC">Silver</option>
+                <option value="copper" data-symbol="DYNAMIC">Copper</option>
+                <option value="aluminum" data-symbol="DYNAMIC">Aluminum</option>
+                <option value="platinum" data-symbol="DYNAMIC">Platinum</option>
+              </optgroup>
+              <optgroup label="Other Commodities">
+                <option value="other" data-symbol="N/A">Other Commodity (No Exchange Data)</option>
+              </optgroup>
             </select>
+            
+            <!-- Custom Product Field for "Other" commodities -->
+            <div id="customProductField" style="display: none; margin-top: 15px;">
+              <label for="customProductName" style="color: #f59e0b; font-weight: 600;">Custom Product Name *</label>
+              <input type="text" id="customProductName" placeholder="Enter the specific product name (e.g., Quinoa, Exotic Fruits, Rare Metals)" style="width: 100%; padding: 12px; background: #0f172a; border: 1px solid #f59e0b; border-radius: 8px; color: #f8fafc;">
+              <p style="color: #94a3b8; font-size: 0.9em; margin-top: 5px;">This will be used as the product name in your contract since this commodity is not traded on exchanges.</p>
+            </div>
+            
             <div id="commodityInfo" style="margin-top: 10px; padding: 10px; background: #0f172a; border-radius: 6px; display: none;">
               <p><strong>Symbol:</strong> <span id="commoditySymbol"></span></p>
               <p><strong>Current Market Price:</strong> <span id="marketPrice"></span></p>
@@ -3781,46 +4280,226 @@ app.get('/create-contract', authenticateToken, (req, res) => {
         window.location.href = '/landing-two';
       }
       
-      // Commodity market prices (simulated - in production would connect to real market data)
-      const marketPrices = {
-        wheat: { price: 525.50, unit: 'per bushel' },
-        corn: { price: 425.75, unit: 'per bushel' },
-        soybeans: { price: 1125.25, unit: 'per bushel' },
-        crude_oil: { price: 75.50, unit: 'per barrel' },
-        natural_gas: { price: 2.85, unit: 'per MMBtu' },
-        gold: { price: 1955.75, unit: 'per ounce' },
-        silver: { price: 23.45, unit: 'per ounce' },
-        copper: { price: 3.85, unit: 'per pound' },
-        cotton: { price: 72.50, unit: 'per pound' },
-        sugar: { price: 21.25, unit: 'per pound' },
-        coffee: { price: 165.50, unit: 'per pound' },
-        cocoa: { price: 3250.00, unit: 'per metric ton' }
+      // Enhanced commodity market data with period-specific symbols and precedent fallback
+      const commodityData = {
+        wheat: {
+          name: 'Wheat',
+          exchange: 'CBOT',
+          getSymbol: function(month, year) {
+            const monthCodes = { '01': 'F', '02': 'G', '03': 'H', '04': 'J', '05': 'K', '06': 'M', '07': 'N', '08': 'Q', '09': 'U', '10': 'V', '11': 'X', '12': 'Z' };
+            return 'ZW' + monthCodes[month] + year.slice(-2);
+          },
+          currentPrice: 525.50,
+          unit: 'per bushel',
+          priceHistory: { '2024-12': 520.25, '2024-11': 518.75, '2025-01': 525.50, '2025-02': 528.20, '2025-03': 530.75 }
+        },
+        corn: {
+          name: 'Corn',
+          exchange: 'CBOT',
+          getSymbol: function(month, year) {
+            const monthCodes = { '01': 'F', '02': 'G', '03': 'H', '04': 'J', '05': 'K', '06': 'M', '07': 'N', '08': 'Q', '09': 'U', '10': 'V', '11': 'X', '12': 'Z' };
+            return 'ZC' + monthCodes[month] + year.slice(-2);
+          },
+          currentPrice: 425.75,
+          unit: 'per bushel',
+          priceHistory: { '2024-12': 422.50, '2024-11': 420.25, '2025-01': 425.75, '2025-02': 427.30, '2025-03': 429.80 }
+        },
+        soybeans: {
+          name: 'Soybeans',
+          exchange: 'CBOT',
+          getSymbol: function(month, year) {
+            const monthCodes = { '01': 'F', '02': 'G', '03': 'H', '04': 'J', '05': 'K', '06': 'M', '07': 'N', '08': 'Q', '09': 'U', '10': 'V', '11': 'X', '12': 'Z' };
+            return 'ZS' + monthCodes[month] + year.slice(-2);
+          },
+          currentPrice: 1125.25,
+          unit: 'per bushel',
+          priceHistory: { '2024-12': 1118.50, '2024-11': 1115.75, '2025-01': 1125.25, '2025-02': 1128.60, '2025-03': 1132.40 }
+        },
+        crude_oil: {
+          name: 'Crude Oil (WTI)',
+          exchange: 'NYMEX',
+          getSymbol: function(month, year) {
+            const monthCodes = { '01': 'F', '02': 'G', '03': 'H', '04': 'J', '05': 'K', '06': 'M', '07': 'N', '08': 'Q', '09': 'U', '10': 'V', '11': 'X', '12': 'Z' };
+            return 'CL' + monthCodes[month] + year.slice(-2);
+          },
+          currentPrice: 75.50,
+          unit: 'per barrel',
+          priceHistory: { '2024-12': 74.20, '2024-11': 73.85, '2025-01': 75.50, '2025-02': 76.20, '2025-03': 76.80 }
+        },
+        natural_gas: {
+          name: 'Natural Gas',
+          exchange: 'NYMEX',
+          getSymbol: function(month, year) {
+            const monthCodes = { '01': 'F', '02': 'G', '03': 'H', '04': 'J', '05': 'K', '06': 'M', '07': 'N', '08': 'Q', '09': 'U', '10': 'V', '11': 'X', '12': 'Z' };
+            return 'NG' + monthCodes[month] + year.slice(-2);
+          },
+          currentPrice: 2.85,
+          unit: 'per MMBtu',
+          priceHistory: { '2024-12': 2.75, '2024-11': 2.68, '2025-01': 2.85, '2025-02': 2.92, '2025-03': 2.98 }
+        },
+        gold: {
+          name: 'Gold',
+          exchange: 'COMEX',
+          getSymbol: function(month, year) {
+            const monthCodes = { '01': 'F', '02': 'G', '03': 'H', '04': 'J', '05': 'K', '06': 'M', '07': 'N', '08': 'Q', '09': 'U', '10': 'V', '11': 'X', '12': 'Z' };
+            return 'GC' + monthCodes[month] + year.slice(-2);
+          },
+          currentPrice: 1955.75,
+          unit: 'per ounce',
+          priceHistory: { '2024-12': 1948.20, '2024-11': 1942.50, '2025-01': 1955.75, '2025-02': 1962.80, '2025-03': 1968.50 }
+        },
+        silver: {
+          name: 'Silver',
+          exchange: 'COMEX',
+          getSymbol: function(month, year) {
+            const monthCodes = { '01': 'F', '02': 'G', '03': 'H', '04': 'J', '05': 'K', '06': 'M', '07': 'N', '08': 'Q', '09': 'U', '10': 'V', '11': 'X', '12': 'Z' };
+            return 'SI' + monthCodes[month] + year.slice(-2);
+          },
+          currentPrice: 23.45,
+          unit: 'per ounce',
+          priceHistory: { '2024-12': 23.15, '2024-11': 22.92, '2025-01': 23.45, '2025-02': 23.65, '2025-03': 23.88 }
+        },
+        copper: {
+          name: 'Copper',
+          exchange: 'COMEX',
+          getSymbol: function(month, year) {
+            const monthCodes = { '01': 'F', '02': 'G', '03': 'H', '04': 'J', '05': 'K', '06': 'M', '07': 'N', '08': 'Q', '09': 'U', '10': 'V', '11': 'X', '12': 'Z' };
+            return 'HG' + monthCodes[month] + year.slice(-2);
+          },
+          currentPrice: 3.85,
+          unit: 'per pound',
+          priceHistory: { '2024-12': 3.78, '2024-11': 3.72, '2025-01': 3.85, '2025-02': 3.89, '2025-03': 3.92 }
+        },
+        cotton: {
+          name: 'Cotton',
+          exchange: 'ICE',
+          getSymbol: function(month, year) {
+            const monthCodes = { '01': 'F', '02': 'G', '03': 'H', '04': 'J', '05': 'K', '06': 'M', '07': 'N', '08': 'Q', '09': 'U', '10': 'V', '11': 'X', '12': 'Z' };
+            return 'CT' + monthCodes[month] + year.slice(-1);
+          },
+          currentPrice: 72.50,
+          unit: 'per pound',
+          priceHistory: { '2024-12': 71.80, '2024-11': 71.45, '2025-01': 72.50, '2025-02': 72.85, '2025-03': 73.20 }
+        },
+        sugar: {
+          name: 'Sugar #11',
+          exchange: 'ICE',
+          getSymbol: function(month, year) {
+            const monthCodes = { '01': 'F', '02': 'G', '03': 'H', '04': 'J', '05': 'K', '06': 'M', '07': 'N', '08': 'Q', '09': 'U', '10': 'V', '11': 'X', '12': 'Z' };
+            return 'SB' + monthCodes[month] + year.slice(-1);
+          },
+          currentPrice: 21.25,
+          unit: 'per pound',
+          priceHistory: { '2024-12': 21.00, '2024-11': 20.85, '2025-01': 21.25, '2025-02': 21.48, '2025-03': 21.65 }
+        },
+        coffee: {
+          name: 'Coffee C',
+          exchange: 'ICE',
+          getSymbol: function(month, year) {
+            const monthCodes = { '01': 'F', '02': 'G', '03': 'H', '04': 'J', '05': 'K', '06': 'M', '07': 'N', '08': 'Q', '09': 'U', '10': 'V', '11': 'X', '12': 'Z' };
+            return 'KC' + monthCodes[month] + year.slice(-1);
+          },
+          currentPrice: 165.50,
+          unit: 'per pound',
+          priceHistory: { '2024-12': 163.80, '2024-11': 162.45, '2025-01': 165.50, '2025-02': 166.90, '2025-03': 168.15 }
+        },
+        cocoa: {
+          name: 'Cocoa',
+          exchange: 'ICE',
+          getSymbol: function(month, year) {
+            const monthCodes = { '01': 'F', '02': 'G', '03': 'H', '04': 'J', '05': 'K', '06': 'M', '07': 'N', '08': 'Q', '09': 'U', '10': 'V', '11': 'X', '12': 'Z' };
+            return 'CC' + monthCodes[month] + year.slice(-1);
+          },
+          currentPrice: 3250.00,
+          unit: 'per metric ton',
+          priceHistory: { '2024-12': 3225.40, '2024-11': 3198.60, '2025-01': 3250.00, '2025-02': 3275.30, '2025-03': 3298.50 }
+        },
+        other: {
+          name: 'Other Commodity',
+          exchange: 'N/A',
+          getSymbol: function() { return 'N/A - No Exchange Data'; },
+          currentPrice: null,
+          unit: 'N/A',
+          priceHistory: {}
+        }
       };
+      
+      // Backward compatibility
+      const marketPrices = {};
+      Object.keys(commodityData).forEach(key => {
+        if (commodityData[key].currentPrice !== null) {
+          marketPrices[key] = { 
+            price: commodityData[key].currentPrice, 
+            unit: commodityData[key].unit 
+          };
+        }
+      });
       
       function updateCommodityInfo() {
         const productSelect = document.getElementById('productDetails');
-        const selectedOption = productSelect.options[productSelect.selectedIndex];
         const commodity = productSelect.value;
-        const symbol = selectedOption.getAttribute('data-symbol');
+        const customProductField = document.getElementById('customProductField');
+
+        // Show/hide custom product field for "other" commodities
+        if (commodity === 'other') {
+          customProductField.style.display = 'block';
+        } else {
+          customProductField.style.display = 'none';
+        }
         
-        if (commodity && symbol) {
+        if (commodity && commodityData[commodity]) {
           const commodityInfo = document.getElementById('commodityInfo');
           const symbolSpan = document.getElementById('commoditySymbol');
           const marketPriceSpan = document.getElementById('marketPrice');
           const deliveryPeriodSpan = document.getElementById('deliveryPeriod');
           const priceComparisonDiv = document.getElementById('priceComparison');
           
-          symbolSpan.textContent = symbol;
-          
-          if (marketPrices[commodity]) {
-            marketPriceSpan.textContent = '$' + marketPrices[commodity].price + ' ' + marketPrices[commodity].unit;
-          } else {
-            marketPriceSpan.textContent = 'Market data unavailable';
-          }
-          
-          // Generate delivery period based on current month selection
           const monthSelect = document.getElementById('deliveryMonth');
           const yearSelect = document.getElementById('deliveryYear');
+          
+          // Get period-specific symbol and pricing
+          let symbol = 'Select delivery period first';
+          let marketPrice = 'Select delivery period first';
+          let priceData = commodityData[commodity];
+          
+          if (commodity === 'other') {
+            symbol = priceData.getSymbol();
+            marketPrice = 'No exchange data - Manual pricing required';
+            symbolSpan.innerHTML = '<span style="color: #f59e0b;">' + symbol + '</span>';
+            marketPriceSpan.innerHTML = '<span style="color: #f59e0b;">' + marketPrice + '</span>';
+          } else if (monthSelect.value && yearSelect.value) {
+            // Generate period-specific symbol
+            symbol = priceData.getSymbol(monthSelect.value, yearSelect.value);
+            
+            // Get price for specific period or fallback to precedent
+            const periodKey = yearSelect.value + '-' + monthSelect.value.padStart(2, '0');
+            let priceForPeriod = priceData.priceHistory[periodKey];
+            
+            if (!priceForPeriod) {
+              // Fallback to precedent period
+              const sortedPeriods = Object.keys(priceData.priceHistory)
+                .filter(p => p <= periodKey)
+                .sort()
+                .reverse();
+              
+              if (sortedPeriods.length > 0) {
+                priceForPeriod = priceData.priceHistory[sortedPeriods[0]];
+                symbol += ' <span style="color: #f59e0b; font-size: 0.8em;">(Precedent: ' + sortedPeriods[0] + ')</span>';
+          } else {
+                priceForPeriod = priceData.currentPrice;
+                symbol += ' <span style="color: #06b6d4; font-size: 0.8em;">(Current)</span>';
+              }
+            }
+            
+            marketPrice = '$' + priceForPeriod.toFixed(2) + ' ' + priceData.unit;
+            symbolSpan.innerHTML = symbol;
+            marketPriceSpan.innerHTML = marketPrice;
+          } else {
+            symbolSpan.textContent = symbol;
+            marketPriceSpan.textContent = marketPrice;
+          }
+          
+          // Update delivery period display
           if (monthSelect.value && yearSelect.value) {
             const monthName = monthSelect.options[monthSelect.selectedIndex].text;
             deliveryPeriodSpan.textContent = monthName + ' ' + yearSelect.value;
@@ -3829,8 +4508,6 @@ app.get('/create-contract', authenticateToken, (req, res) => {
           }
           
           commodityInfo.style.display = 'block';
-          
-          // Update price comparison when user enters price
           updatePriceComparison();
         } else {
           document.getElementById('commodityInfo').style.display = 'none';
@@ -3954,8 +4631,19 @@ app.get('/create-contract', authenticateToken, (req, res) => {
       document.getElementById('contractForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         
+        // Handle custom product name for "other" commodities
+        let productDetails = document.getElementById('productDetails').value;
+        if (productDetails === 'other') {
+          const customProductName = document.getElementById('customProductName').value;
+          if (!customProductName.trim()) {
+            alert('Please enter a custom product name for "Other" commodities.');
+            return;
+          }
+          productDetails = customProductName.trim();
+        }
+        
         const formData = {
-          productDetails: document.getElementById('productDetails').value,
+          productDetails: productDetails,
           quantity: parseFloat(document.getElementById('quantity').value),
           unit: document.getElementById('unit').value,
           pricePerUnit: parseFloat(document.getElementById('pricePerUnit').value),
@@ -4001,7 +4689,13 @@ app.get('/create-contract', authenticateToken, (req, res) => {
           
           if (response.ok) {
             alert('Contract created successfully!');
-            window.location.href = '/dashboard';
+            // Get the token and user info for redirect
+            const token = localStorage.getItem('token');
+            const user = JSON.parse(localStorage.getItem('user') || '{}');
+            const userRole = user.role || 'buyer';
+            
+            // Redirect back to contracts dashboard
+            window.location.href = '/dashboard/authenticated?role=' + userRole + '&token=' + encodeURIComponent(token);
           } else {
             alert('Error: ' + (data.error || 'Contract creation failed'));
           }
