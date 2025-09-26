@@ -106,6 +106,40 @@ const database = {
     }
 };
 
+// Initialize Pool Wallet System
+function initializePoolWallet() {
+    if (!database.wallets.has('pool-wallet')) {
+        const poolWallet = {
+            userId: 'system-pool',
+            tgtBalance: 5000000, // $5M initial pool balance
+            address: 'tgt_pool_wallet_main',
+            createdAt: new Date().toISOString(),
+            type: 'pool',
+            transactions: [{
+                type: 'initial_pool_allocation',
+                amount: 5000000,
+                description: 'Initial Pool Wallet Capital',
+                timestamp: new Date().toISOString()
+            }]
+        };
+        database.wallets.set('pool-wallet', poolWallet);
+        console.log('🏦 Pool Wallet initialized: $5,000,000 TGT balance');
+    }
+    
+    if (!database.wallets.has('fee-wallet')) {
+        const feeWallet = {
+            userId: 'system-fees',
+            tgtBalance: 0,
+            address: 'tgt_fee_wallet_main',
+            createdAt: new Date().toISOString(),
+            type: 'fee_collection',
+            transactions: []
+        };
+        database.wallets.set('fee-wallet', feeWallet);
+        console.log('🏦 Fee Collection Wallet initialized');
+    }
+}
+
 // Default admin user
 database.users.set('admin@tangent.com', {
     id: 'admin-001',
@@ -255,6 +289,9 @@ database.contracts.set('contract_test_003', {
         }
     ]
 });
+
+// Initialize pool wallet system
+initializePoolWallet();
 
 // Create TGT wallets for test users
 database.wallets.set('buyer-001', {
@@ -786,8 +823,41 @@ function getFullKYCPageHTML(userEmail, token) {
                     <li id="check2" style="margin: 10px 0;">⏳ Anti-money laundering verification...</li>
                     <li id="check3" style="margin: 10px 0;">⏳ Credit information review...</li>
                     <li id="check4" style="margin: 10px 0;">⏳ Document authenticity verification...</li>
-                    <li id="check5" style="margin: 10px 0;">⏳ Final compliance assessment...</li>
+                    <li id="check5" style="margin: 10px 0;">⏳ TGT wallet verification...</li>
+                    <li id="check6" style="margin: 10px 0;">⏳ Final compliance assessment...</li>
                 </ul>
+            </div>
+        </div>
+        
+        <!-- Step 5: Wallet Setup -->
+        <div class="step" id="walletStep">
+            <h2>🏦 TGT Wallet Verification</h2>
+            <div id="walletStatus" style="text-align: center; padding: 40px;">
+                <div id="walletInfo" style="display: none;">
+                    <h3 style="color: #10b981; margin-bottom: 20px;">✅ Wallet Found</h3>
+                    <div style="background: #064e3b; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                        <p><strong>Address:</strong> <span id="walletAddress" style="font-family: monospace;"></span></p>
+                        <p><strong>Balance:</strong> <span id="walletBalance"></span> TGT</p>
+                        <p style="color: #94a3b8; margin-top: 10px;">Your wallet is ready for deposits and payments!</p>
+                    </div>
+                </div>
+                
+                <div id="noWalletInfo" style="display: none;">
+                    <h3 style="color: #f59e0b; margin-bottom: 20px;">⚠️ No TGT Wallet Found</h3>
+                    <p style="margin-bottom: 20px;">You need a TGT wallet to make deposits and receive payments on the platform.</p>
+                    <button type="button" class="btn" onclick="createWallet()">🔧 Create TGT Wallet</button>
+                    <p style="color: #94a3b8; margin-top: 10px; font-size: 0.9em;">This will create a new wallet with $1,000 TGT initial balance</p>
+                </div>
+                
+                <div id="walletCreating" style="display: none;">
+                    <div class="spinner"></div>
+                    <h3 style="color: #2563eb;">Creating Your TGT Wallet...</h3>
+                    <p>Please wait while we set up your wallet...</p>
+                </div>
+            </div>
+            
+            <div style="text-align: center; margin-top: 30px;">
+                <button type="button" class="btn" id="continueToCompleteBtn" onclick="completeKYC()" style="display: none;">Continue to Dashboard</button>
             </div>
         </div>
     </div>
@@ -957,7 +1027,7 @@ function getFullKYCPageHTML(userEmail, token) {
         }
 
         async function simulateComplianceChecks() {
-            const checks = ['check1', 'check2', 'check3', 'check4', 'check5'];
+            const checks = ['check1', 'check2', 'check3', 'check4', 'check5', 'check6'];
             
             for (let i = 0; i < checks.length; i++) {
                 await new Promise(resolve => setTimeout(resolve, 1500));
@@ -965,15 +1035,89 @@ function getFullKYCPageHTML(userEmail, token) {
                 checkElement.innerHTML = '✅ ' + checkElement.textContent.replace('⏳ ', '').replace('...', ' - Clear');
                 checkElement.style.color = '#10b981';
             }
+            
+            // After all checks, proceed to wallet verification
+            setTimeout(() => {
+                checkWalletStatus();
+            }, 1000);
         }
-
-        function showCompletionMessage(result) {
+        
+        async function checkWalletStatus() {
+            goToStep('walletStep');
+            updateProgress(5);
+            
+            try {
+                const response = await fetch('/api/wallet/status', {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': 'Bearer ' + token
+                    }
+                });
+                
+                if (response.ok) {
+                    const walletData = await response.json();
+                    if (walletData.wallet) {
+                        // Show existing wallet
+                        document.getElementById('walletAddress').textContent = walletData.wallet.address;
+                        document.getElementById('walletBalance').textContent = '$' + walletData.wallet.balance.toLocaleString();
+                        document.getElementById('walletInfo').style.display = 'block';
+                        document.getElementById('continueToCompleteBtn').style.display = 'inline-block';
+                    } else {
+                        // No wallet found
+                        document.getElementById('noWalletInfo').style.display = 'block';
+                    }
+                } else {
+                    // Error or no wallet
+                    document.getElementById('noWalletInfo').style.display = 'block';
+                }
+            } catch (error) {
+                console.error('Wallet status check error:', error);
+                document.getElementById('noWalletInfo').style.display = 'block';
+            }
+        }
+        
+        async function createWallet() {
+            document.getElementById('noWalletInfo').style.display = 'none';
+            document.getElementById('walletCreating').style.display = 'block';
+            
+            try {
+                const response = await fetch('/api/wallet/create', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': 'Bearer ' + token,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (response.ok) {
+                    const walletData = await response.json();
+                    document.getElementById('walletCreating').style.display = 'none';
+                    document.getElementById('walletAddress').textContent = walletData.wallet.address;
+                    document.getElementById('walletBalance').textContent = '$' + walletData.wallet.balance.toLocaleString();
+                    document.getElementById('walletInfo').style.display = 'block';
+                    document.getElementById('continueToCompleteBtn').style.display = 'inline-block';
+                } else {
+                    const error = await response.json();
+                    alert('Error creating wallet: ' + error.error);
+                    document.getElementById('walletCreating').style.display = 'none';
+                    document.getElementById('noWalletInfo').style.display = 'block';
+                }
+            } catch (error) {
+                console.error('Wallet creation error:', error);
+                alert('Network error creating wallet. Please try again.');
+                document.getElementById('walletCreating').style.display = 'none';
+                document.getElementById('noWalletInfo').style.display = 'block';
+            }
+        }
+        
+        function completeKYC() {
             alert('KYC Verification Complete! Redirecting to dashboard...');
             const token = localStorage.getItem('token');
             const user = JSON.parse(localStorage.getItem('user') || '{}');
             const userRole = user.role || 'buyer';
             window.location.href = '/dashboard/authenticated?role=' + userRole + '&token=' + encodeURIComponent(token);
         }
+
     </script>
 </body>
 </html>
@@ -2688,6 +2832,82 @@ app.post('/api/admin/kyc/:userId/:action', authenticateToken, requireRole(['admi
 });
 
 // ================================
+// TGT WALLET ROUTES
+// ================================
+
+// Get Wallet Status
+app.get('/api/wallet/status', authenticateToken, (req, res) => {
+    try {
+        const { userId } = req.user;
+        const wallet = database.wallets.get(userId);
+        
+        if (wallet) {
+            res.json({
+                success: true,
+                wallet: {
+                    address: wallet.address,
+                    balance: wallet.tgtBalance,
+                    currency: 'TGT',
+                    createdAt: wallet.createdAt
+                }
+            });
+        } else {
+            res.json({
+                success: true,
+                wallet: null,
+                message: 'No wallet found'
+            });
+        }
+        
+    } catch (error) {
+        console.error('Wallet status error:', error);
+        res.status(500).json({ error: 'Failed to get wallet status' });
+    }
+});
+
+// Create TGT Wallet (via KYC)
+app.post('/api/wallet/create', authenticateToken, (req, res) => {
+    try {
+        const { userId } = req.user;
+        
+        // Check if wallet already exists
+        if (database.wallets.has(userId)) {
+            return res.status(400).json({ error: 'Wallet already exists' });
+        }
+        
+        const wallet = {
+            userId,
+            tgtBalance: 1000, // Initial balance for manually created wallets
+            address: `tgt_${userId}_${Date.now()}`,
+            createdAt: new Date().toISOString(),
+            transactions: [{
+                type: 'initial_allocation',
+                amount: 1000,
+                description: 'Initial TGT allocation via KYC',
+                timestamp: new Date().toISOString()
+            }]
+        };
+        
+        database.wallets.set(userId, wallet);
+        
+        console.log('🏦 TGT Wallet created via KYC:', wallet.address, 'Balance: $' + wallet.tgtBalance.toLocaleString(), 'TGT');
+        
+        res.json({
+            message: 'TGT wallet created successfully',
+            wallet: {
+                address: wallet.address,
+                balance: wallet.tgtBalance,
+                currency: 'TGT'
+            }
+        });
+        
+    } catch (error) {
+        console.error('Wallet creation error:', error);
+        res.status(500).json({ error: 'Wallet creation failed' });
+    }
+});
+
+// ================================
 // TGT STABLECOIN ROUTES
 // ================================
 
@@ -3294,21 +3514,139 @@ app.post('/api/contracts/:id/deposit', authenticateToken, (req, res) => {
             });
         }
         
-        // Deduct deposit from buyer's wallet
-        wallet.tgtBalance -= contract.depositAmount;
-        database.wallets.set(req.user.userId, wallet);
+        // Get pool wallet
+        const poolWallet = database.wallets.get('pool-wallet');
+        if (!poolWallet) {
+            return res.status(500).json({ error: 'Pool wallet not found. Please contact support.' });
+        }
         
-        // Update contract
+        // Calculate platform fee (1% of deposit)
+        const platformFee = Math.round(contract.depositAmount * 0.01);
+        const netDepositToPool = contract.depositAmount - platformFee;
+        
+        console.log('💰 FINANCIAL FLOW:');
+        console.log('   Deposit Amount:', contract.depositAmount.toLocaleString());
+        console.log('   Platform Fee (1%):', platformFee.toLocaleString());
+        console.log('   Net to Pool:', netDepositToPool.toLocaleString());
+        
+        // 1. Transfer funds from buyer wallet to pool wallet
+        wallet.tgtBalance -= contract.depositAmount;
+        poolWallet.tgtBalance += netDepositToPool;
+        
+        // 2. Transfer platform fee to fee wallet
+        const feeWallet = database.wallets.get('fee-wallet');
+        if (feeWallet) {
+            feeWallet.tgtBalance += platformFee;
+            
+            // Add transaction to fee wallet
+            if (!feeWallet.transactions) feeWallet.transactions = [];
+            feeWallet.transactions.push({
+                type: 'platform_fee',
+                amount: platformFee,
+                description: `Platform fee from contract ${contract.id}`,
+                contractId: contract.id,
+                from: req.user.email,
+                timestamp: new Date().toISOString()
+            });
+            
+            database.wallets.set('fee-wallet', feeWallet);
+        }
+        
+        // 3. Add transaction records
+        if (!wallet.transactions) wallet.transactions = [];
+        wallet.transactions.push({
+            type: 'deposit_payment',
+            amount: -contract.depositAmount,
+            description: `Deposit for contract ${contract.id}`,
+            contractId: contract.id,
+            to: 'pool-wallet',
+            timestamp: new Date().toISOString()
+        });
+        
+        if (!poolWallet.transactions) poolWallet.transactions = [];
+        poolWallet.transactions.push({
+            type: 'deposit_received',
+            amount: netDepositToPool,
+            description: `Deposit received from ${req.user.email} for contract ${contract.id}`,
+            contractId: contract.id,
+            from: req.user.email,
+            timestamp: new Date().toISOString()
+        });
+        
+        // 4. Now transfer 100% of contract value from pool to supplier immediately
+        // This simulates the financing: buyer pays 30% deposit, pool finances 100% to supplier
+        const supplierUserId = contract.supplierEmail.replace('@', '_').replace('.', '_');
+        let supplierWallet = database.wallets.get(supplierUserId);
+        
+        if (!supplierWallet) {
+            // If supplier doesn't have a wallet, create one
+            supplierWallet = {
+                userId: supplierUserId,
+                tgtBalance: contract.totalValue,
+                address: `tgt_${supplierUserId}_${Date.now()}`,
+                createdAt: new Date().toISOString(),
+                transactions: [{
+                    type: 'contract_payment',
+                    amount: contract.totalValue,
+                    description: `Payment for contract ${contract.id} - Pool financing`,
+                    contractId: contract.id,
+                    from: 'pool-wallet',
+                    timestamp: new Date().toISOString()
+                }]
+            };
+            database.wallets.set(supplierUserId, supplierWallet);
+            console.log('🏦 Created new wallet for supplier:', contract.supplierEmail);
+        } else {
+            // Transfer from pool to supplier
+            supplierWallet.tgtBalance += contract.totalValue;
+            if (!supplierWallet.transactions) supplierWallet.transactions = [];
+            supplierWallet.transactions.push({
+                type: 'contract_payment',
+                amount: contract.totalValue,
+                description: `Payment for contract ${contract.id} - Pool financing`,
+                contractId: contract.id,
+                from: 'pool-wallet',
+                timestamp: new Date().toISOString()
+            });
+            database.wallets.set(supplierUserId, supplierWallet);
+        }
+        
+        // Deduct from pool wallet
+        poolWallet.tgtBalance -= contract.totalValue;
+        poolWallet.transactions.push({
+            type: 'supplier_payment',
+            amount: -contract.totalValue,
+            description: `Payment to ${contract.supplierEmail} for contract ${contract.id}`,
+            contractId: contract.id,
+            to: contract.supplierEmail,
+            timestamp: new Date().toISOString()
+        });
+        
+        // 5. Update contract
         contract.depositPaid = true;
         contract.status = 'active';
+        contract.poolDeposit = netDepositToPool; // Track how much went to pool
+        contract.platformFee = platformFee; // Track platform fee
+        contract.supplierFinanced = contract.totalValue; // Track financing
         contract.timeline.push({
             event: 'deposit_paid',
             timestamp: new Date().toISOString(),
             actor: req.user.email,
-            amount: contract.depositAmount
+            amount: contract.depositAmount,
+            description: `Buyer paid deposit, pool financed supplier with $${contract.totalValue.toLocaleString()}`
         });
         
+        // Update all wallets and contract
+        database.wallets.set(req.user.userId, wallet);
+        database.wallets.set('pool-wallet', poolWallet);
         database.contracts.set(id, contract);
+        
+        console.log('✅ COMPLETE FINANCIAL FLOW EXECUTED:');
+        console.log('   Buyer paid:', contract.depositAmount.toLocaleString(), 'TGT');
+        console.log('   Pool received:', netDepositToPool.toLocaleString(), 'TGT');
+        console.log('   Supplier received:', contract.totalValue.toLocaleString(), 'TGT (100% financing)');
+        console.log('   Platform fee:', platformFee.toLocaleString(), 'TGT');
+        console.log('   Pool balance now:', poolWallet.tgtBalance.toLocaleString(), 'TGT');
         
         // Send notification to supplier that deposit has been paid and contract is now active
         const supplierEmail = contract.supplierEmail;
@@ -3324,9 +3662,24 @@ app.post('/api/contracts/:id/deposit', authenticateToken, (req, res) => {
         }
         
         res.json({
-            message: 'Deposit paid successfully',
-            status: contract.status,
-            remainingBalance: wallet.tgtBalance
+            success: true,
+            message: 'Deposit paid successfully! Supplier has been financed 100% of contract value.',
+            contract: {
+                id: contract.id,
+                status: contract.status,
+                depositPaid: contract.depositPaid,
+                buyerRemainingBalance: wallet.tgtBalance,
+                supplierFinanced: contract.totalValue,
+                poolDeposit: netDepositToPool,
+                platformFee: platformFee
+            },
+            financialFlow: {
+                buyerPaid: contract.depositAmount,
+                poolReceived: netDepositToPool,
+                supplierReceived: contract.totalValue,
+                platformFee: platformFee,
+                poolBalanceRemaining: poolWallet.tgtBalance
+            }
         });
         
     } catch (error) {
