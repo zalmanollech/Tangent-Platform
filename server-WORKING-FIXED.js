@@ -1344,13 +1344,25 @@ app.get('/dashboard/authenticated', (req, res) => {
                 
                 const result = await response.json();
                 if (result.success) {
-                    alert('Deposit paid successfully! Contract is now active.');
+                    alert('💰 Deposit paid successfully! Contract is now active.');
                     location.reload();
                 } else {
-                    alert('Error: ' + result.error);
+                    // Enhanced error handling
+                    if (result.action === 'fund_wallet' && result.details) {
+                        const details = result.details;
+                        alert(`❌ ${result.error}\\n\\n` +
+                              `Required: $${details.required.toLocaleString()} ${details.currency}\\n` +
+                              `Available: $${details.available.toLocaleString()} ${details.currency}\\n` +
+                              `Shortfall: $${details.shortfall.toLocaleString()} ${details.currency}\\n\\n` +
+                              `Please fund your TGT wallet and try again.`);
+                    } else if (result.action === 'create_wallet') {
+                        alert(`❌ ${result.error}\\n\\nPlease contact support to set up your TGT wallet.`);
+                    } else {
+                        alert('❌ Error: ' + result.error);
+                    }
                 }
             } catch (error) {
-                alert('Error paying deposit: ' + error.message);
+                alert('❌ Network error paying deposit: ' + error.message);
             }
         }
         
@@ -1695,9 +1707,18 @@ app.get('/signup', (req, res) => {
                     if (response.ok) {
                         localStorage.setItem('token', data.token);
                         localStorage.setItem('user', JSON.stringify(data.user));
+                        localStorage.setItem('wallet', JSON.stringify(data.wallet));
                         
                         messageDiv.className = 'message success';
-                        messageDiv.textContent = 'Account created successfully! Redirecting to KYC...';
+                        messageDiv.innerHTML = `
+                            <strong>🎉 Account created successfully!</strong><br>
+                            <div style="margin-top: 10px; padding: 10px; background: rgba(255,255,255,0.1); border-radius: 6px;">
+                                <strong>🏦 TGT Wallet Created:</strong><br>
+                                💰 Balance: <strong>$${data.wallet.balance.toLocaleString()} ${data.wallet.currency}</strong><br>
+                                📍 Address: <span style="font-family: monospace; font-size: 0.9em;">${data.wallet.address}</span>
+                            </div>
+                            <p style="margin-top: 10px;">Redirecting to KYC verification...</p>
+                        `;
                         messageDiv.style.display = 'block';
                         
                         setTimeout(() => {
@@ -2356,13 +2377,22 @@ const registerHandler = async (req, res) => {
         
         database.users.set(email, user);
         
-        // Create TGT wallet for new user
+        // Create TGT wallet for new user with initial balance
+        const walletAddress = `tgt_${userId}_${Date.now()}`;
         database.wallets.set(userId, {
             userId,
-            tgtBalance: 0,
-            address: `tgt_${userId}_${Date.now()}`,
-            createdAt: new Date().toISOString()
+            tgtBalance: 10000, // Give new users $10,000 TGT for testing deposits
+            address: walletAddress,
+            createdAt: new Date().toISOString(),
+            transactions: [{
+                type: 'initial_allocation',
+                amount: 10000,
+                description: 'Welcome bonus - Initial TGT allocation',
+                timestamp: new Date().toISOString()
+            }]
         });
+        
+        console.log('🏦 TGT Wallet created:', walletAddress, 'Balance: $10,000 TGT');
         
         const token = jwt.sign(
             { userId, email, role: user.role },
@@ -2372,8 +2402,11 @@ const registerHandler = async (req, res) => {
         
         console.log('✅ User registered successfully:', email);
         
+        // Get wallet info for response
+        const wallet = database.wallets.get(userId);
+        
         res.status(201).json({
-                    success: true,
+            success: true,
             message: 'User registered successfully',
             token,
             user: {
@@ -2381,8 +2414,13 @@ const registerHandler = async (req, res) => {
                 email,
                 role: user.role,
                 kycStatus: user.kycStatus
-                    },
-                    redirectUrl: '/kyc?type=' + user.role
+            },
+            wallet: {
+                address: wallet.address,
+                balance: wallet.tgtBalance,
+                currency: 'TGT'
+            },
+            redirectUrl: '/kyc?type=' + user.role
         });
         
     } catch (error) {
@@ -3233,8 +3271,28 @@ app.post('/api/contracts/:id/deposit', authenticateToken, (req, res) => {
         }
         
         const wallet = database.wallets.get(req.user.userId);
-        if (!wallet || wallet.tgtBalance < contract.depositAmount) {
-            return res.status(400).json({ error: 'Insufficient TGT balance' });
+        console.log('💰 DEPOSIT REQUEST - Buyer wallet:', wallet ? `Balance: $${wallet.tgtBalance.toLocaleString()}` : 'Not found');
+        
+        if (!wallet) {
+            console.log('❌ WALLET NOT FOUND for user:', req.user.userId);
+            return res.status(404).json({ 
+                error: 'TGT wallet not found. Please contact support to set up your wallet.',
+                action: 'create_wallet'
+            });
+        }
+        
+        if (wallet.tgtBalance < contract.depositAmount) {
+            console.log('❌ INSUFFICIENT BALANCE - Required:', contract.depositAmount, 'Available:', wallet.tgtBalance);
+            return res.status(400).json({ 
+                error: `Insufficient TGT balance`,
+                details: {
+                    required: contract.depositAmount,
+                    available: wallet.tgtBalance,
+                    shortfall: contract.depositAmount - wallet.tgtBalance,
+                    currency: 'TGT'
+                },
+                action: 'fund_wallet'
+            });
         }
         
         // Deduct deposit from buyer's wallet
