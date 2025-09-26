@@ -4900,11 +4900,9 @@ app.get('/create-contract', authenticateToken, (req, res) => {
             supplierDiv.className = 'form-group';
             supplierDiv.id = 'supplierEmailField';
             supplierDiv.style.marginTop = '15px';
-            supplierDiv.innerHTML = `
-              <label for="supplierEmail" style="color: #f8fafc; font-weight: 600;">🏭 Supplier Email *</label>
-              <input type="email" id="supplierEmail" placeholder="Enter supplier email address" required 
-                     style="width: 100%; padding: 12px; background: #0f172a; border: 1px solid #334155; border-radius: 8px; color: #f8fafc;">
-            `;
+            supplierDiv.innerHTML = '<label for="supplierEmail" style="color: #f8fafc; font-weight: 600;">🏭 Supplier Email *</label>' +
+                                   '<input type="email" id="supplierEmail" placeholder="Enter supplier email address" required ' +
+                                   'style="width: 100%; padding: 12px; background: #0f172a; border: 1px solid #334155; border-radius: 8px; color: #f8fafc;">';
             counterpartySection.appendChild(supplierDiv);
             console.log('📝 Set labels for trader: End Buyer + Supplier');
           }
