@@ -1350,13 +1350,13 @@ app.get('/dashboard/authenticated', (req, res) => {
                     // Enhanced error handling
                     if (result.action === 'fund_wallet' && result.details) {
                         const details = result.details;
-                        alert(`❌ ${result.error}\\n\\n` +
-                              `Required: $${details.required.toLocaleString()} ${details.currency}\\n` +
-                              `Available: $${details.available.toLocaleString()} ${details.currency}\\n` +
-                              `Shortfall: $${details.shortfall.toLocaleString()} ${details.currency}\\n\\n` +
-                              `Please fund your TGT wallet and try again.`);
+                        alert('❌ ' + result.error + '\\n\\n' +
+                              'Required: $' + details.required.toLocaleString() + ' ' + details.currency + '\\n' +
+                              'Available: $' + details.available.toLocaleString() + ' ' + details.currency + '\\n' +
+                              'Shortfall: $' + details.shortfall.toLocaleString() + ' ' + details.currency + '\\n\\n' +
+                              'Please fund your TGT wallet and try again.');
                     } else if (result.action === 'create_wallet') {
-                        alert(`❌ ${result.error}\\n\\nPlease contact support to set up your TGT wallet.`);
+                        alert('❌ ' + result.error + '\\n\\nPlease contact support to set up your TGT wallet.');
                     } else {
                         alert('❌ Error: ' + result.error);
                     }
