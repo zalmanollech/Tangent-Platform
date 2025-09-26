@@ -823,43 +823,11 @@ function getFullKYCPageHTML(userEmail, token) {
                     <li id="check2" style="margin: 10px 0;">⏳ Anti-money laundering verification...</li>
                     <li id="check3" style="margin: 10px 0;">⏳ Credit information review...</li>
                     <li id="check4" style="margin: 10px 0;">⏳ Document authenticity verification...</li>
-                    <li id="check5" style="margin: 10px 0;">⏳ TGT wallet verification...</li>
-                    <li id="check6" style="margin: 10px 0;">⏳ Final compliance assessment...</li>
+                    <li id="check5" style="margin: 10px 0;">⏳ Final compliance assessment...</li>
                 </ul>
             </div>
         </div>
         
-        <!-- Step 5: Wallet Setup -->
-        <div class="step" id="walletStep">
-            <h2>🏦 TGT Wallet Verification</h2>
-            <div id="walletStatus" style="text-align: center; padding: 40px;">
-                <div id="walletInfo" style="display: none;">
-                    <h3 style="color: #10b981; margin-bottom: 20px;">✅ Wallet Found</h3>
-                    <div style="background: #064e3b; padding: 20px; border-radius: 8px; margin: 20px 0;">
-                        <p><strong>Address:</strong> <span id="walletAddress" style="font-family: monospace;"></span></p>
-                        <p><strong>Balance:</strong> <span id="walletBalance"></span> TGT</p>
-                        <p style="color: #94a3b8; margin-top: 10px;">Your wallet is ready for deposits and payments!</p>
-                    </div>
-                </div>
-                
-                <div id="noWalletInfo" style="display: none;">
-                    <h3 style="color: #f59e0b; margin-bottom: 20px;">⚠️ No TGT Wallet Found</h3>
-                    <p style="margin-bottom: 20px;">You need a TGT wallet to make deposits and receive payments on the platform.</p>
-                    <button type="button" class="btn" onclick="createWallet()">🔧 Create TGT Wallet</button>
-                    <p style="color: #94a3b8; margin-top: 10px; font-size: 0.9em;">This will create a new wallet with $1,000 TGT initial balance</p>
-                </div>
-                
-                <div id="walletCreating" style="display: none;">
-                    <div class="spinner"></div>
-                    <h3 style="color: #2563eb;">Creating Your TGT Wallet...</h3>
-                    <p>Please wait while we set up your wallet...</p>
-                </div>
-            </div>
-            
-            <div style="text-align: center; margin-top: 30px;">
-                <button type="button" class="btn" id="continueToCompleteBtn" onclick="completeKYC()" style="display: none;">Continue to Dashboard</button>
-            </div>
-        </div>
     </div>
 
     <script>
@@ -1001,9 +969,6 @@ function getFullKYCPageHTML(userEmail, token) {
             goToStep('verificationStep');
             updateProgress(4);
             
-            // Simulate compliance checking
-            await simulateComplianceChecks();
-            
             try {
                 const response = await fetch('/api/kyc/submit', {
                     method: 'POST',
@@ -1015,9 +980,18 @@ function getFullKYCPageHTML(userEmail, token) {
                 
                 if (response.ok) {
                     const result = await response.json();
-                    showCompletionMessage(result);
+                    console.log('✅ KYC submission successful:', result);
+                    
+                    // Start compliance checks simulation AFTER successful submission
+                    await simulateComplianceChecks();
+                    
+                    // Then show completion
+                    setTimeout(() => {
+                        showKYCCompletion();
+                    }, 1000);
                 } else {
                     const error = await response.json();
+                    console.error('❌ KYC submission failed:', error);
                     alert('Error: ' + (error.error || 'KYC submission failed'));
                 }
             } catch (error) {
@@ -1027,7 +1001,7 @@ function getFullKYCPageHTML(userEmail, token) {
         }
 
         async function simulateComplianceChecks() {
-            const checks = ['check1', 'check2', 'check3', 'check4', 'check5', 'check6'];
+            const checks = ['check1', 'check2', 'check3', 'check4', 'check5'];
             
             for (let i = 0; i < checks.length; i++) {
                 await new Promise(resolve => setTimeout(resolve, 1500));
@@ -1036,86 +1010,47 @@ function getFullKYCPageHTML(userEmail, token) {
                 checkElement.style.color = '#10b981';
             }
             
-            // After all checks, proceed to wallet verification
+            // After all checks, show completion directly (no wallet check)
             setTimeout(() => {
-                checkWalletStatus();
+                showKYCCompletion();
             }, 1000);
         }
         
-        async function checkWalletStatus() {
-            goToStep('walletStep');
-            updateProgress(5);
+        function showKYCCompletion() {
+            // Hide verification step
+            document.getElementById('verificationStep').classList.remove('active');
             
-            try {
-                const response = await fetch('/api/wallet/status', {
-                    method: 'GET',
-                    headers: {
-                        'Authorization': 'Bearer ' + token
-                    }
-                });
-                
-                if (response.ok) {
-                    const walletData = await response.json();
-                    if (walletData.wallet) {
-                        // Show existing wallet
-                        document.getElementById('walletAddress').textContent = walletData.wallet.address;
-                        document.getElementById('walletBalance').textContent = '$' + walletData.wallet.balance.toLocaleString();
-                        document.getElementById('walletInfo').style.display = 'block';
-                        document.getElementById('continueToCompleteBtn').style.display = 'inline-block';
-                    } else {
-                        // No wallet found
-                        document.getElementById('noWalletInfo').style.display = 'block';
-                    }
-                } else {
-                    // Error or no wallet
-                    document.getElementById('noWalletInfo').style.display = 'block';
-                }
-            } catch (error) {
-                console.error('Wallet status check error:', error);
-                document.getElementById('noWalletInfo').style.display = 'block';
-            }
+            // Show completion message
+            const completionHTML = \`
+                <div style="text-align: center; padding: 40px; background: #064e3b; border-radius: 12px; border: 2px solid #10b981;">
+                    <h2 style="color: #10b981; margin-bottom: 20px;">🎉 KYC Verification Complete!</h2>
+                    <p style="color: #f8fafc; margin-bottom: 30px; font-size: 1.1em;">
+                        Your verification has been successfully completed. All compliance checks have passed.
+                    </p>
+                    <div style="background: rgba(16, 185, 129, 0.1); padding: 20px; border-radius: 8px; margin: 20px 0;">
+                        <p style="color: #10b981; margin: 0; font-weight: 600;">
+                            ✅ Next Step: Set up your TGT wallet for trading and payments
+                        </p>
+                    </div>
+                    <button type="button" class="btn" onclick="completeKYC()" style="background: #10b981; font-size: 1.1em; padding: 15px 30px;">
+                        🚀 Continue to Wallet Setup
+                    </button>
+                </div>
+            \`;
+            
+            const mainContent = document.querySelector('.main-content');
+            mainContent.innerHTML = completionHTML;
         }
         
-        async function createWallet() {
-            document.getElementById('noWalletInfo').style.display = 'none';
-            document.getElementById('walletCreating').style.display = 'block';
-            
-            try {
-                const response = await fetch('/api/wallet/create', {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': 'Bearer ' + token,
-                        'Content-Type': 'application/json'
-                    }
-                });
-                
-                if (response.ok) {
-                    const walletData = await response.json();
-                    document.getElementById('walletCreating').style.display = 'none';
-                    document.getElementById('walletAddress').textContent = walletData.wallet.address;
-                    document.getElementById('walletBalance').textContent = '$' + walletData.wallet.balance.toLocaleString();
-                    document.getElementById('walletInfo').style.display = 'block';
-                    document.getElementById('continueToCompleteBtn').style.display = 'inline-block';
-                } else {
-                    const error = await response.json();
-                    alert('Error creating wallet: ' + error.error);
-                    document.getElementById('walletCreating').style.display = 'none';
-                    document.getElementById('noWalletInfo').style.display = 'block';
-                }
-            } catch (error) {
-                console.error('Wallet creation error:', error);
-                alert('Network error creating wallet. Please try again.');
-                document.getElementById('walletCreating').style.display = 'none';
-                document.getElementById('noWalletInfo').style.display = 'block';
-            }
-        }
         
         function completeKYC() {
-            alert('KYC Verification Complete! Redirecting to dashboard...');
-            const token = localStorage.getItem('token');
+            console.log('🎉 KYC process completed, redirecting to wallet setup');
+            const token = localStorage.getItem('token') || '${token}';
             const user = JSON.parse(localStorage.getItem('user') || '{}');
             const userRole = user.role || 'buyer';
-            window.location.href = '/dashboard/authenticated?role=' + userRole + '&token=' + encodeURIComponent(token);
+            
+            // Remove the alert and redirect directly
+            window.location.href = '/wallet-setup?role=' + userRole + '&token=' + encodeURIComponent(token);
         }
 
     </script>
@@ -1156,32 +1091,10 @@ app.get('/dashboard', (req, res) => {
                 console.log('❌ No token or user found, redirecting to login');
                 window.location.href = '/landing-two';
             } else {
-                console.log('✅ Token and user found, loading dashboard...');
+                console.log('✅ Token and user found, redirecting to dashboard...');
                 
-                // Verify token with server
-                fetch('/api/auth/verify', {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': 'Bearer ' + token,
-                        'Content-Type': 'application/json'
-                    }
-                })
-                .then(response => {
-                    if (response.ok) {
-                        console.log('✅ Token verified, redirecting to actual dashboard');
-                        // Token is valid, redirect to the actual dashboard with authentication and token
-                        window.location.href = '/dashboard/authenticated?role=' + user.role + '&token=' + encodeURIComponent(token);
-                    } else {
-                        console.log('❌ Token verification failed, redirecting to login');
-                        localStorage.removeItem('token');
-                        localStorage.removeItem('user');
-                        window.location.href = '/landing-two';
-                    }
-                })
-                .catch(error => {
-                    console.error('❌ Token verification error:', error);
-                    window.location.href = '/landing-two';
-                });
+                // Direct redirect without server verification (token will be verified by server-side middleware)
+                window.location.href = '/dashboard/authenticated?role=' + user.role + '&token=' + encodeURIComponent(token);
             }
         </script>
     </body>
@@ -1739,7 +1652,7 @@ app.get('/signin', (req, res) => {
     `);
 });
 
-// Sign Up Page
+// Sign Up Page - Simple Basic Info Collection
 app.get('/signup', (req, res) => {
     res.send(`
     <!DOCTYPE html>
@@ -1779,46 +1692,87 @@ app.get('/signup', (req, res) => {
             .message { padding: 1rem; margin-bottom: 1rem; border-radius: 8px; display: none; }
             .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
             .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+            .workflow-info {
+                background: #e3f2fd;
+                border: 1px solid #2196f3;
+                border-radius: 8px;
+                padding: 1.5rem;
+                margin-bottom: 2rem;
+                text-align: center;
+            }
+            .workflow-steps {
+                display: grid;
+                grid-template-columns: repeat(4, 1fr);
+                gap: 1rem;
+                margin-top: 1rem;
+            }
+            .step {
+                background: white;
+                padding: 0.5rem;
+                border-radius: 6px;
+                font-size: 0.85rem;
+                color: #1976d2;
+                font-weight: 600;
+            }
+            .step.current {
+                background: #2196f3;
+                color: white;
+            }
         </style>
     </head>
     <body>
         <div class="container">
-            <h1>✨ Sign Up</h1>
+            <h1>✨ Create Your Account</h1>
+            
+            <div class="workflow-info">
+                <h3 style="color: #1976d2; margin-bottom: 1rem;">📋 Your Registration Journey</h3>
+                <div class="workflow-steps">
+                    <div class="step current">1. Sign Up</div>
+                    <div class="step">2. KYC Docs</div>
+                    <div class="step">3. Wallet Setup</div>
+                    <div class="step">4. Dashboard</div>
+                </div>
+                <p style="color: #1976d2; margin-top: 1rem; font-size: 0.9em;">
+                    Complete basic info → Upload KYC documents → Set up your wallet → Start trading!
+                </p>
+            </div>
+            
             <div id="message" class="message"></div>
             <form id="signupForm">
                 <div class="form-group">
-                    <label for="email">Email</label>
-                    <input type="email" id="email" required>
+                    <label for="email">Email Address *</label>
+                    <input type="email" id="email" placeholder="your@email.com" required>
                 </div>
                 <div class="form-group">
-                    <label for="password">Password</label>
-                    <input type="password" id="password" required>
+                    <label for="password">Password *</label>
+                    <input type="password" id="password" placeholder="Strong password" required>
                 </div>
                 <div class="form-group">
-                    <label for="role">Role</label>
+                    <label for="role">Your Role *</label>
                     <select id="role" required>
-                        <option value="">Select your role</option>
-                        <option value="buyer">Buyer</option>
-                        <option value="supplier">Supplier</option>
-                        <option value="trader">Trader</option>
-                        <option value="insurer">Insurer</option>
+                        <option value="">Select your trading role</option>
+                        <option value="buyer">🛒 Buyer - Purchase commodities</option>
+                        <option value="supplier">🏭 Supplier - Sell commodities</option>
+                        <option value="trader">📈 Trader - Facilitate trades</option>
+                        <option value="insurer">🛡️ Insurer - Provide insurance</option>
                     </select>
                 </div>
                 <div class="form-group">
-                    <label for="companyName">Company Name</label>
-                    <input type="text" id="companyName" required>
+                    <label for="companyName">Company Name *</label>
+                    <input type="text" id="companyName" placeholder="Your company name" required>
                 </div>
                 <div class="form-group">
-                    <label for="companyType">Company Type</label>
+                    <label for="companyType">Company Type *</label>
                     <select id="companyType" required>
                         <option value="">Select company type</option>
-                        <option value="listed">Listed Company</option>
-                        <option value="private">Private Company</option>
-                        <option value="individual">Individual</option>
+                        <option value="listed">🏢 Listed Company (Publicly traded)</option>
+                        <option value="private">🏠 Private Company</option>
+                        <option value="individual">👤 Individual Trader</option>
                     </select>
                 </div>
-                <button type="submit" class="btn">Create Account</button>
+                <button type="submit" class="btn">🚀 Create Account & Continue to KYC</button>
             </form>
+            
             <div class="links">
                 <a href="/signin">Already have an account? Sign In</a><br>
                 <a href="/">← Back to Home</a>
@@ -1826,6 +1780,9 @@ app.get('/signup', (req, res) => {
         </div>
         
         <script>
+            console.log('✅ Signup page loaded');
+            
+            // Handle form submission
             document.getElementById('signupForm').addEventListener('submit', async (e) => {
                 e.preventDefault();
                 
@@ -1837,7 +1794,13 @@ app.get('/signup', (req, res) => {
                     companyType: document.getElementById('companyType').value
                 };
                 
-                const messageDiv = document.getElementById('message');
+                // Validate all required fields
+                if (!formData.email || !formData.password || !formData.role || !formData.companyName || !formData.companyType) {
+                    showMessage('Please fill in all required fields', 'error');
+                    return;
+                }
+                
+                console.log('🚀 Submitting registration:', formData);
                 
                 try {
                     const response = await fetch('/api/auth/register', {
@@ -1849,39 +1812,38 @@ app.get('/signup', (req, res) => {
                     const data = await response.json();
                     
                     if (response.ok) {
+                        // Store user data
                         localStorage.setItem('token', data.token);
                         localStorage.setItem('user', JSON.stringify(data.user));
-                        localStorage.setItem('wallet', JSON.stringify(data.wallet));
                         
-                        messageDiv.className = 'message success';
-                        messageDiv.innerHTML = 
-                            '<strong>🎉 Account created successfully!</strong><br>' +
-                            '<div style="margin-top: 10px; padding: 10px; background: rgba(255,255,255,0.1); border-radius: 6px;">' +
-                                '<strong>🏦 TGT Wallet Created:</strong><br>' +
-                                '💰 Balance: <strong>$' + data.wallet.balance.toLocaleString() + ' ' + data.wallet.currency + '</strong><br>' +
-                                '📍 Address: <span style="font-family: monospace; font-size: 0.9em;">' + data.wallet.address + '</span>' +
-                            '</div>' +
-                            '<p style="margin-top: 10px;">Redirecting to KYC verification...</p>';
-                        messageDiv.style.display = 'block';
+                        showMessage('Account created successfully! Redirecting to KYC...', 'success');
                         
+                        // Redirect to KYC page
                         setTimeout(() => {
-                            // Redirect to dashboard with proper authentication
-                            const token = localStorage.getItem('token');
-                            const user = JSON.parse(localStorage.getItem('user') || '{}');
-                            const userRole = user.role || 'buyer';
-                            window.location.href = '/dashboard/authenticated?role=' + userRole + '&token=' + encodeURIComponent(token);
+                            window.location.href = '/dashboard/authenticated?role=' + data.user.role + '&token=' + encodeURIComponent(data.token);
                         }, 1500);
                     } else {
-                        messageDiv.className = 'message error';
-                        messageDiv.textContent = data.error || 'Registration failed';
-                        messageDiv.style.display = 'block';
+                        showMessage('Registration failed: ' + (data.error || 'Unknown error'), 'error');
                     }
                 } catch (error) {
-                    messageDiv.className = 'message error';
-                    messageDiv.textContent = 'Network error. Please try again.';
-                    messageDiv.style.display = 'block';
+                    console.error('Registration error:', error);
+                    showMessage('Network error. Please try again.', 'error');
                 }
             });
+            
+            // Show message function
+            function showMessage(text, type) {
+                const messageDiv = document.getElementById('message');
+                messageDiv.textContent = text;
+                messageDiv.className = 'message ' + type;
+                messageDiv.style.display = 'block';
+                
+                if (type === 'success') {
+                    setTimeout(() => {
+                        messageDiv.style.display = 'none';
+                    }, 5000);
+                }
+            }
         </script>
     </body>
     </html>
@@ -2131,6 +2093,425 @@ app.get('/', (req, res) => {
         </div>
     </body>
 </html>`);
+});
+
+// Wallet Setup Page - comes after KYC completion
+app.get('/wallet-setup', authenticateToken, (req, res) => {
+    const userEmail = req.user.email;
+    const token = req.query.token || req.headers.authorization?.split(' ')[1];
+    
+    res.send(`
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Wallet Setup - Tangent Protocol</title>
+        <style>
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body { 
+                font-family: system-ui, -apple-system, sans-serif; 
+                background: #0f172a; 
+                color: #f8fafc; 
+                min-height: 100vh;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                padding: 20px;
+            }
+            .container {
+                background: #1e293b;
+                padding: 3rem;
+                border-radius: 20px;
+                box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5);
+                max-width: 600px;
+                width: 100%;
+                border: 1px solid #334155;
+            }
+            h1 { 
+                color: #2563eb; 
+                font-size: 2.5rem; 
+                margin-bottom: 1rem; 
+                text-align: center;
+                font-weight: 700;
+            }
+            .subtitle { 
+                color: #94a3b8; 
+                font-size: 1.2rem; 
+                margin-bottom: 2rem; 
+                text-align: center;
+                line-height: 1.6;
+            }
+            .workflow-progress {
+                background: #0f172a;
+                border: 1px solid #334155;
+                border-radius: 12px;
+                padding: 1.5rem;
+                margin-bottom: 2rem;
+                text-align: center;
+            }
+            .progress-steps {
+                display: grid;
+                grid-template-columns: repeat(4, 1fr);
+                gap: 1rem;
+                margin-bottom: 1rem;
+            }
+            .progress-step {
+                background: #334155;
+                color: #94a3b8;
+                padding: 0.75rem 0.5rem;
+                border-radius: 8px;
+                font-size: 0.9rem;
+                font-weight: 600;
+            }
+            .progress-step.completed {
+                background: #10b981;
+                color: white;
+            }
+            .progress-step.current {
+                background: #2563eb;
+                color: white;
+            }
+            .wallet-options {
+                display: grid;
+                gap: 2rem;
+                margin: 2rem 0;
+            }
+            .wallet-option {
+                background: #0f172a;
+                border: 2px solid #334155;
+                border-radius: 16px;
+                padding: 2.5rem;
+                cursor: pointer;
+                transition: all 0.3s ease;
+                text-align: center;
+            }
+            .wallet-option:hover {
+                border-color: #2563eb;
+                transform: translateY(-5px);
+                box-shadow: 0 10px 25px rgba(37, 99, 235, 0.2);
+            }
+            .wallet-option.selected {
+                border-color: #10b981;
+                background: #064e3b;
+            }
+            .wallet-option h3 {
+                color: #f59e0b;
+                font-size: 1.5rem;
+                margin-bottom: 1rem;
+            }
+            .wallet-option p {
+                color: #94a3b8;
+                line-height: 1.6;
+                margin-bottom: 1.5rem;
+            }
+            .wallet-option .benefits {
+                background: rgba(37, 99, 235, 0.1);
+                border-radius: 8px;
+                padding: 1rem;
+                margin-top: 1rem;
+            }
+            .wallet-option .benefits ul {
+                list-style: none;
+                color: #cbd5e1;
+                font-size: 0.9rem;
+                text-align: left;
+            }
+            .wallet-option .benefits li {
+                margin: 0.5rem 0;
+                padding-left: 1.5rem;
+                position: relative;
+            }
+            .wallet-option .benefits li:before {
+                content: "✅";
+                position: absolute;
+                left: 0;
+            }
+            .form-section {
+                display: none;
+                background: #0f172a;
+                border: 1px solid #334155;
+                border-radius: 12px;
+                padding: 2rem;
+                margin-top: 2rem;
+            }
+            .form-section.active {
+                display: block;
+            }
+            .form-group {
+                margin-bottom: 1.5rem;
+            }
+            .form-group label {
+                display: block;
+                color: #f59e0b;
+                font-weight: 600;
+                margin-bottom: 0.5rem;
+            }
+            .form-group input {
+                width: 100%;
+                padding: 12px;
+                background: #1e293b;
+                border: 1px solid #334155;
+                border-radius: 8px;
+                color: #f8fafc;
+                font-size: 1rem;
+            }
+            .form-group input:focus {
+                border-color: #2563eb;
+                outline: none;
+            }
+            .btn {
+                display: inline-block;
+                padding: 15px 30px;
+                background: #10b981;
+                color: white;
+                text-decoration: none;
+                border-radius: 12px;
+                font-weight: 600;
+                cursor: pointer;
+                border: none;
+                font-size: 1.1rem;
+                transition: all 0.3s ease;
+                margin: 10px 10px 0 0;
+                min-width: 200px;
+                text-align: center;
+            }
+            .btn:hover {
+                background: #059669;
+                transform: translateY(-2px);
+            }
+            .btn-secondary {
+                background: #64748b;
+            }
+            .btn-secondary:hover {
+                background: #475569;
+            }
+            .btn-primary {
+                background: #2563eb;
+            }
+            .btn-primary:hover {
+                background: #1d4ed8;
+            }
+            .metamask-section {
+                text-align: center;
+                padding: 2rem;
+                background: linear-gradient(135deg, #f59e0b, #f97316);
+                border-radius: 12px;
+                margin-top: 1rem;
+            }
+            .metamask-section h4 {
+                color: white;
+                margin-bottom: 1rem;
+            }
+            .metamask-section p {
+                color: rgba(255, 255, 255, 0.9);
+                margin-bottom: 1.5rem;
+            }
+            .warning {
+                background: #451a03;
+                border: 1px solid #f59e0b;
+                border-radius: 8px;
+                padding: 1rem;
+                margin: 1rem 0;
+                color: #fbbf24;
+                font-size: 0.9em;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1>🏦 Wallet Setup</h1>
+            <p class="subtitle">Set up your TGT wallet to start trading and making payments</p>
+            
+            <div class="workflow-progress">
+                <div class="progress-steps">
+                    <div class="progress-step completed">✅ Sign Up</div>
+                    <div class="progress-step completed">✅ KYC Docs</div>
+                    <div class="progress-step current">🏦 Wallet Setup</div>
+                    <div class="progress-step">📊 Dashboard</div>
+                </div>
+                <p style="color: #06b6d4; font-weight: 600;">Almost there! Choose your wallet setup option below.</p>
+            </div>
+            
+            <div class="wallet-options">
+                <div class="wallet-option" id="haveWalletOption" onclick="selectWalletOption('have')">
+                    <h3>💳 I Have a TGT Wallet</h3>
+                    <p>Connect your existing TGT wallet to your Tangent account</p>
+                    <div class="benefits">
+                        <ul>
+                            <li>Keep your existing wallet and balance</li>
+                            <li>Import transaction history</li>
+                            <li>Maintain your wallet preferences</li>
+                            <li>Quick setup process</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="wallet-option" id="helpWalletOption" onclick="selectWalletOption('help')">
+                    <h3>🔧 Help Me Set Up a Wallet</h3>
+                    <p>We'll guide you through creating a secure TGT wallet using MetaMask</p>
+                    <div class="benefits">
+                        <ul>
+                            <li>Step-by-step MetaMask integration</li>
+                            <li>$1,000 welcome bonus included</li>
+                            <li>Secure wallet creation process</li>
+                            <li>Full tutorial and support</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Form for existing wallet -->
+            <div id="haveWalletForm" class="form-section">
+                <h3 style="color: #10b981; margin-bottom: 1.5rem;">Connect Your Existing Wallet</h3>
+                <div class="form-group">
+                    <label for="walletAddress">TGT Wallet Address *</label>
+                    <input type="text" id="walletAddress" placeholder="tgt_1A2B3C4D5E6F7G8H9I0J..." required>
+                </div>
+                <div class="form-group">
+                    <label for="walletPassword">Wallet Password *</label>
+                    <input type="password" id="walletPassword" placeholder="Enter your wallet password" required>
+                </div>
+                <div class="warning">
+                    <strong>🔒 Security Note:</strong> Your wallet credentials are encrypted and stored securely. We never have access to your private keys.
+                </div>
+                <button class="btn" onclick="connectExistingWallet()">Connect Wallet & Continue</button>
+            </div>
+            
+            <!-- Form for MetaMask setup -->
+            <div id="helpWalletForm" class="form-section">
+                <h3 style="color: #f59e0b; margin-bottom: 1.5rem;">MetaMask Wallet Setup</h3>
+                <div class="metamask-section">
+                    <h4>🦊 Setting Up MetaMask</h4>
+                    <p>We'll help you create a secure wallet using MetaMask - the most trusted crypto wallet.</p>
+                    <button class="btn btn-primary" onclick="startMetaMaskSetup()">🚀 Start MetaMask Setup</button>
+                </div>
+                <div class="warning">
+                    <strong>📱 Need MetaMask?</strong> If you don't have MetaMask installed, we'll guide you through the installation process first.
+                </div>
+            </div>
+            
+            <div style="text-align: center; margin-top: 2rem;">
+                <button class="btn btn-secondary" onclick="goBack()">← Back to KYC</button>
+            </div>
+        </div>
+        
+        <script>
+            console.log('✅ Wallet Setup page loaded');
+            const token = '${token}';
+            const userEmail = '${userEmail}';
+            let selectedOption = null;
+            
+            function selectWalletOption(option) {
+                selectedOption = option;
+                
+                // Update visual selection
+                document.querySelectorAll('.wallet-option').forEach(opt => {
+                    opt.classList.remove('selected');
+                });
+                document.getElementById(option + 'WalletOption').classList.add('selected');
+                
+                // Show/hide forms
+                document.querySelectorAll('.form-section').forEach(section => {
+                    section.classList.remove('active');
+                });
+                document.getElementById(option + 'WalletForm').classList.add('active');
+                
+                console.log('📋 Selected wallet option:', option);
+            }
+            
+            async function connectExistingWallet() {
+                const walletAddress = document.getElementById('walletAddress').value;
+                const walletPassword = document.getElementById('walletPassword').value;
+                
+                if (!walletAddress || !walletPassword) {
+                    alert('Please provide both wallet address and password');
+                    return;
+                }
+                
+                try {
+                    const response = await fetch('/api/wallet/connect', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': 'Bearer ' + token
+                        },
+                        body: JSON.stringify({
+                            walletAddress,
+                            walletPassword
+                        })
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (response.ok) {
+                        alert('✅ Wallet connected successfully! Redirecting to dashboard...');
+                        const user = JSON.parse(localStorage.getItem('user') || '{}');
+                        setTimeout(() => {
+                            window.location.href = '/dashboard/authenticated?role=' + user.role + '&token=' + encodeURIComponent(token);
+                        }, 1500);
+                    } else {
+                        alert('❌ Failed to connect wallet: ' + (data.error || 'Unknown error'));
+                    }
+                } catch (error) {
+                    console.error('Wallet connection error:', error);
+                    alert('❌ Network error. Please try again.');
+                }
+            }
+            
+            async function startMetaMaskSetup() {
+                // Check if MetaMask is installed
+                if (typeof window.ethereum !== 'undefined') {
+                    try {
+                        // Request account access
+                        const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+                        const walletAddress = accounts[0];
+                        
+                        console.log('🦊 MetaMask wallet detected:', walletAddress);
+                        
+                        // Create wallet on our platform
+                        const response = await fetch('/api/wallet/create-metamask', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': 'Bearer ' + token
+                            },
+                            body: JSON.stringify({
+                                metamaskAddress: walletAddress
+                            })
+                        });
+                        
+                        const data = await response.json();
+                        
+                        if (response.ok) {
+                            alert('🎉 MetaMask wallet connected successfully with $1,000 welcome bonus! Redirecting to dashboard...');
+                            const user = JSON.parse(localStorage.getItem('user') || '{}');
+                            setTimeout(() => {
+                                window.location.href = '/dashboard/authenticated?role=' + user.role + '&token=' + encodeURIComponent(token);
+                            }, 2000);
+                        } else {
+                            alert('❌ Failed to create wallet: ' + (data.error || 'Unknown error'));
+                        }
+                    } catch (error) {
+                        console.error('MetaMask error:', error);
+                        alert('❌ Failed to connect to MetaMask. Please try again.');
+                    }
+                } else {
+                    // MetaMask not installed - redirect to installation guide
+                    if (confirm('🦊 MetaMask is not installed. Would you like to install it now?')) {
+                        window.open('https://metamask.io/download/', '_blank');
+                    }
+                }
+            }
+            
+            function goBack() {
+                // Go back to KYC page
+                window.location.href = '/dashboard/authenticated?role=' + (JSON.parse(localStorage.getItem('user') || '{}')).role + '&token=' + encodeURIComponent(token);
+            }
+        </script>
+    </body>
+    </html>
+    `);
 });
 
 // Landing Page Two - Sign In/Sign Up Portal
@@ -2493,8 +2874,11 @@ app.post('/api/register-interest', (req, res) => {
 // Register Handler (shared logic)
 const registerHandler = async (req, res) => {
     try {
-        const { email, password, role, companyName, companyType, firstName, lastName, company, phone } = req.body;
-        console.log('Registration attempt for:', email, 'Role:', role);
+        const { 
+            email, password, role, companyName, companyType, firstName, lastName, company, phone,
+            walletOption, existingWalletAddress, walletPassword 
+        } = req.body;
+        console.log('Registration attempt for:', email, 'Role:', role, 'Wallet option:', walletOption);
         
         if (database.users.has(email)) {
             return res.status(400).json({ error: 'User already exists' });
@@ -2520,22 +2904,45 @@ const registerHandler = async (req, res) => {
         
         database.users.set(email, user);
         
-        // Create TGT wallet for new user with initial balance
-        const walletAddress = `tgt_${userId}_${Date.now()}`;
-        database.wallets.set(userId, {
-            userId,
-            tgtBalance: 10000, // Give new users $10,000 TGT for testing deposits
-            address: walletAddress,
-            createdAt: new Date().toISOString(),
-            transactions: [{
-                type: 'initial_allocation',
-                amount: 10000,
-                description: 'Welcome bonus - Initial TGT allocation',
-                timestamp: new Date().toISOString()
-            }]
-        });
+        // Handle wallet creation based on user choice
+        let wallet;
+        if (walletOption === 'connect' && existingWalletAddress) {
+            // Connect existing wallet (for demo, we'll simulate this)
+            console.log('🔗 Connecting existing wallet:', existingWalletAddress);
+            wallet = {
+                userId,
+                tgtBalance: 5000, // Simulate existing balance
+                address: existingWalletAddress,
+                createdAt: new Date().toISOString(),
+                connected: true,
+                transactions: [{
+                    type: 'wallet_connected',
+                    amount: 0,
+                    description: 'Existing wallet connected to account',
+                    timestamp: new Date().toISOString()
+                }]
+            };
+            console.log('🏦 Existing TGT Wallet connected:', existingWalletAddress, 'Balance: $5,000 TGT');
+        } else {
+            // Create new wallet (default)
+            const walletAddress = `tgt_${userId}_${Date.now()}`;
+            wallet = {
+                userId,
+                tgtBalance: 1000, // Welcome bonus for new wallets
+                address: walletAddress,
+                createdAt: new Date().toISOString(),
+                connected: false,
+                transactions: [{
+                    type: 'initial_allocation',
+                    amount: 1000,
+                    description: 'Welcome bonus - New wallet creation',
+                    timestamp: new Date().toISOString()
+                }]
+            };
+            console.log('🏦 New TGT Wallet created:', walletAddress, 'Balance: $1,000 TGT');
+        }
         
-        console.log('🏦 TGT Wallet created:', walletAddress, 'Balance: $10,000 TGT');
+        database.wallets.set(userId, wallet);
         
         const token = jwt.sign(
             { userId, email, role: user.role },
@@ -2544,9 +2951,6 @@ const registerHandler = async (req, res) => {
         );
         
         console.log('✅ User registered successfully:', email);
-        
-        // Get wallet info for response
-        const wallet = database.wallets.get(userId);
         
         res.status(201).json({
             success: true,
@@ -2561,7 +2965,9 @@ const registerHandler = async (req, res) => {
             wallet: {
                 address: wallet.address,
                 balance: wallet.tgtBalance,
-                currency: 'TGT'
+                currency: 'TGT',
+                type: wallet.connected ? 'connected' : 'new',
+                created: !wallet.connected
             },
             redirectUrl: '/kyc?type=' + user.role
         });
@@ -3028,6 +3434,216 @@ app.post('/api/tgt/transfer', authenticateToken, (req, res) => {
     } catch (error) {
         console.error('Transfer error:', error);
         res.status(500).json({ error: 'Transfer failed' });
+    }
+});
+
+// ================================
+// WALLET MANAGEMENT ROUTES
+// ================================
+
+// Get wallet status for authenticated user
+app.get('/api/wallet/status', authenticateToken, (req, res) => {
+    try {
+        const user = database.users.get(req.user.email);
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+        
+        // Check if user has a wallet in the wallets database
+        const wallet = database.wallets.get(user.id);
+        
+        if (wallet) {
+            console.log(`✅ Wallet found for ${req.user.email}:`, wallet.address);
+            return res.json({
+                success: true,
+                wallet: {
+                    address: wallet.address,
+                    balance: wallet.tgtBalance,
+                    currency: 'TGT',
+                    created: wallet.createdAt,
+                    type: wallet.connected ? 'external' : 'platform'
+                }
+            });
+        } else {
+            console.log(`❌ No wallet found for ${req.user.email}`);
+            return res.json({
+                success: false,
+                message: 'No wallet found for this user'
+            });
+        }
+    } catch (error) {
+        console.error('❌ Wallet status error:', error);
+        res.status(500).json({ error: 'Failed to get wallet status' });
+    }
+});
+
+// Connect an existing wallet
+app.post('/api/wallet/connect', authenticateToken, (req, res) => {
+    try {
+        const { walletAddress, walletPassword } = req.body;
+        const user = database.users.get(req.user.email);
+        
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+        
+        if (!walletAddress || !walletPassword) {
+            return res.status(400).json({ error: 'Wallet address and password are required' });
+        }
+        
+        // Simulate wallet verification (in real implementation, this would verify against blockchain)
+        // For demo purposes, we'll accept any wallet address starting with 'tgt_'
+        if (!walletAddress.startsWith('tgt_')) {
+            return res.status(400).json({ error: 'Invalid TGT wallet address format' });
+        }
+        
+        // Check if wallet already exists
+        const existingWallet = database.wallets.get(user.id);
+        if (existingWallet) {
+            return res.status(400).json({ error: 'User already has a wallet connected' });
+        }
+        
+        // Create wallet entry for connected existing wallet
+        const connectedWallet = {
+            userId: user.id,
+            address: walletAddress,
+            tgtBalance: 5000, // Simulated existing balance
+            connected: true,
+            createdAt: new Date().toISOString(),
+            transactions: [{
+                type: 'wallet_connected',
+                amount: 0,
+                description: 'Existing wallet connected to account',
+                timestamp: new Date().toISOString()
+            }]
+        };
+        
+        // Store wallet
+        database.wallets.set(user.id, connectedWallet);
+        
+        console.log(`✅ Connected existing wallet for ${req.user.email}:`, walletAddress);
+        
+        res.json({
+            success: true,
+            wallet: {
+                address: walletAddress,
+                balance: 5000,
+                currency: 'TGT',
+                type: 'connected'
+            },
+            message: 'Wallet connected successfully'
+        });
+    } catch (error) {
+        console.error('❌ Wallet connection error:', error);
+        res.status(500).json({ error: 'Failed to connect wallet' });
+    }
+});
+
+// Create MetaMask-integrated wallet
+app.post('/api/wallet/create-metamask', authenticateToken, (req, res) => {
+    try {
+        const { metamaskAddress } = req.body;
+        const user = database.users.get(req.user.email);
+        
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+        
+        if (!metamaskAddress) {
+            return res.status(400).json({ error: 'MetaMask address is required' });
+        }
+        
+        // Check if wallet already exists
+        const existingWallet = database.wallets.get(user.id);
+        if (existingWallet) {
+            return res.status(400).json({ error: 'User already has a wallet' });
+        }
+        
+        // Create TGT wallet linked to MetaMask
+        const metamaskWallet = {
+            userId: user.id,
+            address: 'tgt_mm_' + Math.random().toString(36).substring(2, 15),
+            metamaskAddress: metamaskAddress,
+            tgtBalance: 1000, // $1,000 welcome bonus
+            connected: false,
+            createdAt: new Date().toISOString(),
+            transactions: [{
+                type: 'metamask_creation',
+                amount: 1000,
+                description: 'MetaMask wallet creation with welcome bonus',
+                timestamp: new Date().toISOString()
+            }]
+        };
+        
+        // Store wallet
+        database.wallets.set(user.id, metamaskWallet);
+        
+        console.log(`✅ Created MetaMask-linked wallet for ${req.user.email}:`, metamaskWallet.address);
+        
+        res.json({
+            success: true,
+            wallet: {
+                address: metamaskWallet.address,
+                balance: 1000,
+                currency: 'TGT',
+                type: 'metamask',
+                metamaskAddress: metamaskAddress
+            },
+            message: 'MetaMask wallet created successfully with $1,000 welcome bonus'
+        });
+    } catch (error) {
+        console.error('❌ MetaMask wallet creation error:', error);
+        res.status(500).json({ error: 'Failed to create MetaMask wallet' });
+    }
+});
+
+// Create a new TGT wallet for the user (used during KYC if no wallet exists)
+app.post('/api/wallet/create', authenticateToken, (req, res) => {
+    try {
+        const user = database.users.get(req.user.email);
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+        
+        // Check if user already has a wallet
+        const existingWallet = database.wallets.get(user.id);
+        if (existingWallet) {
+            return res.status(400).json({ error: 'User already has a wallet' });
+        }
+        
+        // Create new TGT wallet
+        const newWallet = {
+            userId: user.id,
+            address: 'tgt_' + user.id + '_' + Date.now(),
+            tgtBalance: 1000, // $1,000 initial balance
+            connected: false,
+            createdAt: new Date().toISOString(),
+            transactions: [{
+                type: 'initial_allocation',
+                amount: 1000,
+                description: 'Welcome bonus - New wallet creation',
+                timestamp: new Date().toISOString()
+            }]
+        };
+        
+        // Store wallet
+        database.wallets.set(user.id, newWallet);
+        
+        console.log(`✅ Created new TGT wallet for ${req.user.email}:`, newWallet.address);
+        
+        res.json({
+            success: true,
+            wallet: {
+                address: newWallet.address,
+                balance: 1000,
+                currency: 'TGT',
+                type: 'platform'
+            },
+            message: 'TGT wallet created successfully'
+        });
+    } catch (error) {
+        console.error('❌ Wallet creation error:', error);
+        res.status(500).json({ error: 'Failed to create wallet' });
     }
 });
 
