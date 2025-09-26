@@ -95,6 +95,9 @@ const database = {
     auctions: new Map(),
     transactions: new Map(),
     documents: new Map(),
+    pendingContracts: new Map(), // Contracts waiting for counterparty KYC
+    notifications: new Map(), // User notifications
+    complianceReports: new Map(), // KYC compliance reports
     admin: {
         fees: { tradingFee: 0.5, platformFee: 1.0 },
         interestRates: { deposit: 2.5, lending: 5.0 },
@@ -281,6 +284,204 @@ database.wallets.set('insurer-001', {
     address: 'tgt_insurer-001_test',
     createdAt: new Date().toISOString()
 });
+
+// ================================
+// NOTIFICATION SYSTEM FUNCTIONS
+// ================================
+
+// Send contract notification email
+async function sendContractNotificationEmail(toEmail, contractData, notificationType) {
+    try {
+        const baseUrl = process.env.RAILWAY_PUBLIC_DOMAIN || 'http://localhost:4000';
+        let subject, htmlContent;
+        
+        switch (notificationType) {
+            case 'contract_created':
+                subject = `New Contract Awaiting Your Response - ${contractData.productDetails}`;
+                htmlContent = `
+                    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                        <h2 style="color: #1f2937;">New Contract Created</h2>
+                        <p>A new contract has been created and requires your action:</p>
+                        
+                        <div style="background: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                            <h3>Contract Details:</h3>
+                            <p><strong>Product:</strong> ${contractData.productDetails}</p>
+                            <p><strong>Total Value:</strong> $${contractData.totalValue.toLocaleString()}</p>
+                            <p><strong>Delivery Date:</strong> ${new Date(contractData.deliveryDate).toLocaleDateString()}</p>
+                            <p><strong>Status:</strong> ${contractData.status.replace(/_/g, ' ').toUpperCase()}</p>
+                            ${contractData.depositAmount ? `<p><strong>Required Deposit:</strong> $${contractData.depositAmount.toLocaleString()}</p>` : ''}
+                        </div>
+                        
+                        <div style="text-align: center; margin: 30px 0;">
+                            <a href="${baseUrl}/dashboard/authenticated?role=${contractData.yourRole}&token=auto" 
+                               style="background: #3b82f6; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
+                                View Contract in Dashboard
+                            </a>
+                        </div>
+                        
+                        <p style="color: #6b7280; font-size: 14px;">
+                            Please log in to your Tangent Platform dashboard to review and take action on this contract.
+                        </p>
+                    </div>
+                `;
+                break;
+                
+            case 'contract_confirmed':
+                subject = `Contract Confirmed - Payment Required - ${contractData.productDetails}`;
+                htmlContent = `
+                    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                        <h2 style="color: #059669;">Contract Confirmed!</h2>
+                        <p>Your contract has been confirmed by the counterparty. Payment is now required to activate the contract.</p>
+                        
+                        <div style="background: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                            <h3>Contract Details:</h3>
+                            <p><strong>Product:</strong> ${contractData.productDetails}</p>
+                            <p><strong>Total Value:</strong> $${contractData.totalValue.toLocaleString()}</p>
+                            <p><strong>Required Payment:</strong> $${contractData.depositAmount.toLocaleString()}</p>
+                        </div>
+                        
+                        <div style="text-align: center; margin: 30px 0;">
+                            <a href="${baseUrl}/dashboard/authenticated?role=${contractData.yourRole}&token=auto" 
+                               style="background: #059669; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
+                                Make Payment Now
+                            </a>
+                        </div>
+                    </div>
+                `;
+                break;
+                
+            case 'trader_contract':
+                subject = `New Trading Contract - ${contractData.productDetails}`;
+                htmlContent = `
+                    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                        <h2 style="color: #7c3aed;">Trading Contract Created</h2>
+                        <p>A trader has created a new contract involving your participation:</p>
+                        
+                        <div style="background: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                            <h3>Contract Details:</h3>
+                            <p><strong>Product:</strong> ${contractData.productDetails}</p>
+                            <p><strong>Your Role:</strong> ${contractData.yourRole.toUpperCase()}</p>
+                            <p><strong>Contract Value:</strong> $${contractData.totalValue.toLocaleString()}</p>
+                            <p><strong>Trader:</strong> ${contractData.traderEmail}</p>
+                        </div>
+                        
+                        <div style="text-align: center; margin: 30px 0;">
+                            <a href="${baseUrl}/dashboard/authenticated?role=${contractData.yourRole}&token=auto" 
+                               style="background: #7c3aed; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
+                                View Trading Contract
+                            </a>
+                        </div>
+                    </div>
+                `;
+                break;
+                
+            case 'deposit_paid':
+                subject = `Contract Activated - Deposit Received - ${contractData.productDetails}`;
+                htmlContent = `
+                    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                        <h2 style="color: #10b981;">✅ Contract Activated!</h2>
+                        <p>Great news! The buyer has paid the deposit and your contract is now active. You can proceed with shipping preparations.</p>
+                        
+                        <div style="background: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                            <h3>Contract Details:</h3>
+                            <p><strong>Product:</strong> ${contractData.productDetails}</p>
+                            <p><strong>Total Value:</strong> $${contractData.totalValue.toLocaleString()}</p>
+                            <p><strong>Deposit Received:</strong> $${contractData.depositAmount.toLocaleString()}</p>
+                            <p><strong>Status:</strong> ACTIVE</p>
+                        </div>
+                        
+                        <div style="background: #dbeafe; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #3b82f6;">
+                            <h4 style="color: #1e40af; margin-top: 0;">Next Steps:</h4>
+                            <p style="color: #1e40af; margin-bottom: 0;">
+                                1. Prepare your goods for shipping<br>
+                                2. Upload shipping documents when ready<br>
+                                3. Receive remaining payment upon document approval
+                            </p>
+                        </div>
+                        
+                        <div style="text-align: center; margin: 30px 0;">
+                            <a href="${baseUrl}/dashboard/authenticated?role=${contractData.yourRole}&token=auto" 
+                               style="background: #10b981; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
+                                Manage Contract
+                            </a>
+                        </div>
+                    </div>
+                `;
+                break;
+        }
+        
+        const mailOptions = {
+            from: process.env.EMAIL_USER || 'tangent@platform.com',
+            to: toEmail,
+            subject: subject,
+            html: htmlContent
+        };
+        
+        await transporter.sendMail(mailOptions);
+        console.log(`📧 Contract notification email sent to: ${toEmail}`);
+        
+    } catch (error) {
+        console.error('📧 Email sending failed:', error);
+    }
+}
+
+// Add contract to user's dashboard (or pending if not KYC)
+function addContractToUserDashboard(userEmail, contractId, contractData, userRole) {
+    const user = database.users.get(userEmail);
+    
+    if (!user) {
+        // User doesn't exist yet, store as pending
+        console.log(`📋 Storing pending contract for non-registered user: ${userEmail}`);
+        if (!database.pendingContracts.has(userEmail)) {
+            database.pendingContracts.set(userEmail, []);
+        }
+        database.pendingContracts.get(userEmail).push({
+            contractId,
+            contractData: {...contractData, yourRole: userRole},
+            assignedAt: new Date().toISOString()
+        });
+        return false; // User doesn't exist
+    }
+    
+    if (user.kycStatus !== 'approved') {
+        // User exists but not KYC approved, store as pending
+        console.log(`📋 Storing pending contract for non-KYC user: ${userEmail}`);
+        if (!database.pendingContracts.has(userEmail)) {
+            database.pendingContracts.set(userEmail, []);
+        }
+        database.pendingContracts.get(userEmail).push({
+            contractId,
+            contractData: {...contractData, yourRole: userRole},
+            assignedAt: new Date().toISOString()
+        });
+        return false; // User not KYC approved
+    }
+    
+    // User exists and is KYC approved - contract is already in main database
+    console.log(`✅ Contract ${contractId} available in dashboard for: ${userEmail}`);
+    return true; // User can see contract immediately
+}
+
+// Process pending contracts when user completes KYC
+function processPendingContractsForUser(userEmail) {
+    const pendingContracts = database.pendingContracts.get(userEmail);
+    if (!pendingContracts || pendingContracts.length === 0) {
+        return;
+    }
+    
+    console.log(`🔄 Processing ${pendingContracts.length} pending contracts for: ${userEmail}`);
+    
+    // Move pending contracts to main database
+    pendingContracts.forEach(pending => {
+        // Contract should already exist in database.contracts, just needs to be visible to user
+        console.log(`✅ Contract ${pending.contractId} now available for: ${userEmail}`);
+    });
+    
+    // Clear pending contracts for this user
+    database.pendingContracts.delete(userEmail);
+    
+    console.log(`✅ All pending contracts processed for: ${userEmail}`);
+}
 
 // ================================
 // AUTHENTICATION MIDDLEWARE
@@ -2323,6 +2524,9 @@ app.post('/api/kyc/submit', authenticateToken, upload.fields([
             user.kycStatus = 'approved'; // Always approve for demo
             user.verified = true;
             database.users.set(req.user.email, user);
+            
+            // Process any pending contracts for this user
+            processPendingContractsForUser(req.user.email);
         }
         
         // Generate compliance report for admin
@@ -2659,7 +2863,28 @@ app.post('/api/contracts/create', authenticateToken, async (req, res) => {
         
         database.contracts.set(contractId, contract);
         
-        // Check if counterparty is registered
+        // Enhanced notification system for counterparties
+        const counterpartyRole = contractRole === 'supplier' ? 'buyer' : 'supplier';
+        
+        // Add contract to counterparty's dashboard (immediate or pending)
+        const userCanSeeImmediately = addContractToUserDashboard(
+            counterpartyEmail, 
+            contractId, 
+            contract, 
+            counterpartyRole
+        );
+        
+        // Send email notification
+        await sendContractNotificationEmail(
+            counterpartyEmail, 
+            {...contract, yourRole: counterpartyRole}, 
+            'contract_created'
+        );
+        
+        console.log(`📧 Contract ${contractId} notification sent to ${counterpartyEmail} (${counterpartyRole})`);
+        console.log(`📋 Dashboard access: ${userCanSeeImmediately ? 'Immediate' : 'Pending KYC'}`);
+        
+        // Check if counterparty is registered (for legacy flow)
         const counterpartyUser = database.users.get(counterpartyEmail);
         
         if (!counterpartyUser) {
@@ -2939,6 +3164,27 @@ app.post('/api/contracts/:id/confirm', authenticateToken, (req, res) => {
         
         database.contracts.set(id, contract);
         
+        // Send notification email to counterparty if contract was confirmed
+        if (accepted) {
+            const counterpartyEmail = isSupplier ? contract.buyerEmail : contract.supplierEmail;
+            const counterpartyRole = isSupplier ? 'buyer' : 'supplier';
+            
+            if (counterpartyEmail && counterpartyEmail !== req.user.email) {
+                // Check if this triggers a deposit requirement
+                const requiresDeposit = contract.status === 'pending_deposit';
+                
+                // Send appropriate notification
+                sendContractNotificationEmail(
+                    counterpartyEmail,
+                    {...contract, yourRole: counterpartyRole},
+                    requiresDeposit ? 'contract_confirmed' : 'contract_created'
+                ).catch(error => console.error('Email notification failed:', error));
+                
+                console.log(`📧 Contract confirmation notification sent to ${counterpartyEmail} (${counterpartyRole})`);
+                console.log(`📋 Action required: ${requiresDeposit ? 'Deposit Payment' : 'Awaiting Other Party'}`);
+            }
+        }
+        
         res.json({
             message: accepted ? 
                 `Contract confirmed successfully${contract.status === 'pending_deposit' ? '. Buyer can now pay deposit.' : ''}` : 
@@ -3006,6 +3252,19 @@ app.post('/api/contracts/:id/deposit', authenticateToken, (req, res) => {
         });
         
         database.contracts.set(id, contract);
+        
+        // Send notification to supplier that deposit has been paid and contract is now active
+        const supplierEmail = contract.supplierEmail;
+        if (supplierEmail && supplierEmail !== req.user.email) {
+            sendContractNotificationEmail(
+                supplierEmail,
+                {...contract, yourRole: 'supplier'},
+                'deposit_paid'
+            ).catch(error => console.error('Email notification failed:', error));
+            
+            console.log(`📧 Deposit payment notification sent to supplier: ${supplierEmail}`);
+            console.log(`📋 Contract ${id} is now ACTIVE - supplier can upload shipping documents`);
+        }
         
         res.json({
             message: 'Deposit paid successfully',
@@ -5601,7 +5860,31 @@ async function createTraderDualContracts(req, res, contractData) {
         database.contracts.set(buyContractId, buyContract);
         database.contracts.set(sellContractId, sellContract);
 
-        // Send email notifications
+        // Enhanced notification system for trader contracts
+        
+        // Add contracts to supplier and buyer dashboards (immediate or pending)
+        addContractToUserDashboard(supplierEmail, buyContractId, buyContract, 'supplier');
+        addContractToUserDashboard(buyerEmail, sellContractId, sellContract, 'buyer');
+        
+        // Send enhanced email notifications
+        await Promise.all([
+            sendContractNotificationEmail(
+                supplierEmail,
+                {...buyContract, yourRole: 'supplier', traderEmail: traderEmail},
+                'trader_contract'
+            ),
+            sendContractNotificationEmail(
+                buyerEmail,
+                {...sellContract, yourRole: 'buyer', traderEmail: traderEmail},
+                'trader_contract'
+            )
+        ]);
+        
+        console.log(`📧 Trader contract notifications sent:`);
+        console.log(`  • Supplier: ${supplierEmail} (contract: ${buyContractId})`);
+        console.log(`  • Buyer: ${buyerEmail} (contract: ${sellContractId})`);
+
+        // Legacy email notifications (keep for now)
         try {
             // Email to supplier
             const supplierEmailContent = {
