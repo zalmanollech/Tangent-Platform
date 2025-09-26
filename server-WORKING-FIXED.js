@@ -4479,7 +4479,7 @@ app.get('/create-contract', authenticateToken, (req, res) => {
           </div>
           
           <!-- Counterparty Information Section -->
-          <div id="counterpartySection" style="display: none; background: #1e293b; padding: 1.5rem; border-radius: 8px; border: 1px solid #334155; margin: 1rem 0;">
+          <div id="counterpartySection" style="display: none; background: #1e293b; padding: 1.5rem; border-radius: 8px; border: 2px solid #06b6d4; margin: 1rem 0; box-shadow: 0 4px 6px rgba(6, 182, 212, 0.1);">
             <h3 style="color: #06b6d4; margin-bottom: 1rem;">📧 Counterparty Information</h3>
             <div class="form-group">
               <label id="counterpartyLabel" style="color: #f8fafc; font-weight: 600;">Counterparty Email</label>
@@ -4838,6 +4838,28 @@ app.get('/create-contract', authenticateToken, (req, res) => {
         const yearField = document.getElementById('deliveryYear');
         if (monthField) monthField.addEventListener('change', updateCommodityInfo);
         if (yearField) yearField.addEventListener('change', updateCommodityInfo);
+        
+        // Test the form fields on page load
+        console.log('🚀 Contract form loaded - testing updateFormFields function');
+        const roleSelect = document.getElementById('contractRole');
+        if (roleSelect) {
+          // Add enhanced change listener
+          roleSelect.addEventListener('change', function() {
+            console.log('🔄 Role changed to:', this.value);
+            updateFormFields();
+          });
+          
+          // Test with supplier role temporarily to check if function works
+          setTimeout(() => {
+            console.log('🧪 Testing form fields functionality...');
+            console.log('Available elements:', {
+              roleSelect: !!document.getElementById('contractRole'),
+              counterpartySection: !!document.getElementById('counterpartySection'),
+              counterpartyLabel: !!document.getElementById('counterpartyLabel'),
+              counterpartyEmail: !!document.getElementById('counterpartyEmail')
+            });
+          }, 500);
+        }
       });
       
       function updateFormFields() {
@@ -4845,34 +4867,63 @@ app.get('/create-contract', authenticateToken, (req, res) => {
         const counterpartySection = document.getElementById('counterpartySection');
         const counterpartyLabel = document.getElementById('counterpartyLabel');
         
-        console.log('updateFormFields called with role:', role); // Debug log
+        console.log('🔄 updateFormFields called with role:', role); // Enhanced debug log
         
         if (role) {
+          console.log('✅ Showing counterparty section for role:', role);
           counterpartySection.style.display = 'block';
           document.getElementById('counterpartyEmail').required = true;
           
-          if (role === 'supplier') {
-            counterpartyLabel.textContent = 'Buyer Email';
-            counterpartyLabel.style.color = '#f8fafc';
-          } else if (role === 'buyer') {
-            counterpartyLabel.textContent = 'Supplier Email';
-            counterpartyLabel.style.color = '#f8fafc';
-          } else if (role === 'trader') {
-            counterpartyLabel.textContent = 'End Buyer Email (Final Customer)';
-            counterpartyLabel.style.color = '#f8fafc';
-            // Add additional field for supplier email
-            if (!document.getElementById('supplierEmailField')) {
-              const supplierDiv = document.createElement('div');
-              supplierDiv.className = 'form-group';
-              supplierDiv.id = 'supplierEmailField';
-              supplierDiv.innerHTML = '<label for="supplierEmail" style="color: #f8fafc;">Supplier Email</label><input type="email" id="supplierEmail" placeholder="Enter supplier email address" required>';
-              counterpartySection.appendChild(supplierDiv);
-            }
+          // Remove any existing supplier field for traders
+          const existingSupplierField = document.getElementById('supplierEmailField');
+          if (existingSupplierField) {
+            existingSupplierField.remove();
           }
-          console.log('Counterparty section should now be visible'); // Debug log
+          
+          if (role === 'supplier') {
+            counterpartyLabel.textContent = '🛒 Buyer Email *';
+            counterpartyLabel.style.color = '#f8fafc';
+            document.getElementById('counterpartyEmail').placeholder = 'Enter buyer email address';
+            console.log('📝 Set label to "Buyer Email" for supplier');
+          } else if (role === 'buyer') {
+            counterpartyLabel.textContent = '🏭 Supplier Email *';
+            counterpartyLabel.style.color = '#f8fafc';
+            document.getElementById('counterpartyEmail').placeholder = 'Enter supplier email address';
+            console.log('📝 Set label to "Supplier Email" for buyer');
+          } else if (role === 'trader') {
+            counterpartyLabel.textContent = '🛒 End Buyer Email (Final Customer) *';
+            counterpartyLabel.style.color = '#f8fafc';
+            document.getElementById('counterpartyEmail').placeholder = 'Enter end buyer email address';
+            
+            // Add additional field for supplier email
+            const supplierDiv = document.createElement('div');
+            supplierDiv.className = 'form-group';
+            supplierDiv.id = 'supplierEmailField';
+            supplierDiv.style.marginTop = '15px';
+            supplierDiv.innerHTML = `
+              <label for="supplierEmail" style="color: #f8fafc; font-weight: 600;">🏭 Supplier Email *</label>
+              <input type="email" id="supplierEmail" placeholder="Enter supplier email address" required 
+                     style="width: 100%; padding: 12px; background: #0f172a; border: 1px solid #334155; border-radius: 8px; color: #f8fafc;">
+            `;
+            counterpartySection.appendChild(supplierDiv);
+            console.log('📝 Set labels for trader: End Buyer + Supplier');
+          }
+          
+          // Make sure the section is visible with a small delay for rendering
+          setTimeout(() => {
+            counterpartySection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          }, 100);
+          
         } else {
+          console.log('❌ Hiding counterparty section - no role selected');
           counterpartySection.style.display = 'none';
           document.getElementById('counterpartyEmail').required = false;
+          
+          // Remove supplier field if it exists
+          const supplierField = document.getElementById('supplierEmailField');
+          if (supplierField) {
+            supplierField.remove();
+          }
         }
       }
       
