@@ -4347,7 +4347,7 @@ app.get('/create-contract', authenticateToken, (req, res) => {
       .btn { display: inline-block; padding: 0.75rem 1.5rem; background: #2563eb; color: white; text-decoration: none; border-radius: 8px; font-weight: 500; border: none; cursor: pointer; margin-right: 1rem; }
       .btn:hover { background: #1d4ed8; }
       .btn-secondary { background: #6b7280; }
-      .role-selector { background: #0f172a; padding: 1rem; border-radius: 8px; margin-bottom: 2rem; }
+      .role-selector { background: #1e293b; padding: 2rem; border-radius: 12px; margin-bottom: 2rem; border: 2px solid #2563eb; box-shadow: 0 8px 16px rgba(37, 99, 235, 0.3); position: relative; }
       .back-btn { background: #6b7280; }
     </style>
   </head>
@@ -4360,14 +4360,16 @@ app.get('/create-contract', authenticateToken, (req, res) => {
     </div>
 
     <div class="main-content">
-      <div class="role-selector">
-        <label for="contractRole">Your Role in this Contract</label>
-        <select id="contractRole" onchange="updateFormFields()">
-          <option value="">Select your role</option>
-          <option value="supplier">Supplier (I'm selling)</option>
-          <option value="buyer">Buyer (I'm purchasing)</option>
-          <option value="trader">Trader (I'm trading)</option>
+      <div class="role-selector" style="background: #1e293b; padding: 2rem; border-radius: 12px; margin-bottom: 2rem; border: 2px solid #2563eb; box-shadow: 0 8px 16px rgba(37, 99, 235, 0.3);">
+        <h2 style="color: #2563eb; margin-bottom: 1rem; text-align: center;">⚡ STEP 1: Select Your Role</h2>
+        <label for="contractRole" style="color: #f8fafc; font-weight: 600; font-size: 1.1rem; display: block; margin-bottom: 0.5rem;">Your Role in this Contract *</label>
+        <select id="contractRole" onchange="updateFormFields()" style="width: 100%; padding: 15px; font-size: 1.1rem; background: #0f172a; border: 2px solid #2563eb; border-radius: 8px; color: #f8fafc;">
+          <option value="">🔽 Select your role to continue</option>
+          <option value="supplier">🏭 Supplier (I'm selling products/commodities)</option>
+          <option value="buyer">🛒 Buyer (I'm purchasing products/commodities)</option>
+          <option value="trader">📈 Trader (I'm facilitating trade between buyer & supplier)</option>
         </select>
+        <p style="color: #94a3b8; font-size: 0.9rem; margin-top: 0.5rem; text-align: center;">⚠️ You must select your role before the counterparty email fields will appear</p>
       </div>
 
       <div class="contract-section">
@@ -4479,11 +4481,11 @@ app.get('/create-contract', authenticateToken, (req, res) => {
           </div>
           
           <!-- Counterparty Information Section -->
-          <div id="counterpartySection" style="display: none; background: #1e293b; padding: 1.5rem; border-radius: 8px; border: 2px solid #06b6d4; margin: 1rem 0; box-shadow: 0 4px 6px rgba(6, 182, 212, 0.1);">
-            <h3 style="color: #06b6d4; margin-bottom: 1rem;">📧 Counterparty Information</h3>
+          <div id="counterpartySection" style="display: none; background: #1e293b; padding: 1.5rem; border-radius: 8px; border: 2px solid #06b6d4; margin: 1rem 0; box-shadow: 0 4px 6px rgba(6, 182, 212, 0.1); animation: slideIn 0.3s ease-in-out;">
+            <h3 style="color: #06b6d4; margin-bottom: 1rem;">⚡ STEP 2: Counterparty Information</h3>
             <div class="form-group">
-              <label id="counterpartyLabel" style="color: #f8fafc; font-weight: 600;">Counterparty Email</label>
-              <input type="email" id="counterpartyEmail" placeholder="Enter email address" style="width: 100%; padding: 12px; background: #0f172a; border: 1px solid #334155; border-radius: 8px; color: #f8fafc;">
+              <label id="counterpartyLabel" style="color: #f8fafc; font-weight: 600; font-size: 1.1rem;">Counterparty Email</label>
+              <input type="email" id="counterpartyEmail" placeholder="Enter email address" style="width: 100%; padding: 15px; background: #0f172a; border: 2px solid #06b6d4; border-radius: 8px; color: #f8fafc; font-size: 1rem;">
             </div>
           </div>
           
@@ -4896,14 +4898,14 @@ app.get('/create-contract', authenticateToken, (req, res) => {
             document.getElementById('counterpartyEmail').placeholder = 'Enter end buyer email address';
             
             // Add additional field for supplier email
-            const supplierDiv = document.createElement('div');
-            supplierDiv.className = 'form-group';
-            supplierDiv.id = 'supplierEmailField';
+              const supplierDiv = document.createElement('div');
+              supplierDiv.className = 'form-group';
+              supplierDiv.id = 'supplierEmailField';
             supplierDiv.style.marginTop = '15px';
             supplierDiv.innerHTML = '<label for="supplierEmail" style="color: #f8fafc; font-weight: 600;">🏭 Supplier Email *</label>' +
                                    '<input type="email" id="supplierEmail" placeholder="Enter supplier email address" required ' +
                                    'style="width: 100%; padding: 12px; background: #0f172a; border: 1px solid #334155; border-radius: 8px; color: #f8fafc;">';
-            counterpartySection.appendChild(supplierDiv);
+              counterpartySection.appendChild(supplierDiv);
             console.log('📝 Set labels for trader: End Buyer + Supplier');
           }
           
