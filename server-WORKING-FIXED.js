@@ -1710,15 +1710,14 @@ app.get('/signup', (req, res) => {
                         localStorage.setItem('wallet', JSON.stringify(data.wallet));
                         
                         messageDiv.className = 'message success';
-                        messageDiv.innerHTML = `
-                            <strong>🎉 Account created successfully!</strong><br>
-                            <div style="margin-top: 10px; padding: 10px; background: rgba(255,255,255,0.1); border-radius: 6px;">
-                                <strong>🏦 TGT Wallet Created:</strong><br>
-                                💰 Balance: <strong>$${data.wallet.balance.toLocaleString()} ${data.wallet.currency}</strong><br>
-                                📍 Address: <span style="font-family: monospace; font-size: 0.9em;">${data.wallet.address}</span>
-                            </div>
-                            <p style="margin-top: 10px;">Redirecting to KYC verification...</p>
-                        `;
+                        messageDiv.innerHTML = 
+                            '<strong>🎉 Account created successfully!</strong><br>' +
+                            '<div style="margin-top: 10px; padding: 10px; background: rgba(255,255,255,0.1); border-radius: 6px;">' +
+                                '<strong>🏦 TGT Wallet Created:</strong><br>' +
+                                '💰 Balance: <strong>$' + data.wallet.balance.toLocaleString() + ' ' + data.wallet.currency + '</strong><br>' +
+                                '📍 Address: <span style="font-family: monospace; font-size: 0.9em;">' + data.wallet.address + '</span>' +
+                            '</div>' +
+                            '<p style="margin-top: 10px;">Redirecting to KYC verification...</p>';
                         messageDiv.style.display = 'block';
                         
                         setTimeout(() => {
