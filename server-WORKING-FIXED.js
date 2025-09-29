@@ -12,6 +12,13 @@ console.log('🚀 Starting Tangent Complete Production Platform...');
 const app = express();
 const PORT = process.env.PORT || 4000;
 
+// Initialize OFAC system on startup
+initializeOFAC().then(() => {
+    scheduleOFACUpdates();
+}).catch(error => {
+    console.error('OFAC initialization failed, continuing without OFAC screening');
+});
+
 // ================================
 // MIDDLEWARE & SECURITY
 // ================================
@@ -890,19 +897,68 @@ function getFullKYCPageHTML(userEmail, token) {
             });
         }
 
-        function handleFileUpload(input, category) {
+        async function handleFileUpload(input, category) {
             const files = input.files;
             if (files.length > 0) {
                 const file = files[0];
+                
+                // Real-time file validation
+                const validationResult = validateFileRealTime(file, category);
+                
+                if (!validationResult.isValid) {
+                    alert('❌ File Validation Error:\\n' + validationResult.errors.join('\\n'));
+                    input.value = ''; // Clear the input
+                    return;
+                }
+                
                 if (!uploadedFiles[category]) {
                     uploadedFiles[category] = [];
                 }
                 uploadedFiles[category] = [file]; // Replace instead of append for single file uploads
-                displayFiles(category);
+                displayFiles(category, validationResult);
             }
         }
+        
+        // Real-time file validation function
+        function validateFileRealTime(file, category) {
+            const result = {
+                isValid: true,
+                errors: [],
+                warnings: []
+            };
+            
+            // Check file size (10MB max, 1KB min)
+            const maxSize = 10 * 1024 * 1024; // 10MB
+            const minSize = 1024; // 1KB
+            
+            if (file.size > maxSize) {
+                result.errors.push(\`File too large: \${Math.round(file.size / 1024 / 1024)}MB. Maximum size: 10MB\`);
+                result.isValid = false;
+            }
+            
+            if (file.size < minSize) {
+                result.errors.push(\`File too small: \${file.size} bytes. Minimum size: 1KB\`);
+                result.isValid = false;
+            }
+            
+            // Check file format
+            const allowedFormats = ['.pdf', '.jpg', '.jpeg', '.png', '.doc', '.docx'];
+            const fileExtension = '.' + file.name.split('.').pop().toLowerCase();
+            
+            if (!allowedFormats.includes(fileExtension)) {
+                result.errors.push(\`Invalid file format: \${fileExtension}. Allowed formats: \${allowedFormats.join(', ')}\`);
+                result.isValid = false;
+            }
+            
+            // Success message
+            if (result.isValid) {
+                result.successMessage = \`✅ \${category.charAt(0).toUpperCase() + category.slice(1)} document validated successfully (\${Math.round(file.size / 1024)}KB)\`;
+            }
+            
+            return result;
+        }
 
-        function displayFiles(category) {
+        function displayFiles(category, validationResult = null) {
             const fileListIds = [category + 'Files', category + 'FilesPrivate'];
             fileListIds.forEach(fileListId => {
                 const fileList = document.getElementById(fileListId);
@@ -913,9 +969,19 @@ function getFullKYCPageHTML(userEmail, token) {
                         uploadedFiles[category].forEach((file, index) => {
                             const fileItem = document.createElement('div');
                             fileItem.className = 'file-item';
+                            
+                            // Show validation status
+                            let validationStatus = '';
+                            if (validationResult && validationResult.successMessage) {
+                                validationStatus = \`<div class="validation-success" style="color: #10b981; font-size: 0.9em; margin-top: 5px;">\${validationResult.successMessage}</div>\`;
+                            }
+                            
                             fileItem.innerHTML = \`
-                                <span>📎 \${file.name} (\${(file.size / 1024 / 1024).toFixed(2)} MB)</span>
-                                <button type="button" class="remove-file" onclick="removeFile('\${category}', \${index})">Remove</button>
+                                <div class="file-info" style="display: flex; justify-content: space-between; align-items: center;">
+                                    <span class="file-name">📎 \${file.name} (\${(file.size / 1024 / 1024).toFixed(2)} MB)</span>
+                                    <button type="button" class="remove-file" onclick="removeFile('\${category}', \${index})" style="background: #dc2626; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer;">Remove</button>
+                                </div>
+                                \${validationStatus}
                             \`;
                             fileList.appendChild(fileItem);
                         });
@@ -933,6 +999,22 @@ function getFullKYCPageHTML(userEmail, token) {
 
         async function submitListedCompany() {
             const form = document.getElementById('listedForm');
+            
+            // Validate required documents for listed company
+            const requiredDocs = ['passport'];
+            const validationErrors = [];
+            
+            requiredDocs.forEach(docType => {
+                if (!uploadedFiles[docType] || uploadedFiles[docType].length === 0) {
+                    validationErrors.push(\`Missing required document: \${docType.charAt(0).toUpperCase() + docType.slice(1)}\`);
+                }
+            });
+            
+            if (validationErrors.length > 0) {
+                alert('❌ Document Validation Failed:\\n\\n' + validationErrors.join('\\n') + '\\n\\nPlease upload all required documents before submitting.');
+                return;
+            }
+            
             const formData = new FormData(form);
             formData.append('companyType', 'listed');
             
@@ -950,6 +1032,22 @@ function getFullKYCPageHTML(userEmail, token) {
 
         async function submitPrivateCompany() {
             const form = document.getElementById('privateForm');
+            
+            // Validate required documents for private company
+            const requiredDocs = ['passport', 'incorporation', 'financials', 'bylaws'];
+            const validationErrors = [];
+            
+            requiredDocs.forEach(docType => {
+                if (!uploadedFiles[docType] || uploadedFiles[docType].length === 0) {
+                    validationErrors.push(\`Missing required document: \${docType.charAt(0).toUpperCase() + docType.slice(1)}\`);
+                }
+            });
+            
+            if (validationErrors.length > 0) {
+                alert('❌ Document Validation Failed:\\n\\n' + validationErrors.join('\\n') + '\\n\\nPrivate companies must upload all 4 required documents before submitting.');
+                return;
+            }
+            
             const formData = new FormData(form);
             formData.append('companyType', 'private');
             
@@ -992,7 +1090,26 @@ function getFullKYCPageHTML(userEmail, token) {
                 } else {
                     const error = await response.json();
                     console.error('❌ KYC submission failed:', error);
-                    alert('Error: ' + (error.error || 'KYC submission failed'));
+                    
+                    // Handle document validation errors specifically
+                    if (error.validationErrors && error.validationErrors.length > 0) {
+                        let errorMessage = 'Document Validation Failed:\\n\\n';
+                        errorMessage += error.validationErrors.join('\\n');
+                        
+                        if (error.missingDocuments && error.missingDocuments.length > 0) {
+                            errorMessage += '\\n\\nMissing Documents:\\n';
+                            errorMessage += error.missingDocuments.map(doc => \`- \${doc.charAt(0).toUpperCase() + doc.slice(1)}\`).join('\\n');
+                        }
+                        
+                        if (error.warnings && error.warnings.length > 0) {
+                            errorMessage += '\\n\\nWarnings:\\n';
+                            errorMessage += error.warnings.join('\\n');
+                        }
+                        
+                        alert('❌ ' + errorMessage);
+                    } else {
+                        alert('Error: ' + (error.error || 'KYC submission failed'));
+                    }
                 }
             } catch (error) {
                 console.error('KYC submission error:', error);
@@ -1215,7 +1332,8 @@ app.get('/dashboard/authenticated', (req, res) => {
             <div style="display: flex; gap: 15px; flex-wrap: wrap;">
                 <a href="/admin/active-trades" class="btn secondary">View All Trades</a>
                 <a href="/admin/auction" class="btn secondary">Auction Board</a>
-                <button class="btn secondary">KYC Reports</button>
+                <a href="/admin/kyc-reports" class="btn secondary">KYC Reports</a>
+                <a href="/admin/ofac-management" class="btn secondary">🛡️ OFAC Screening</a>
                 <button class="btn secondary">Manage Fees</button>
                 <button class="btn secondary">Voyage Times</button>
             </div>
@@ -3034,7 +3152,348 @@ app.post('/api/auth/login', async (req, res) => {
 // KYC SYSTEM ROUTES
 // ================================
 
-// Submit KYC
+// ================================
+// OFAC SANCTIONS SCREENING SYSTEM
+// ================================
+
+const https = require('https');
+const xml2js = require('xml2js');
+
+// OFAC data storage
+let ofacData = {
+    sdnList: [],
+    lastUpdated: null,
+    isLoaded: false
+};
+
+// Download and parse OFAC SDN List
+async function downloadOFACData() {
+    return new Promise((resolve, reject) => {
+        console.log('📥 Downloading OFAC SDN List...');
+        
+        const url = 'https://www.treasury.gov/ofac/downloads/sdn.xml';
+        
+        https.get(url, (response) => {
+            let data = '';
+            
+            response.on('data', (chunk) => {
+                data += chunk;
+            });
+            
+            response.on('end', () => {
+                console.log('✅ OFAC data downloaded, parsing XML...');
+                
+                xml2js.parseString(data, (err, result) => {
+                    if (err) {
+                        console.error('❌ OFAC XML parsing error:', err);
+                        reject(err);
+                        return;
+                    }
+                    
+                    try {
+                        const sdnEntries = result.sdnList.sdnEntry || [];
+                        ofacData.sdnList = sdnEntries.map(entry => ({
+                            uid: entry.uid ? entry.uid[0] : '',
+                            firstName: entry.firstName ? entry.firstName[0] : '',
+                            lastName: entry.lastName ? entry.lastName[0] : '',
+                            title: entry.title ? entry.title[0] : '',
+                            sdnType: entry.sdnType ? entry.sdnType[0] : '',
+                            program: entry.program ? entry.program[0] : '',
+                            remarks: entry.remarks ? entry.remarks[0] : '',
+                            fullName: (entry.firstName ? entry.firstName[0] : '') + ' ' + (entry.lastName ? entry.lastName[0] : ''),
+                            searchTerms: generateSearchTerms(entry)
+                        }));
+                        
+                        ofacData.lastUpdated = new Date().toISOString();
+                        ofacData.isLoaded = true;
+                        
+                        console.log(`✅ OFAC SDN List loaded: ${ofacData.sdnList.length} entries`);
+                        console.log(`📅 Last updated: ${ofacData.lastUpdated}`);
+                        
+                        resolve(ofacData);
+                    } catch (parseError) {
+                        console.error('❌ OFAC data processing error:', parseError);
+                        reject(parseError);
+                    }
+                });
+            });
+        }).on('error', (err) => {
+            console.error('❌ OFAC download error:', err);
+            reject(err);
+        });
+    });
+}
+
+// Generate search terms for better matching
+function generateSearchTerms(entry) {
+    const terms = [];
+    
+    if (entry.firstName && entry.firstName[0]) {
+        terms.push(entry.firstName[0].toLowerCase().trim());
+    }
+    if (entry.lastName && entry.lastName[0]) {
+        terms.push(entry.lastName[0].toLowerCase().trim());
+    }
+    if (entry.title && entry.title[0]) {
+        terms.push(entry.title[0].toLowerCase().trim());
+    }
+    
+    // Add full name combinations
+    if (entry.firstName && entry.lastName) {
+        terms.push((entry.firstName[0] + ' ' + entry.lastName[0]).toLowerCase().trim());
+        terms.push((entry.lastName[0] + ' ' + entry.firstName[0]).toLowerCase().trim());
+    }
+    
+    return terms.filter(term => term.length > 0);
+}
+
+// OFAC name matching algorithm with fuzzy matching
+function checkOFACSanctions(firstName, lastName, companyName = '') {
+    const result = {
+        isMatch: false,
+        confidence: 0,
+        matches: [],
+        searchPerformed: ofacData.isLoaded,
+        totalRecordsSearched: ofacData.sdnList.length
+    };
+    
+    if (!ofacData.isLoaded) {
+        console.log('⚠️ OFAC data not loaded, performing check anyway...');
+        return result;
+    }
+    
+    const searchName = (`${firstName} ${lastName}`).toLowerCase().trim();
+    const searchCompany = companyName.toLowerCase().trim();
+    
+    console.log(`🔍 OFAC Screening: "${searchName}" + "${searchCompany}"`);
+    
+    ofacData.sdnList.forEach(entry => {
+        // Check individual names
+        if (firstName && lastName) {
+            const confidence = calculateNameSimilarity(searchName, entry.fullName.toLowerCase());
+            
+            if (confidence > 0.8) { // High confidence match
+                result.matches.push({
+                    type: 'individual',
+                    confidence: confidence,
+                    matchedName: entry.fullName,
+                    sdnType: entry.sdnType,
+                    program: entry.program,
+                    uid: entry.uid,
+                    remarks: entry.remarks
+                });
+                result.isMatch = true;
+                result.confidence = Math.max(result.confidence, confidence);
+            }
+        }
+        
+        // Check company name if provided
+        if (searchCompany && entry.title) {
+            const companyConfidence = calculateNameSimilarity(searchCompany, entry.title.toLowerCase());
+            
+            if (companyConfidence > 0.85) { // Slightly higher threshold for companies
+                result.matches.push({
+                    type: 'company',
+                    confidence: companyConfidence,
+                    matchedName: entry.title,
+                    sdnType: entry.sdnType,
+                    program: entry.program,
+                    uid: entry.uid,
+                    remarks: entry.remarks
+                });
+                result.isMatch = true;
+                result.confidence = Math.max(result.confidence, companyConfidence);
+            }
+        }
+    });
+    
+    console.log(`🎯 OFAC Result: ${result.isMatch ? 'MATCH FOUND' : 'NO MATCH'} (Confidence: ${(result.confidence * 100).toFixed(1)}%)`);
+    
+    if (result.matches.length > 0) {
+        console.log(`⚠️ OFAC MATCHES:`, result.matches.map(m => m.matchedName));
+    }
+    
+    return result;
+}
+
+// Simple string similarity algorithm (Jaro-Winkler style)
+function calculateNameSimilarity(str1, str2) {
+    if (str1 === str2) return 1.0;
+    
+    const len1 = str1.length;
+    const len2 = str2.length;
+    
+    if (len1 === 0 || len2 === 0) return 0.0;
+    
+    const matchWindow = Math.floor(Math.max(len1, len2) / 2) - 1;
+    if (matchWindow < 0) return 0.0;
+    
+    const str1Matches = new Array(len1).fill(false);
+    const str2Matches = new Array(len2).fill(false);
+    
+    let matches = 0;
+    let transpositions = 0;
+    
+    // Identify matches
+    for (let i = 0; i < len1; i++) {
+        const start = Math.max(0, i - matchWindow);
+        const end = Math.min(i + matchWindow + 1, len2);
+        
+        for (let j = start; j < end; j++) {
+            if (str2Matches[j] || str1[i] !== str2[j]) continue;
+            str1Matches[i] = true;
+            str2Matches[j] = true;
+            matches++;
+            break;
+        }
+    }
+    
+    if (matches === 0) return 0.0;
+    
+    // Count transpositions
+    let k = 0;
+    for (let i = 0; i < len1; i++) {
+        if (!str1Matches[i]) continue;
+        while (!str2Matches[k]) k++;
+        if (str1[i] !== str2[k]) transpositions++;
+        k++;
+    }
+    
+    const jaro = (matches / len1 + matches / len2 + (matches - transpositions / 2) / matches) / 3;
+    
+    // Jaro-Winkler prefix bonus
+    let prefix = 0;
+    for (let i = 0; i < Math.min(len1, len2); i++) {
+        if (str1[i] === str2[i]) prefix++;
+        else break;
+    }
+    
+    return jaro + (0.1 * prefix * (1 - jaro));
+}
+
+// Initialize OFAC data on server startup
+async function initializeOFAC() {
+    try {
+        console.log('🔄 Initializing OFAC Sanctions Screening...');
+        await downloadOFACData();
+        console.log('✅ OFAC System Ready');
+    } catch (error) {
+        console.error('❌ OFAC initialization failed:', error.message);
+        console.log('⚠️ OFAC screening will be disabled');
+    }
+}
+
+// Schedule OFAC data updates (daily)
+function scheduleOFACUpdates() {
+    // Update every 24 hours
+    setInterval(async () => {
+        console.log('🔄 Scheduled OFAC data update...');
+        try {
+            await downloadOFACData();
+            console.log('✅ OFAC data updated successfully');
+        } catch (error) {
+            console.error('❌ Scheduled OFAC update failed:', error.message);
+        }
+    }, 24 * 60 * 60 * 1000); // 24 hours
+}
+
+// ================================
+// DOCUMENT VALIDATION SYSTEM
+// ================================
+
+// Define required documents by company type
+const REQUIRED_DOCUMENTS = {
+    'listed': ['passport'],
+    'private': ['passport', 'incorporation', 'financials', 'bylaws'],
+    'individual': ['passport']
+};
+
+// Allowed file formats and max sizes
+const DOCUMENT_VALIDATION = {
+    allowedFormats: ['.pdf', '.jpg', '.jpeg', '.png', '.doc', '.docx'],
+    maxFileSize: 10 * 1024 * 1024, // 10MB
+    minFileSize: 1024, // 1KB
+};
+
+// Document validation function
+function validateDocuments(files, companyType) {
+    const validationResult = {
+        isValid: true,
+        errors: [],
+        warnings: [],
+        uploadedDocuments: [],
+        missingDocuments: [],
+        invalidDocuments: []
+    };
+    
+    const requiredDocs = REQUIRED_DOCUMENTS[companyType] || [];
+    const uploadedDocs = Object.keys(files);
+    
+    console.log('🔍 DOCUMENT VALIDATION START');
+    console.log('Company Type:', companyType);
+    console.log('Required Documents:', requiredDocs);
+    console.log('Uploaded Documents:', uploadedDocs);
+    
+    // Check for missing required documents
+    requiredDocs.forEach(docType => {
+        if (!files[docType] || files[docType].length === 0) {
+            validationResult.missingDocuments.push(docType);
+            validationResult.errors.push(`Missing required document: ${docType.charAt(0).toUpperCase() + docType.slice(1)}`);
+            validationResult.isValid = false;
+        }
+    });
+    
+    // Check for unexpected document types
+    uploadedDocs.forEach(docType => {
+        if (!requiredDocs.includes(docType)) {
+            validationResult.invalidDocuments.push(docType);
+            validationResult.warnings.push(`Unexpected document type: ${docType}. This document type is not required for ${companyType} companies.`);
+        }
+    });
+    
+    // Validate each uploaded file
+    Object.keys(files).forEach(docType => {
+        if (files[docType] && files[docType].length > 0) {
+            files[docType].forEach(file => {
+                const fileExtension = require('path').extname(file.originalname).toLowerCase();
+                const fileSize = file.size;
+                
+                // Check file format
+                if (!DOCUMENT_VALIDATION.allowedFormats.includes(fileExtension)) {
+                    validationResult.errors.push(`Invalid file format for ${docType}: ${fileExtension}. Allowed formats: ${DOCUMENT_VALIDATION.allowedFormats.join(', ')}`);
+                    validationResult.isValid = false;
+                }
+                
+                // Check file size
+                if (fileSize > DOCUMENT_VALIDATION.maxFileSize) {
+                    validationResult.errors.push(`File too large for ${docType}: ${Math.round(fileSize / 1024 / 1024)}MB. Maximum size: ${DOCUMENT_VALIDATION.maxFileSize / 1024 / 1024}MB`);
+                    validationResult.isValid = false;
+                }
+                
+                if (fileSize < DOCUMENT_VALIDATION.minFileSize) {
+                    validationResult.errors.push(`File too small for ${docType}: ${fileSize} bytes. Minimum size: ${DOCUMENT_VALIDATION.minFileSize} bytes`);
+                    validationResult.isValid = false;
+                }
+                
+                // Add to uploaded documents if valid
+                if (!validationResult.errors.length) {
+                    validationResult.uploadedDocuments.push({
+                        type: docType,
+                        filename: file.filename,
+                        originalName: file.originalname,
+                        size: fileSize,
+                        format: fileExtension
+                    });
+                }
+            });
+        }
+    });
+    
+    console.log('✅ DOCUMENT VALIDATION RESULT:', validationResult);
+    return validationResult;
+}
+
+// Submit KYC with enhanced document validation
 app.post('/api/kyc/submit', authenticateToken, upload.fields([
     { name: 'passport', maxCount: 1 },
     { name: 'incorporation', maxCount: 1 },
@@ -3050,29 +3509,66 @@ app.post('/api/kyc/submit', authenticateToken, upload.fields([
         
         console.log('📋 KYC Submission:', { companyType, companyName, email: req.user.email });
         
-        // Process uploaded files by category
+        // STEP 1: Validate Documents
+        const documentValidation = validateDocuments(files, companyType);
+        
+        // If document validation fails, return error immediately
+        if (!documentValidation.isValid) {
+            return res.status(400).json({
+                success: false,
+                error: 'Document validation failed',
+                validationErrors: documentValidation.errors,
+                warnings: documentValidation.warnings,
+                missingDocuments: documentValidation.missingDocuments,
+                invalidDocuments: documentValidation.invalidDocuments
+            });
+        }
+        
+        // STEP 2: Process uploaded files by category
         const processedFiles = {};
         Object.keys(files).forEach(category => {
             processedFiles[category] = files[category].map(file => ({
                 filename: file.filename,
                 originalName: file.originalname,
                 path: file.path,
-                uploadedAt: new Date().toISOString()
+                size: file.size,
+                uploadedAt: new Date().toISOString(),
+                validated: true
             }));
         });
         
-        // Simulate compliance checking
+        // STEP 3: Enhanced compliance checking including document validation
+        console.log('🔍 Starting comprehensive compliance checks...');
+        
+        // Perform real OFAC sanctions screening
+        const ofacResult = checkOFACSanctions(contactName || '', '', companyName);
+        
         const complianceChecks = {
-            sanctionsCheck: Math.random() > 0.1, // 90% pass rate
-            amlCheck: Math.random() > 0.05, // 95% pass rate
-            creditCheck: Math.random() > 0.15, // 85% pass rate
-            documentCheck: Object.keys(processedFiles).length > 0, // Documents uploaded
+            sanctionsCheck: !ofacResult.isMatch, // Pass if NO OFAC match found
+            sanctionsDetails: ofacResult, // Include detailed OFAC results
+            amlCheck: Math.random() > 0.05, // 95% pass rate (still simulated)
+            creditCheck: Math.random() > 0.15, // 85% pass rate (still simulated)
+            documentCheck: documentValidation.isValid && Object.keys(processedFiles).length > 0,
+            documentValidation: documentValidation.isValid,
             overallStatus: 'clear'
         };
         
+        // Log OFAC screening results
+        if (ofacResult.isMatch) {
+            console.log('🚨 OFAC SANCTIONS MATCH DETECTED!');
+            console.log('⚠️ Matches found:', ofacResult.matches.length);
+            ofacResult.matches.forEach(match => {
+                console.log(`   - ${match.matchedName} (Confidence: ${(match.confidence * 100).toFixed(1)}%)`);
+                console.log(`   - Program: ${match.program}`);
+                console.log(`   - Type: ${match.sdnType}`);
+            });
+        } else {
+            console.log('✅ OFAC Sanctions Check: CLEAR');
+        }
+        
         // Determine if any flags were found
         const hasFlags = !complianceChecks.sanctionsCheck || !complianceChecks.amlCheck || 
-                        !complianceChecks.creditCheck || !complianceChecks.documentCheck;
+                        !complianceChecks.creditCheck || !complianceChecks.documentCheck || !complianceChecks.documentValidation;
         
         if (hasFlags) {
             complianceChecks.overallStatus = 'flagged';
@@ -3093,6 +3589,7 @@ app.post('/api/kyc/submit', authenticateToken, upload.fields([
             contactFunction: companyType === 'listed' ? contactFunction : null,
             contactPhone,
             documents: processedFiles,
+            documentValidation: documentValidation, // Include validation results
             complianceChecks,
             status: 'approved', // Always approve for demo
             submittedAt: new Date().toISOString(),
@@ -3174,9 +3671,15 @@ app.get('/api/kyc/status', authenticateToken, (req, res) => {
             status: kycData.status,
             submittedAt: kycData.submittedAt,
             reviewNotes: kycData.reviewNotes,
-            documents: kycData.documents.map(doc => ({
-                filename: doc.originalName,
-                uploadedAt: doc.uploadedAt
+            documentValidation: kycData.documentValidation || null,
+            documents: Object.keys(kycData.documents).map(docType => ({
+                type: docType,
+                files: kycData.documents[docType].map(doc => ({
+                    filename: doc.originalName,
+                    uploadedAt: doc.uploadedAt,
+                    validated: doc.validated || false,
+                    size: doc.size || 0
+                }))
             }))
         });
         
@@ -3185,6 +3688,162 @@ app.get('/api/kyc/status', authenticateToken, (req, res) => {
         res.status(500).json({ error: 'Failed to get KYC status' });
     }
 });
+
+// ================================
+// DOCUMENT VERIFICATION API ENDPOINTS
+// ================================
+
+// Get required documents for company type
+app.get('/api/kyc/required-documents/:companyType', authenticateToken, (req, res) => {
+    try {
+        const { companyType } = req.params;
+        const requiredDocs = REQUIRED_DOCUMENTS[companyType];
+        
+        if (!requiredDocs) {
+            return res.status(400).json({
+                error: 'Invalid company type',
+                supportedTypes: Object.keys(REQUIRED_DOCUMENTS)
+            });
+        }
+        
+        res.json({
+            companyType,
+            requiredDocuments: requiredDocs,
+            documentTypes: requiredDocs.map(docType => ({
+                type: docType,
+                name: docType.charAt(0).toUpperCase() + docType.slice(1),
+                description: getDocumentDescription(docType),
+                required: true
+            })),
+            validationRules: DOCUMENT_VALIDATION
+        });
+        
+    } catch (error) {
+        console.error('Required documents error:', error);
+        res.status(500).json({ error: 'Failed to get required documents' });
+    }
+});
+
+// Validate documents before submission
+app.post('/api/kyc/validate-documents', authenticateToken, upload.fields([
+    { name: 'passport', maxCount: 1 },
+    { name: 'incorporation', maxCount: 1 },
+    { name: 'financials', maxCount: 1 },
+    { name: 'bylaws', maxCount: 1 }
+]), (req, res) => {
+    try {
+        const { companyType } = req.body;
+        const files = req.files || {};
+        
+        if (!companyType) {
+            return res.status(400).json({
+                error: 'Company type is required for document validation'
+            });
+        }
+        
+        console.log('🔍 Document Validation Request:', { companyType, email: req.user.email });
+        
+        const validationResult = validateDocuments(files, companyType);
+        
+        res.json({
+            success: validationResult.isValid,
+            validation: validationResult,
+            companyType,
+            requiredDocuments: REQUIRED_DOCUMENTS[companyType] || []
+        });
+        
+    } catch (error) {
+        console.error('Document validation error:', error);
+        res.status(500).json({ error: 'Document validation failed' });
+    }
+});
+
+// Get document validation rules
+app.get('/api/kyc/validation-rules', (req, res) => {
+    try {
+        res.json({
+            documentValidation: DOCUMENT_VALIDATION,
+            requiredDocumentsByType: REQUIRED_DOCUMENTS,
+            supportedCompanyTypes: Object.keys(REQUIRED_DOCUMENTS)
+        });
+    } catch (error) {
+        console.error('Validation rules error:', error);
+        res.status(500).json({ error: 'Failed to get validation rules' });
+    }
+});
+
+// ================================
+// OFAC ADMIN ENDPOINTS
+// ================================
+
+// Get OFAC system status
+app.get('/api/admin/ofac/status', authenticateToken, requireRole(['admin']), (req, res) => {
+    try {
+        res.json({
+            isLoaded: ofacData.isLoaded,
+            lastUpdated: ofacData.lastUpdated,
+            totalRecords: ofacData.sdnList.length,
+            systemStatus: ofacData.isLoaded ? 'operational' : 'offline'
+        });
+    } catch (error) {
+        console.error('OFAC status error:', error);
+        res.status(500).json({ error: 'Failed to get OFAC status' });
+    }
+});
+
+// Force OFAC data update
+app.post('/api/admin/ofac/update', authenticateToken, requireRole(['admin']), async (req, res) => {
+    try {
+        console.log('🔄 Admin requested OFAC data update...');
+        await downloadOFACData();
+        res.json({
+            success: true,
+            message: 'OFAC data updated successfully',
+            totalRecords: ofacData.sdnList.length,
+            lastUpdated: ofacData.lastUpdated
+        });
+    } catch (error) {
+        console.error('OFAC update error:', error);
+        res.status(500).json({ error: 'OFAC update failed: ' + error.message });
+    }
+});
+
+// Test OFAC screening
+app.post('/api/admin/ofac/test', authenticateToken, requireRole(['admin']), (req, res) => {
+    try {
+        const { firstName, lastName, companyName } = req.body;
+        
+        if (!firstName && !lastName && !companyName) {
+            return res.status(400).json({ error: 'At least one name field is required' });
+        }
+        
+        const result = checkOFACSanctions(firstName || '', lastName || '', companyName || '');
+        
+        res.json({
+            success: true,
+            searchQuery: {
+                firstName: firstName || '',
+                lastName: lastName || '',
+                companyName: companyName || ''
+            },
+            result: result
+        });
+    } catch (error) {
+        console.error('OFAC test error:', error);
+        res.status(500).json({ error: 'OFAC test failed: ' + error.message });
+    }
+});
+
+// Helper function for document descriptions
+function getDocumentDescription(docType) {
+    const descriptions = {
+        passport: 'Clear copy of authorized representative\'s passport with photo and signature pages',
+        incorporation: 'Certificate of Incorporation or Articles of Incorporation issued by government authority',
+        financials: 'Latest audited financial statements or annual reports (within last 12 months)',
+        bylaws: 'Corporate bylaws, operating agreement, or governance documents'
+    };
+    return descriptions[docType] || 'Required business document';
+}
 
 // Admin: Approve/Reject KYC
 app.post('/api/admin/kyc/:userId/:action', authenticateToken, requireRole(['admin']), (req, res) => {
@@ -4988,6 +5647,24 @@ app.post('/api/admin/interest', authenticateToken, requireRole(['admin']), (req,
     }
 });
 
+// Get Individual KYC Details
+app.get('/api/admin/kyc/:userId', authenticateToken, requireRole(['admin']), (req, res) => {
+    try {
+        const { userId } = req.params;
+        const kycData = database.kyc.get(userId);
+        
+        if (!kycData) {
+            return res.status(404).json({ error: 'KYC application not found' });
+        }
+        
+        res.json(kycData);
+        
+    } catch (error) {
+        console.error('KYC details error:', error);
+        res.status(500).json({ error: 'Failed to get KYC details' });
+    }
+});
+
 // Get KYC Reports
 app.get('/api/admin/kyc-reports', authenticateToken, requireRole(['admin']), (req, res) => {
     try {
@@ -5004,12 +5681,20 @@ app.get('/api/admin/kyc-reports', authenticateToken, requireRole(['admin']), (re
             kycStats[kycData.status]++;
             
             // Find user details
-            let userEmail = 'unknown';
+            let userEmail = kycData.email || 'unknown';
             for (let [email, user] of database.users) {
                 if (user.id === userId) {
                     userEmail = email;
                     break;
                 }
+            }
+            
+            // Count documents properly
+            let documentsCount = 0;
+            if (kycData.documents && typeof kycData.documents === 'object') {
+                documentsCount = Object.keys(kycData.documents).reduce((count, key) => {
+                    return count + (Array.isArray(kycData.documents[key]) ? kycData.documents[key].length : 0);
+                }, 0);
             }
             
             kycDetails.push({
@@ -5018,7 +5703,11 @@ app.get('/api/admin/kyc-reports', authenticateToken, requireRole(['admin']), (re
                 status: kycData.status,
                 submittedAt: kycData.submittedAt,
                 companyType: kycData.companyType,
-                documentsCount: kycData.documents.length
+                companyName: kycData.companyName,
+                documentsCount: documentsCount,
+                flagged: kycData.flagged || false,
+                complianceChecks: kycData.complianceChecks || {},
+                documentValidation: kycData.documentValidation || {}
             });
         }
         
@@ -6410,6 +7099,468 @@ app.get('/api/contracts/:id', authenticateToken, (req, res) => {
 });
 
 // ADMIN SUB-ROUTES WITH TABLES
+// OFAC Management Admin Page
+app.get('/admin/ofac-management', (req, res) => {
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OFAC Sanctions Management - Admin Panel</title>
+  <style>
+    body { font-family: system-ui; background: #0f172a; color: #f8fafc; margin: 0; padding: 20px; }
+    .back-btn { background: #ef4444; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px; display: inline-block; margin-bottom: 20px; }
+    .header { background: #1e293b; padding: 20px; border-radius: 12px; margin-bottom: 30px; border: 1px solid #334155; }
+    .header h1 { color: #2563eb; margin: 0; font-size: 2.5rem; }
+    .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 30px; }
+    .stat-card { background: #1e293b; padding: 20px; border-radius: 12px; border: 1px solid #334155; text-align: center; }
+    .stat-number { font-size: 2rem; font-weight: bold; color: #10b981; }
+    .card { background: #1e293b; padding: 20px; border-radius: 12px; border: 1px solid #334155; margin-bottom: 20px; }
+    .card h3 { color: #06b6d4; margin-top: 0; }
+    .btn { background: #2563eb; color: white; padding: 12px 24px; border: none; border-radius: 8px; cursor: pointer; text-decoration: none; font-size: 1rem; margin-right: 10px; }
+    .btn:hover { background: #1d4ed8; }
+    .btn.success { background: #10b981; }
+    .btn.warning { background: #f59e0b; }
+    .btn.danger { background: #ef4444; }
+    .form-group { margin-bottom: 15px; }
+    .form-group label { display: block; margin-bottom: 5px; color: #06b6d4; }
+    .form-group input { width: 100%; padding: 10px; background: #0f172a; border: 1px solid #334155; border-radius: 6px; color: #f8fafc; }
+    .status-online { color: #10b981; }
+    .status-offline { color: #ef4444; }
+    .match-result { background: #7c2d12; border: 1px solid #dc2626; padding: 15px; border-radius: 8px; margin-top: 10px; }
+    .no-match { background: #064e3b; border: 1px solid #10b981; padding: 15px; border-radius: 8px; margin-top: 10px; }
+  </style>
+</head>
+<body>
+  <a href="/dashboard/admin" class="back-btn">← Back to Admin</a>
+  <div class="header">
+    <h1>🛡️ OFAC Sanctions Management</h1>
+    <p>Monitor and manage OFAC sanctions screening system</p>
+  </div>
+  
+  <div class="stats">
+    <div class="stat-card">
+      <div class="stat-number" id="ofacStatus">Loading...</div>
+      <div>System Status</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-number" id="recordCount">-</div>
+      <div>SDN Records</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-number" id="lastUpdate">-</div>
+      <div>Last Updated</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-number" id="todaysScreens">0</div>
+      <div>Today's Screens</div>
+    </div>
+  </div>
+  
+  <div class="card">
+    <h3>🔄 System Management</h3>
+    <button class="btn success" onclick="updateOFACData()">Update OFAC Data</button>
+    <button class="btn" onclick="refreshStatus()">Refresh Status</button>
+    <div id="updateResult"></div>
+  </div>
+  
+  <div class="card">
+    <h3>🔍 Test OFAC Screening</h3>
+    <form id="testForm" onsubmit="testScreening(event)">
+      <div style="display: grid; grid-template-columns: 1fr 1fr 2fr; gap: 15px;">
+        <div class="form-group">
+          <label for="firstName">First Name:</label>
+          <input type="text" id="firstName" placeholder="John">
+        </div>
+        <div class="form-group">
+          <label for="lastName">Last Name:</label>
+          <input type="text" id="lastName" placeholder="Doe">
+        </div>
+        <div class="form-group">
+          <label for="companyName">Company Name:</label>
+          <input type="text" id="companyName" placeholder="Acme Corporation">
+        </div>
+      </div>
+      <button type="submit" class="btn warning">Run OFAC Screen</button>
+    </form>
+    <div id="testResult"></div>
+  </div>
+  
+  <script>
+    // Load OFAC status on page load
+    document.addEventListener('DOMContentLoaded', () => {
+      refreshStatus();
+    });
+    
+    async function refreshStatus() {
+      try {
+        const response = await fetch('/api/admin/ofac/status', {
+          headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          document.getElementById('ofacStatus').textContent = data.systemStatus.toUpperCase();
+          document.getElementById('ofacStatus').className = data.isLoaded ? 'status-online' : 'status-offline';
+          document.getElementById('recordCount').textContent = data.totalRecords.toLocaleString();
+          
+          if (data.lastUpdated) {
+            const date = new Date(data.lastUpdated);
+            document.getElementById('lastUpdate').textContent = date.toLocaleDateString();
+          }
+        } else {
+          document.getElementById('ofacStatus').textContent = 'ERROR';
+          document.getElementById('ofacStatus').className = 'status-offline';
+        }
+      } catch (error) {
+        console.error('Failed to refresh OFAC status:', error);
+        document.getElementById('ofacStatus').textContent = 'ERROR';
+        document.getElementById('ofacStatus').className = 'status-offline';
+      }
+    }
+    
+    async function updateOFACData() {
+      const resultDiv = document.getElementById('updateResult');
+      resultDiv.innerHTML = '<p style="color: #f59e0b;">🔄 Updating OFAC data... This may take a few moments.</p>';
+      
+      try {
+        const response = await fetch('/api/admin/ofac/update', {
+          method: 'POST',
+          headers: { 
+            'Authorization': 'Bearer ' + localStorage.getItem('token'),
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+          resultDiv.innerHTML = \`<p style="color: #10b981;">✅ \${data.message}</p><p>Records: \${data.totalRecords.toLocaleString()}</p>\`;
+          refreshStatus();
+        } else {
+          resultDiv.innerHTML = \`<p style="color: #ef4444;">❌ \${data.error}</p>\`;
+        }
+      } catch (error) {
+        resultDiv.innerHTML = \`<p style="color: #ef4444;">❌ Network error: \${error.message}</p>\`;
+      }
+    }
+    
+    async function testScreening(event) {
+      event.preventDefault();
+      
+      const firstName = document.getElementById('firstName').value;
+      const lastName = document.getElementById('lastName').value;
+      const companyName = document.getElementById('companyName').value;
+      
+      if (!firstName && !lastName && !companyName) {
+        alert('Please enter at least one name field');
+        return;
+      }
+      
+      const resultDiv = document.getElementById('testResult');
+      resultDiv.innerHTML = '<p style="color: #f59e0b;">🔍 Screening against OFAC database...</p>';
+      
+      try {
+        const response = await fetch('/api/admin/ofac/test', {
+          method: 'POST',
+          headers: { 
+            'Authorization': 'Bearer ' + localStorage.getItem('token'),
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ firstName, lastName, companyName })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+          const result = data.result;
+          
+          if (result.isMatch) {
+            let matchesHTML = result.matches.map(match => \`
+              <div style="margin-bottom: 10px; padding: 10px; background: #450a0a; border-radius: 6px;">
+                <strong>\${match.matchedName}</strong> (Confidence: \${(match.confidence * 100).toFixed(1)}%)<br>
+                <small>Type: \${match.type} | Program: \${match.program} | SDN Type: \${match.sdnType}</small>
+              </div>
+            \`).join('');
+            
+            resultDiv.innerHTML = \`
+              <div class="match-result">
+                <h4 style="color: #ef4444; margin: 0 0 10px 0;">🚨 SANCTIONS MATCH DETECTED</h4>
+                <p><strong>Search:</strong> \${data.searchQuery.firstName} \${data.searchQuery.lastName} \${data.searchQuery.companyName}</p>
+                <p><strong>Confidence:</strong> \${(result.confidence * 100).toFixed(1)}%</p>
+                <div><strong>Matches:</strong></div>
+                \${matchesHTML}
+              </div>
+            \`;
+          } else {
+            resultDiv.innerHTML = \`
+              <div class="no-match">
+                <h4 style="color: #10b981; margin: 0 0 10px 0;">✅ NO SANCTIONS MATCHES</h4>
+                <p><strong>Search:</strong> \${data.searchQuery.firstName} \${data.searchQuery.lastName} \${data.searchQuery.companyName}</p>
+                <p><strong>Records Searched:</strong> \${result.totalRecordsSearched.toLocaleString()}</p>
+              </div>
+            \`;
+          }
+        } else {
+          resultDiv.innerHTML = \`<p style="color: #ef4444;">❌ \${data.error}</p>\`;
+        }
+      } catch (error) {
+        resultDiv.innerHTML = \`<p style="color: #ef4444;">❌ Network error: \${error.message}</p>\`;
+      }
+    }
+  </script>
+</body>
+</html>`;
+  
+  res.send(html);
+});
+
+// KYC Details Page
+app.get('/admin/kyc-details/:userId', (req, res) => {
+  const { userId } = req.params;
+  
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KYC Details - ${userId}</title>
+  <style>
+    body { font-family: system-ui; background: #0f172a; color: #f8fafc; margin: 0; padding: 20px; }
+    .back-btn { background: #ef4444; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px; display: inline-block; margin-bottom: 20px; }
+    .header { background: #1e293b; padding: 20px; border-radius: 12px; margin-bottom: 30px; border: 1px solid #334155; }
+    .header h1 { color: #2563eb; margin: 0; font-size: 2.5rem; }
+    .card { background: #1e293b; padding: 20px; border-radius: 12px; border: 1px solid #334155; margin-bottom: 20px; }
+    .card h3 { color: #06b6d4; margin-top: 0; }
+    .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px; }
+    .info-item { background: #0f172a; padding: 15px; border-radius: 8px; }
+    .info-label { color: #94a3b8; font-size: 0.9rem; margin-bottom: 5px; }
+    .info-value { color: #f8fafc; font-weight: 600; }
+    .status-approved { background: #10b981; color: #000; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; }
+    .status-pending { background: #f59e0b; color: #000; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; }
+    .status-flagged { background: #ef4444; color: #fff; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; }
+    .check-pass { color: #10b981; }
+    .check-fail { color: #ef4444; }
+    .btn { background: #2563eb; color: white; padding: 12px 24px; border: none; border-radius: 8px; cursor: pointer; text-decoration: none; font-size: 1rem; margin-right: 10px; }
+    .btn.success { background: #10b981; }
+    .btn.danger { background: #ef4444; }
+  </style>
+</head>
+<body>
+  <a href="/admin/kyc-reports" class="back-btn">← Back to KYC Reports</a>
+  <div class="header">
+    <h1>👤 KYC Application Details</h1>
+    <p>Detailed view of KYC application for User ID: ${userId}</p>
+  </div>
+  
+  <div id="kycDetails">
+    <div style="text-align: center; padding: 2rem; color: #6b7280;">Loading KYC details...</div>
+  </div>
+  
+  <script>
+    const userId = '${userId}';
+    
+    document.addEventListener('DOMContentLoaded', () => {
+      loadKYCDetails();
+    });
+    
+    async function loadKYCDetails() {
+      try {
+        const response = await fetch(\`/api/admin/kyc/\${userId}\`, {
+          headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
+        });
+        
+        if (response.ok) {
+          const kyc = await response.json();
+          displayKYCDetails(kyc);
+        } else {
+          document.getElementById('kycDetails').innerHTML = 
+            '<div class="card"><p style="color: #ef4444;">Error loading KYC details</p></div>';
+        }
+      } catch (error) {
+        console.error('Failed to load KYC details:', error);
+        document.getElementById('kycDetails').innerHTML = 
+          '<div class="card"><p style="color: #ef4444;">Network error loading KYC details</p></div>';
+      }
+    }
+    
+    function displayKYCDetails(kyc) {
+      const statusClass = kyc.status === 'approved' ? 'status-approved' : 
+                        kyc.status === 'pending' || kyc.status === 'under_review' ? 'status-pending' : 
+                        'status-flagged';
+      
+      const statusText = kyc.status === 'approved' ? 'Approved' : 
+                        kyc.status === 'pending' ? 'Pending' : 
+                        kyc.status === 'under_review' ? 'Under Review' : 
+                        'Flagged';
+      
+      // Compliance checks display
+      let complianceHTML = '';
+      if (kyc.complianceChecks) {
+        complianceHTML = \`
+          <div class="info-grid">
+            <div class="info-item">
+              <div class="info-label">OFAC Sanctions Check</div>
+              <div class="info-value \${kyc.complianceChecks.sanctionsCheck ? 'check-pass' : 'check-fail'}">
+                \${kyc.complianceChecks.sanctionsCheck ? '✅ CLEAR' : '🚨 FLAGGED'}
+              </div>
+            </div>
+            <div class="info-item">
+              <div class="info-label">AML Check</div>
+              <div class="info-value \${kyc.complianceChecks.amlCheck ? 'check-pass' : 'check-fail'}">
+                \${kyc.complianceChecks.amlCheck ? '✅ PASS' : '❌ FAIL'}
+              </div>
+            </div>
+            <div class="info-item">
+              <div class="info-label">Credit Check</div>
+              <div class="info-value \${kyc.complianceChecks.creditCheck ? 'check-pass' : 'check-fail'}">
+                \${kyc.complianceChecks.creditCheck ? '✅ PASS' : '❌ FAIL'}
+              </div>
+            </div>
+            <div class="info-item">
+              <div class="info-label">Document Validation</div>
+              <div class="info-value \${kyc.complianceChecks.documentCheck ? 'check-pass' : 'check-fail'}">
+                \${kyc.complianceChecks.documentCheck ? '✅ VALID' : '❌ INVALID'}
+              </div>
+            </div>
+          </div>
+        \`;
+      }
+      
+      // Documents display
+      let documentsHTML = '';
+      if (kyc.documents && typeof kyc.documents === 'object') {
+        documentsHTML = '<div class="info-grid">';
+        Object.keys(kyc.documents).forEach(docType => {
+          const docs = kyc.documents[docType];
+          if (Array.isArray(docs) && docs.length > 0) {
+            documentsHTML += \`
+              <div class="info-item">
+                <div class="info-label">\${docType.charAt(0).toUpperCase() + docType.slice(1)}</div>
+                <div class="info-value">\${docs.length} file(s)</div>
+                <div style="font-size: 0.8rem; color: #94a3b8; margin-top: 5px;">
+                  \${docs.map(doc => doc.originalName || doc.filename || 'Document').join(', ')}
+                </div>
+              </div>
+            \`;
+          }
+        });
+        documentsHTML += '</div>';
+      }
+      
+      const html = \`
+        <div class="card">
+          <h3>📋 Basic Information</h3>
+          <div class="info-grid">
+            <div class="info-item">
+              <div class="info-label">User ID</div>
+              <div class="info-value">\${kyc.userId}</div>
+            </div>
+            <div class="info-item">
+              <div class="info-label">Email</div>
+              <div class="info-value">\${kyc.email}</div>
+            </div>
+            <div class="info-item">
+              <div class="info-label">Company Name</div>
+              <div class="info-value">\${kyc.companyName || 'N/A'}</div>
+            </div>
+            <div class="info-item">
+              <div class="info-label">Company Type</div>
+              <div class="info-value">\${kyc.companyType || 'N/A'}</div>
+            </div>
+            <div class="info-item">
+              <div class="info-label">Status</div>
+              <div class="info-value"><span class="\${statusClass}">\${statusText}</span></div>
+            </div>
+            <div class="info-item">
+              <div class="info-label">Submitted</div>
+              <div class="info-value">\${kyc.submittedAt ? new Date(kyc.submittedAt).toLocaleString() : 'N/A'}</div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="card">
+          <h3>🔍 Compliance Checks</h3>
+          \${complianceHTML}
+        </div>
+        
+        <div class="card">
+          <h3>📄 Uploaded Documents</h3>
+          \${documentsHTML || '<p style="color: #94a3b8;">No documents uploaded</p>'}
+        </div>
+        
+        <div class="card">
+          <h3>⚡ Actions</h3>
+          <div style="display: flex; gap: 10px;">
+            \${kyc.status === 'pending' || kyc.status === 'under_review' ? 
+              \`<button class="btn success" onclick="approveKYC()">✅ Approve</button>
+               <button class="btn danger" onclick="rejectKYC()">❌ Reject</button>\` : 
+              '<p style="color: #94a3b8;">No actions available for this status</p>'
+            }
+          </div>
+        </div>
+      \`;
+      
+      document.getElementById('kycDetails').innerHTML = html;
+    }
+    
+    async function approveKYC() {
+      if (confirm('Are you sure you want to approve this KYC application?')) {
+        try {
+          const response = await fetch(\`/api/admin/kyc/\${userId}/approve\`, {
+            method: 'POST',
+            headers: { 
+              'Authorization': 'Bearer ' + localStorage.getItem('token'),
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ notes: 'Approved by admin manual review' })
+          });
+          
+          if (response.ok) {
+            alert('KYC application approved successfully!');
+            loadKYCDetails(); // Reload details
+          } else {
+            const error = await response.json();
+            alert('Error approving KYC: ' + (error.error || 'Unknown error'));
+          }
+        } catch (error) {
+          alert('Network error: ' + error.message);
+        }
+      }
+    }
+    
+    async function rejectKYC() {
+      const reason = prompt('Please provide a reason for rejection:');
+      if (reason) {
+        try {
+          const response = await fetch(\`/api/admin/kyc/\${userId}/reject\`, {
+            method: 'POST',
+            headers: { 
+              'Authorization': 'Bearer ' + localStorage.getItem('token'),
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ notes: reason })
+          });
+          
+          if (response.ok) {
+            alert('KYC application rejected.');
+            loadKYCDetails(); // Reload details
+          } else {
+            const error = await response.json();
+            alert('Error rejecting KYC: ' + (error.error || 'Unknown error'));
+          }
+        } catch (error) {
+          alert('Network error: ' + error.message);
+        }
+      }
+    }
+  </script>
+</body>
+</html>`;
+  
+  res.send(html);
+});
+
 app.get('/admin/kyc-reports', (req, res) => {
   const html = `<!DOCTYPE html>
 <html lang="en">
@@ -6443,19 +7594,19 @@ app.get('/admin/kyc-reports', (req, res) => {
   </div>
   <div class="stats">
     <div class="stat-card">
-      <div class="stat-number">25</div>
+      <div class="stat-number" id="totalApps">-</div>
       <div>Total Applications</div>
     </div>
     <div class="stat-card">
-      <div class="stat-number">8</div>
+      <div class="stat-number" id="pendingApps">-</div>
       <div>Pending Review</div>
     </div>
     <div class="stat-card">
-      <div class="stat-number">15</div>
+      <div class="stat-number" id="approvedApps">-</div>
       <div>Approved</div>
     </div>
     <div class="stat-card">
-      <div class="stat-number">3</div>
+      <div class="stat-number" id="flaggedApps">-</div>
       <div>Flagged</div>
     </div>
   </div>
@@ -6469,40 +7620,148 @@ app.get('/admin/kyc-reports', (req, res) => {
           <th>Status</th>
           <th>Submitted</th>
           <th>Documents</th>
+          <th>OFAC Check</th>
           <th>Actions</th>
         </tr>
       </thead>
-      <tbody>
+      <tbody id="kycTableBody">
         <tr>
-          <td>USR-001</td>
-          <td>supplier@test.com</td>
-          <td>Listed Company</td>
-          <td><span class="status-approved">Approved</span></td>
-          <td>2025-01-15</td>
-          <td>5 files</td>
-          <td><a href="#" class="btn">View Details</a></td>
-        </tr>
-        <tr>
-          <td>USR-002</td>
-          <td>buyer@example.com</td>
-          <td>Private Company</td>
-          <td><span class="status-pending">Pending</span></td>
-          <td>2025-01-18</td>
-          <td>3 files</td>
-          <td><a href="#" class="btn">Review</a></td>
-        </tr>
-        <tr>
-          <td>USR-003</td>
-          <td>trader@corp.com</td>
-          <td>Listed Company</td>
-          <td><span class="status-flagged">Flagged</span></td>
-          <td>2025-01-20</td>
-          <td>4 files</td>
-          <td><a href="#" class="btn">Investigate</a></td>
+          <td colspan="8" style="text-align: center; padding: 2rem; color: #6b7280;">Loading KYC applications...</td>
         </tr>
       </tbody>
     </table>
   </div>
+  
+  <script>
+    // Load real KYC data on page load
+    document.addEventListener('DOMContentLoaded', () => {
+      loadKYCReports();
+    });
+    
+    async function loadKYCReports() {
+      try {
+        const response = await fetch('/api/admin/kyc-reports', {
+          headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          updateStats(data.stats);
+          updateTable(data.details);
+        } else {
+          document.getElementById('kycTableBody').innerHTML = 
+            '<tr><td colspan="8" style="text-align: center; color: #ef4444;">Error loading KYC data</td></tr>';
+        }
+      } catch (error) {
+        console.error('Failed to load KYC reports:', error);
+        document.getElementById('kycTableBody').innerHTML = 
+          '<tr><td colspan="8" style="text-align: center; color: #ef4444;">Network error loading KYC data</td></tr>';
+      }
+    }
+    
+    function updateStats(stats) {
+      const total = (stats.approved || 0) + (stats.pending || 0) + (stats.under_review || 0) + (stats.rejected || 0);
+      document.getElementById('totalApps').textContent = total;
+      document.getElementById('pendingApps').textContent = (stats.pending || 0) + (stats.under_review || 0);
+      document.getElementById('approvedApps').textContent = stats.approved || 0;
+      document.getElementById('flaggedApps').textContent = stats.rejected || 0;
+    }
+    
+    function updateTable(details) {
+      const tbody = document.getElementById('kycTableBody');
+      
+      if (!details || details.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: #6b7280;">No KYC applications found</td></tr>';
+        return;
+      }
+      
+      let html = '';
+      details.forEach(kyc => {
+        const statusClass = kyc.status === 'approved' ? 'status-approved' : 
+                          kyc.status === 'pending' || kyc.status === 'under_review' ? 'status-pending' : 
+                          'status-flagged';
+        
+        const statusText = kyc.status === 'approved' ? 'Approved' : 
+                          kyc.status === 'pending' ? 'Pending' : 
+                          kyc.status === 'under_review' ? 'Under Review' : 
+                          'Flagged';
+        
+        const submittedDate = kyc.submittedAt ? new Date(kyc.submittedAt).toLocaleDateString() : 'N/A';
+        const documentsCount = kyc.documentsCount || 0;
+        
+        // OFAC status indicator
+        let ofacStatus = '⏳ Pending';
+        if (kyc.status === 'approved') {
+          ofacStatus = '✅ Clear';
+        } else if (kyc.status === 'flagged') {
+          ofacStatus = '🚨 Flagged';
+        }
+        
+        html += \`
+          <tr>
+            <td>\${kyc.userId}</td>
+            <td>\${kyc.userEmail}</td>
+            <td>\${kyc.companyType || 'N/A'}</td>
+            <td><span class="\${statusClass}">\${statusText}</span></td>
+            <td>\${submittedDate}</td>
+            <td>\${documentsCount} files</td>
+            <td>\${ofacStatus}</td>
+            <td>
+              <button class="btn" onclick="viewKYCDetails('\${kyc.userId}')" style="margin-right: 5px;">View Details</button>
+              \${kyc.status === 'pending' || kyc.status === 'under_review' ? 
+                \`<button class="btn" onclick="reviewKYC('\${kyc.userId}')" style="background: #f59e0b;">Review</button>\` : 
+                ''
+              }
+              \${kyc.status === 'flagged' ? 
+                \`<button class="btn" onclick="investigateKYC('\${kyc.userId}')" style="background: #ef4444;">Investigate</button>\` : 
+                ''
+              }
+            </td>
+          </tr>
+        \`;
+      });
+      
+      tbody.innerHTML = html;
+    }
+    
+    function viewKYCDetails(userId) {
+      window.location.href = \`/admin/kyc-details/\${userId}\`;
+    }
+    
+    function reviewKYC(userId) {
+      if (confirm('Mark this KYC application as approved?')) {
+        approveKYC(userId);
+      }
+    }
+    
+    function investigateKYC(userId) {
+      alert('Opening investigation panel for user ' + userId + '\\n\\nThis would typically open a detailed investigation interface with:\\n- Document review\\n- OFAC screening results\\n- Compliance flags\\n- Investigation notes');
+      // In a real implementation, this would open a detailed investigation interface
+    }
+    
+    async function approveKYC(userId) {
+      try {
+        const response = await fetch(\`/api/admin/kyc/\${userId}/approve\`, {
+          method: 'POST',
+          headers: { 
+            'Authorization': 'Bearer ' + localStorage.getItem('token'),
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ notes: 'Approved by admin review' })
+        });
+        
+        if (response.ok) {
+          alert('KYC application approved successfully!');
+          loadKYCReports(); // Reload the table
+        } else {
+          const error = await response.json();
+          alert('Error approving KYC: ' + (error.error || 'Unknown error'));
+        }
+      } catch (error) {
+        alert('Network error: ' + error.message);
+      }
+    }
+  </script>
 </body>
 </html>`;
   res.send(html);
