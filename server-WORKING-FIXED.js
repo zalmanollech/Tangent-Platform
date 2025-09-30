@@ -19,6 +19,28 @@ initializeOFAC().then(() => {
     console.error('OFAC initialization failed, continuing without OFAC screening');
 });
 
+// Initialize blockchain service
+const blockchainService = require('./lib/blockchain.js');
+let blockchain = null;
+
+// Initialize blockchain if enabled
+if (process.env.BLOCKCHAIN_ENABLED === 'true') {
+    console.log('🔗 Initializing blockchain integration...');
+    blockchainService.initialize().then((service) => {
+        blockchain = service;
+        if (service.isInitialized) {
+            console.log('✅ Blockchain service initialized successfully');
+        } else {
+            console.log('⚠️ Blockchain service failed to initialize, using simulation mode');
+        }
+    }).catch(error => {
+        console.error('❌ Blockchain initialization error:', error.message);
+        console.log('⚠️ Continuing with simulated blockchain operations');
+    });
+} else {
+    console.log('📝 Blockchain disabled in configuration, using simulation mode');
+}
+
 // ================================
 // MIDDLEWARE & SECURITY
 // ================================
@@ -1334,6 +1356,7 @@ app.get('/dashboard/authenticated', (req, res) => {
                 <a href="/admin/auction" class="btn secondary">Auction Board</a>
                 <a href="/admin/kyc-reports" class="btn secondary">KYC Reports</a>
                 <a href="/admin/ofac-management" class="btn secondary">🛡️ OFAC Screening</a>
+                <a href="/admin/blockchain" class="btn secondary">🔗 Blockchain</a>
                 <button class="btn secondary">Manage Fees</button>
                 <button class="btn secondary">Voyage Times</button>
             </div>
@@ -4093,6 +4116,98 @@ app.post('/api/tgt/transfer', authenticateToken, (req, res) => {
     } catch (error) {
         console.error('Transfer error:', error);
         res.status(500).json({ error: 'Transfer failed' });
+    }
+});
+
+// ================================
+// BLOCKCHAIN INTEGRATION ROUTES
+// ================================
+
+// Get blockchain status
+app.get('/api/blockchain/status', (req, res) => {
+    res.json({
+        enabled: process.env.BLOCKCHAIN_ENABLED === 'true',
+        network: process.env.BLOCKCHAIN_NETWORK || 'simulation',
+        initialized: blockchain ? blockchain.isInitialized : false,
+        tgtAddress: process.env.TGT_ADDRESS || null,
+        escrowAddress: process.env.ESCROW_ADDRESS || null,
+        rpcUrl: process.env.SEPOLIA_RPC_URL || null
+    });
+});
+
+// Deploy contracts (admin only)
+app.post('/api/blockchain/deploy', authenticateToken, async (req, res) => {
+    try {
+        const user = database.users.get(req.user.userId);
+        if (user.role !== 'admin') {
+            return res.status(403).json({ error: 'Admin access required' });
+        }
+
+        console.log('🚀 Starting contract deployment...');
+        
+        // Import deployment script
+        const { deployContracts, updateConfigWithAddresses } = require('./scripts/deploy-contracts.js');
+        
+        // Execute deployment
+        const deploymentResult = await deployContracts();
+        
+        // Update config file with new addresses
+        if (deploymentResult.tgtAddress && deploymentResult.escrowAddress) {
+            updateConfigWithAddresses(deploymentResult.tgtAddress, deploymentResult.escrowAddress);
+            
+            // Update environment variables in runtime
+            process.env.TGT_ADDRESS = deploymentResult.tgtAddress;
+            process.env.ESCROW_ADDRESS = deploymentResult.escrowAddress;
+        }
+
+        res.json({
+            message: 'Contracts deployed successfully to Sepolia testnet',
+            contracts: {
+                tgtAddress: deploymentResult.tgtAddress,
+                escrowAddress: deploymentResult.escrowAddress,
+                network: 'sepolia',
+                explorerUrls: {
+                    tgt: `https://sepolia.etherscan.io/address/${deploymentResult.tgtAddress}`,
+                    escrow: `https://sepolia.etherscan.io/address/${deploymentResult.escrowAddress}`
+                }
+            },
+            success: true
+        });
+
+    } catch (error) {
+        console.error('❌ Contract deployment error:', error);
+        res.status(500).json({ 
+            error: 'Deployment failed', 
+            details: error.message,
+            success: false
+        });
+    }
+});
+
+// Get real TGT balance from blockchain
+app.get('/api/blockchain/balance/:address', async (req, res) => {
+    try {
+        if (!blockchain || !blockchain.isInitialized) {
+            return res.status(400).json({ 
+                error: 'Blockchain service not initialized' 
+            });
+        }
+
+        const { address } = req.params;
+        
+        // This would call the actual blockchain to get balance
+        // For now, we'll simulate
+        const balance = "100000"; // 100,000 TGT
+        
+        res.json({
+            address: address,
+            balance: balance,
+            network: process.env.BLOCKCHAIN_NETWORK
+        });
+
+    } catch (error) {
+        console.error('Balance query error:', error);
+        res.status(500).json({ error: 'Balance query failed' });
     }
 });
 
@@ -8505,6 +8620,187 @@ app.get('/admin/auction', (req, res) => {
 // 404 Handler
 app.use('*', (req, res) => {
     res.status(404).json({ error: 'Route not found' });
+});
+
+// Admin Blockchain Management Page
+app.get('/admin/blockchain', authenticateToken, (req, res) => {
+    // Check if user is admin
+    const user = database.users.get(req.user.userId);
+    if (!user || user.role !== 'admin') {
+        return res.status(403).send('Admin access required');
+    }
+
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Blockchain Management - Admin Panel</title>
+  <style>
+    body { font-family: system-ui; background: #0f172a; color: #f8fafc; margin: 0; padding: 20px; }
+    .back-btn { background: #ef4444; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px; display: inline-block; margin-bottom: 20px; }
+    .header { background: #1e293b; padding: 20px; border-radius: 12px; margin-bottom: 30px; border: 1px solid #334155; }
+    .header h1 { color: #2563eb; margin: 0; font-size: 2.5rem; }
+    .status-card { background: #1e293b; padding: 20px; border-radius: 12px; margin-bottom: 20px; border: 1px solid #334155; }
+    .status-item { display: flex; justify-content: space-between; margin-bottom: 10px; }
+    .status-label { font-weight: 600; color: #64748b; }
+    .status-value { color: #06b6d4; font-family: monospace; }
+    .btn { background: #2563eb; color: white; padding: 12px 24px; border: none; border-radius: 6px; cursor: pointer; font-size: 16px; margin: 5px; }
+    .btn:hover { background: #1d4ed8; }
+    .btn.success { background: #059669; }
+    .btn.warning { background: #d97706; }
+    .btn.danger { background: #dc2626; }
+    .deployment-section { background: #0f172a; padding: 20px; border-radius: 12px; margin-bottom: 20px; border: 1px solid #374151; }
+    .log-output { background: #000; color: #00ff00; padding: 15px; border-radius: 6px; font-family: monospace; height: 200px; overflow-y: auto; margin-top: 15px; }
+    .loading { display: none; color: #06b6d4; }
+  </style>
+</head>
+<body>
+  <a href="/dashboard/admin" class="back-btn">← Back to Admin</a>
+  
+  <div class="header">
+    <h1>🔗 Blockchain Management</h1>
+    <p>Manage smart contracts and blockchain integration</p>
+  </div>
+
+  <div class="status-card">
+    <h3>📊 Blockchain Status</h3>
+    <div id="blockchain-status">
+      <div class="loading">Loading blockchain status...</div>
+    </div>
+  </div>
+
+  <div class="deployment-section">
+    <h3>🚀 Smart Contract Deployment</h3>
+    <p>Deploy TGT token and TangentEscrow contracts to Sepolia testnet</p>
+    
+    <button id="deploy-btn" class="btn" onclick="deployContracts()">Deploy Contracts</button>
+    <button id="refresh-btn" class="btn success" onclick="refreshStatus()">Refresh Status</button>
+    
+    <div id="deployment-log" class="log-output" style="display: none;"></div>
+  </div>
+
+  <script>
+    let deploymentInProgress = false;
+
+    // Load blockchain status on page load
+    window.onload = function() {
+      refreshStatus();
+    };
+
+    async function refreshStatus() {
+      try {
+        const response = await fetch('/api/blockchain/status');
+        const status = await response.json();
+        
+        document.getElementById('blockchain-status').innerHTML = \`
+          <div class="status-item">
+            <span class="status-label">Enabled:</span>
+            <span class="status-value">\${status.enabled ? '✅ Yes' : '❌ No'}</span>
+          </div>
+          <div class="status-item">
+            <span class="status-label">Network:</span>
+            <span class="status-value">\${status.network}</span>
+          </div>
+          <div class="status-item">
+            <span class="status-label">Initialized:</span>
+            <span class="status-value">\${status.initialized ? '✅ Yes' : '❌ No'}</span>
+          </div>
+          <div class="status-item">
+            <span class="status-label">TGT Address:</span>
+            <span class="status-value">\${status.tgtAddress || 'Not deployed'}</span>
+          </div>
+          <div class="status-item">
+            <span class="status-label">Escrow Address:</span>
+            <span class="status-value">\${status.escrowAddress || 'Not deployed'}</span>
+          </div>
+          <div class="status-item">
+            <span class="status-label">RPC URL:</span>
+            <span class="status-value">\${status.rpcUrl || 'Not configured'}</span>
+          </div>
+        \`;
+        
+        // Update deploy button based on status
+        const deployBtn = document.getElementById('deploy-btn');
+        if (status.tgtAddress && status.escrowAddress) {
+          deployBtn.textContent = 'Contracts Already Deployed';
+          deployBtn.disabled = true;
+          deployBtn.className = 'btn success';
+        }
+        
+      } catch (error) {
+        console.error('Failed to load blockchain status:', error);
+        document.getElementById('blockchain-status').innerHTML = '<div style="color: #ef4444;">❌ Failed to load status</div>';
+      }
+    }
+
+    async function deployContracts() {
+      if (deploymentInProgress) return;
+      
+      deploymentInProgress = true;
+      const deployBtn = document.getElementById('deploy-btn');
+      const logOutput = document.getElementById('deployment-log');
+      
+      // Update UI
+      deployBtn.textContent = 'Deploying...';
+      deployBtn.disabled = true;
+      logOutput.style.display = 'block';
+      logOutput.innerHTML = '🚀 Starting deployment to Sepolia testnet...\\n';
+      
+      try {
+        const response = await fetch('/api/blockchain/deploy', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + localStorage.getItem('token')
+          }
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+          logOutput.innerHTML += \`✅ Deployment successful!\\n\`;
+          logOutput.innerHTML += \`🪙 TGT Token: \${result.contracts.tgtAddress}\\n\`;
+          logOutput.innerHTML += \`🏦 Escrow Contract: \${result.contracts.escrowAddress}\\n\`;
+          logOutput.innerHTML += \`🌐 Network: \${result.contracts.network}\\n\`;
+          logOutput.innerHTML += \`🔍 View on Etherscan:\\n\`;
+          logOutput.innerHTML += \`   TGT: \${result.contracts.explorerUrls.tgt}\\n\`;
+          logOutput.innerHTML += \`   Escrow: \${result.contracts.explorerUrls.escrow}\\n\`;
+          
+          deployBtn.textContent = 'Deployment Complete';
+          deployBtn.className = 'btn success';
+          
+          // Refresh status
+          setTimeout(refreshStatus, 2000);
+          
+        } else {
+          logOutput.innerHTML += \`❌ Deployment failed: \${result.error}\\n\`;
+          if (result.details) {
+            logOutput.innerHTML += \`Details: \${result.details}\\n\`;
+          }
+          
+          deployBtn.textContent = 'Deploy Contracts';
+          deployBtn.disabled = false;
+          deployBtn.className = 'btn danger';
+        }
+        
+      } catch (error) {
+        console.error('Deployment error:', error);
+        logOutput.innerHTML += \`❌ Deployment error: \${error.message}\\n\`;
+        
+        deployBtn.textContent = 'Deploy Contracts';
+        deployBtn.disabled = false;
+        deployBtn.className = 'btn danger';
+      }
+      
+      deploymentInProgress = false;
+      logOutput.scrollTop = logOutput.scrollHeight;
+    }
+  </script>
+</body>
+</html>`;
+
+    res.send(html);
 });
 
 // ================================
