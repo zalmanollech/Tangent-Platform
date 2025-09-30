@@ -7274,7 +7274,7 @@ app.get('/admin/ofac-management', (req, res) => {
   </style>
 </head>
 <body>
-  <a href="/dashboard/admin" class="back-btn">← Back to Admin</a>
+  <button onclick="goBackToAdmin()" class="back-btn">← Back to Admin</button>
   <div class="header">
     <h1>🛡️ OFAC Sanctions Management</h1>
     <p>Monitor and manage OFAC sanctions screening system</p>
@@ -7729,7 +7729,7 @@ app.get('/admin/kyc-reports', (req, res) => {
   </style>
 </head>
 <body>
-  <a href="/dashboard/admin" class="back-btn">← Back to Admin</a>
+  <button onclick="goBackToAdmin()" class="back-btn">← Back to Admin</button>
   <div class="header">
     <h1>🔍 KYC Reports Management</h1>
     <p>Monitor and manage all KYC applications and compliance</p>
@@ -7955,7 +7955,7 @@ app.get('/admin/active-trades', authenticateToken, (req, res) => {
   </style>
 </head>
 <body>
-  <a href="/dashboard/admin" class="back-btn">← Back to Admin</a>
+  <button onclick="goBackToAdmin()" class="back-btn">← Back to Admin</button>
   <div class="header">
     <h1>📊 Active Trades Management</h1>
     <p>Monitor and manage all platform trading activity</p>
@@ -8078,7 +8078,7 @@ app.get('/admin/fees', authenticateToken, (req, res) => {
   </style>
 </head>
 <body>
-  <a href="/dashboard/admin" class="back-btn">← Back to Admin</a>
+  <button onclick="goBackToAdmin()" class="back-btn">← Back to Admin</button>
   
   <div class="header">
     <h1>💰 Fee Management</h1>
@@ -8180,6 +8180,16 @@ app.get('/admin/fees', authenticateToken, (req, res) => {
         alert('Error updating fee setting');
       }
     }
+
+    function goBackToAdmin() {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        alert('Please login first');
+        window.location.href = '/landing-two';
+        return;
+      }
+      window.location.href = '/dashboard/authenticated?role=admin&token=' + encodeURIComponent(token);
+    }
   </script>
 </body>
 </html>`;
@@ -8219,7 +8229,7 @@ app.get('/admin/voyage-times', authenticateToken, (req, res) => {
   </style>
 </head>
 <body>
-  <a href="/dashboard/admin" class="back-btn">← Back to Admin</a>
+  <button onclick="goBackToAdmin()" class="back-btn">← Back to Admin</button>
   <div class="header">
     <h1>🚢 Voyage Times Management</h1>
     <p>Configure shipping routes and estimated delivery times</p>
@@ -8702,7 +8712,7 @@ app.get('/admin/auction', (req, res) => {
   </style>
 </head>
 <body>
-  <a href="/dashboard/admin" class="back-btn">← Back to Admin</a>
+  <button onclick="goBackToAdmin()" class="back-btn">← Back to Admin</button>
   <div class="header">
     <h1>🏛️ Auction Board Management</h1>
     <p>Monitor and manage all platform auctions</p>
@@ -8803,11 +8813,6 @@ app.get('/admin/auction', (req, res) => {
   res.send(html);
 });
 
-// 404 Handler
-app.use('*', (req, res) => {
-    res.status(404).json({ error: 'Route not found' });
-});
-
 // Admin Blockchain Management Page
 app.get('/admin/blockchain', authenticateToken, (req, res) => {
     try {
@@ -8842,7 +8847,7 @@ app.get('/admin/blockchain', authenticateToken, (req, res) => {
   </style>
 </head>
 <body>
-  <a href="/dashboard/admin" class="back-btn">← Back to Admin</a>
+  <button onclick="goBackToAdmin()" class="back-btn">← Back to Admin</button>
   
   <div class="header">
     <h1>🔗 Blockchain Management</h1>
@@ -8982,6 +8987,16 @@ app.get('/admin/blockchain', authenticateToken, (req, res) => {
       deploymentInProgress = false;
       logOutput.scrollTop = logOutput.scrollHeight;
     }
+
+    function goBackToAdmin() {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        alert('Please login first');
+        window.location.href = '/landing-two';
+        return;
+      }
+      window.location.href = '/dashboard/authenticated?role=admin&token=' + encodeURIComponent(token);
+    }
   </script>
 </body>
 </html>`;
@@ -8994,6 +9009,13 @@ app.get('/admin/blockchain', authenticateToken, (req, res) => {
             message: 'Failed to load blockchain management page'
         });
     }
+});
+
+// ================================
+// 404 HANDLER - MUST BE LAST
+// ================================
+app.use('*', (req, res) => {
+    res.status(404).json({ error: 'Route not found' });
 });
 
 // ================================
