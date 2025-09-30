@@ -1361,13 +1361,13 @@ app.get('/dashboard/authenticated', (req, res) => {
                 <h2 class="section-title">🛠️ Admin Tools</h2>
             </div>
             <div style="display: flex; gap: 15px; flex-wrap: wrap;">
-                <a href="/admin/active-trades" class="btn secondary">View All Trades</a>
-                <a href="/admin/auction" class="btn secondary">Auction Board</a>
-                <a href="/admin/kyc-reports" class="btn secondary">KYC Reports</a>
-                <a href="/admin/ofac-management" class="btn secondary">🛡️ OFAC Screening</a>
-                <a href="/admin/blockchain" class="btn secondary">🔗 Blockchain</a>
-                <button class="btn secondary">Manage Fees</button>
-                <button class="btn secondary">Voyage Times</button>
+                <button class="btn secondary" onclick="navigateAdmin('/admin/active-trades')">View All Trades</button>
+                <button class="btn secondary" onclick="navigateAdmin('/admin/auction')">Auction Board</button>
+                <button class="btn secondary" onclick="navigateAdmin('/admin/kyc-reports')">KYC Reports</button>
+                <button class="btn secondary" onclick="navigateAdmin('/admin/ofac-management')">🛡️ OFAC Screening</button>
+                <button class="btn secondary" onclick="navigateAdmin('/admin/blockchain')">🔗 Blockchain</button>
+                <button class="btn secondary" onclick="navigateAdmin('/admin/fees')">Manage Fees</button>
+                <button class="btn secondary" onclick="navigateAdmin('/admin/voyage-times')">Voyage Times</button>
             </div>
         </div>
         ` : ''}
@@ -1467,7 +1467,8 @@ app.get('/dashboard/authenticated', (req, res) => {
         }
         
         function getActionButtons(contract, userRole) {
-            let buttons = '<a href="/manage-contract/' + contract.id + '" class="btn small">Manage</a>';
+            const token = localStorage.getItem('token');
+            let buttons = '<a href="/manage-contract/' + contract.id + '?token=' + encodeURIComponent(token) + '" class="btn small">Manage</a>';
             
             if (userRole === 'buyer') {
                 // Step 1: Pay Deposit (10-30% of total value)
@@ -1528,6 +1529,16 @@ app.get('/dashboard/authenticated', (req, res) => {
             if (contract.supplierEmail === userEmail) return 'SUPPLIER';
             return 'TRADER';
         }
+
+        function navigateAdmin(path) {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                alert('Please login first');
+                window.location.href = '/landing-two';
+                return;
+            }
+            window.location.href = path + '?token=' + encodeURIComponent(token);
+        }
         
         function createContract() { 
             const token = localStorage.getItem('token');
@@ -1536,7 +1547,7 @@ app.get('/dashboard/authenticated', (req, res) => {
                 window.location.href = '/landing-two';
                 return;
             }
-            window.location.href = '/create-contract?token=' + encodeURIComponent(token); 
+            window.location.href = '/create-contract?token=' + encodeURIComponent(token);
         }
         
         async function payDeposit(id) {
@@ -7899,7 +7910,12 @@ app.get('/admin/kyc-reports', (req, res) => {
   res.send(html);
 });
 
-app.get('/admin/active-trades', (req, res) => {
+app.get('/admin/active-trades', authenticateToken, (req, res) => {
+    // Check if user is admin
+    const user = database.users.get(req.user.userId);
+    if (!user || user.role !== 'admin') {
+        return res.status(403).send('Admin access required');
+    }
   // Calculate real statistics from database
   const allContracts = Array.from(database.contracts.values());
   const activeContracts = allContracts.filter(c => c.status === 'active');
@@ -8029,7 +8045,151 @@ app.get('/admin/active-trades', (req, res) => {
   res.send(html);
 });
 
-app.get('/admin/voyage-times', (req, res) => {
+// Admin Fees Management Page
+app.get('/admin/fees', authenticateToken, (req, res) => {
+    // Check if user is admin
+    const user = database.users.get(req.user.userId);
+    if (!user || user.role !== 'admin') {
+        return res.status(403).send('Admin access required');
+    }
+
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fee Management - Admin Panel</title>
+  <style>
+    body { font-family: system-ui; background: #0f172a; color: #f8fafc; margin: 0; padding: 20px; }
+    .back-btn { background: #ef4444; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px; display: inline-block; margin-bottom: 20px; }
+    .header { background: #1e293b; padding: 20px; border-radius: 12px; margin-bottom: 30px; border: 1px solid #334155; }
+    .header h1 { color: #2563eb; margin: 0; font-size: 2.5rem; }
+    .fee-section { background: #1e293b; padding: 20px; border-radius: 12px; margin-bottom: 20px; border: 1px solid #334155; }
+    .fee-item { display: flex; justify-content: space-between; align-items: center; padding: 15px 0; border-bottom: 1px solid #334155; }
+    .fee-label { font-weight: 600; color: #f8fafc; }
+    .fee-value { color: #10b981; font-family: monospace; font-size: 1.1rem; }
+    .btn { background: #2563eb; color: white; padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; }
+    .btn.edit { background: #f59e0b; }
+    .btn.save { background: #10b981; }
+    input[type="number"] { background: #0f172a; color: #f8fafc; border: 1px solid #334155; border-radius: 4px; padding: 8px; width: 100px; }
+  </style>
+</head>
+<body>
+  <a href="/dashboard/admin" class="back-btn">← Back to Admin</a>
+  
+  <div class="header">
+    <h1>💰 Fee Management</h1>
+    <p>Configure platform trading fees and charges</p>
+  </div>
+
+  <div class="fee-section">
+    <h3>Platform Fees</h3>
+    <div class="fee-item">
+      <span class="fee-label">Trading Fee (%)</span>
+      <div>
+        <span class="fee-value" id="tradingFee">${platformSettings.platformFee || 2.5}%</span>
+        <button class="btn edit" onclick="editFee('trading')">Edit</button>
+      </div>
+    </div>
+    <div class="fee-item">
+      <span class="fee-label">Daily Interest Rate (%)</span>
+      <div>
+        <span class="fee-value" id="dailyInterest">${platformSettings.dailyInterest || 0.1}%</span>
+        <button class="btn edit" onclick="editFee('interest')">Edit</button>
+      </div>
+    </div>
+    <div class="fee-item">
+      <span class="fee-label">Insurance Rate (%)</span>
+      <div>
+        <span class="fee-value" id="insuranceRate">${platformSettings.insuranceRate || 1.0}%</span>
+        <button class="btn edit" onclick="editFee('insurance')">Edit</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="fee-section">
+    <h3>Transaction Limits</h3>
+    <div class="fee-item">
+      <span class="fee-label">Minimum Contract Value</span>
+      <div>
+        <span class="fee-value" id="minContract">$${(platformSettings.minContractValue || 1000).toLocaleString()}</span>
+        <button class="btn edit" onclick="editFee('minContract')">Edit</button>
+      </div>
+    </div>
+    <div class="fee-item">
+      <span class="fee-label">Maximum Contract Value</span>
+      <div>
+        <span class="fee-value" id="maxContract">$${(platformSettings.maxContractValue || 10000000).toLocaleString()}</span>
+        <button class="btn edit" onclick="editFee('maxContract')">Edit</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function editFee(type) {
+      const currentElement = document.getElementById(type === 'trading' ? 'tradingFee' : 
+                                                   type === 'interest' ? 'dailyInterest' :
+                                                   type === 'insurance' ? 'insuranceRate' :
+                                                   type === 'minContract' ? 'minContract' : 'maxContract');
+      
+      const currentValue = currentElement.textContent.replace(/[%$,]/g, '');
+      const input = document.createElement('input');
+      input.type = 'number';
+      input.step = type.includes('Contract') ? '1000' : '0.01';
+      input.value = currentValue;
+      input.style.width = '120px';
+      
+      const saveBtn = document.createElement('button');
+      saveBtn.textContent = 'Save';
+      saveBtn.className = 'btn save';
+      saveBtn.onclick = () => saveFee(type, input.value);
+      
+      const container = currentElement.parentNode;
+      container.innerHTML = '';
+      container.appendChild(input);
+      container.appendChild(saveBtn);
+      input.focus();
+    }
+
+    async function saveFee(type, value) {
+      try {
+        const token = localStorage.getItem('token');
+        const response = await fetch('/api/admin/update-settings', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + token
+          },
+          body: JSON.stringify({
+            [type === 'trading' ? 'platformFee' : 
+             type === 'interest' ? 'dailyInterest' :
+             type === 'insurance' ? 'insuranceRate' :
+             type === 'minContract' ? 'minContractValue' : 'maxContractValue']: parseFloat(value)
+          })
+        });
+
+        if (response.ok) {
+          location.reload(); // Refresh to show updated values
+        } else {
+          alert('Failed to update fee setting');
+        }
+      } catch (error) {
+        alert('Error updating fee setting');
+      }
+    }
+  </script>
+</body>
+</html>`;
+
+    res.send(html);
+});
+
+app.get('/admin/voyage-times', authenticateToken, (req, res) => {
+    // Check if user is admin
+    const user = database.users.get(req.user.userId);
+    if (!user || user.role !== 'admin') {
+        return res.status(403).send('Admin access required');
+    }
   const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
