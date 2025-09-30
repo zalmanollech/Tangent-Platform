@@ -8045,10 +8045,16 @@ app.get('/admin/active-trades', authenticateToken, (req, res) => {
 
 // Admin Fees Management Page
 app.get('/admin/fees', authenticateToken, (req, res) => {
-    // Check if user is admin
-    if (req.user.role !== 'admin') {
-        return res.status(403).send('Admin access required');
-    }
+    try {
+        // Check if user is admin
+        if (req.user.role !== 'admin') {
+            return res.status(403).send('Admin access required');
+        }
+
+        // Get current settings from database
+        const settings = database.admin || {};
+        const fees = settings.fees || {};
+        const interestRates = settings.interestRates || {};
 
     const html = `<!DOCTYPE html>
 <html lang="en">
@@ -8084,21 +8090,21 @@ app.get('/admin/fees', authenticateToken, (req, res) => {
     <div class="fee-item">
       <span class="fee-label">Trading Fee (%)</span>
       <div>
-        <span class="fee-value" id="tradingFee">${platformSettings.platformFee || 2.5}%</span>
+        <span class="fee-value" id="tradingFee">${fees.platformFee || 2.5}%</span>
         <button class="btn edit" onclick="editFee('trading')">Edit</button>
       </div>
     </div>
     <div class="fee-item">
       <span class="fee-label">Daily Interest Rate (%)</span>
       <div>
-        <span class="fee-value" id="dailyInterest">${platformSettings.dailyInterest || 0.1}%</span>
+        <span class="fee-value" id="dailyInterest">${interestRates.deposit || 0.1}%</span>
         <button class="btn edit" onclick="editFee('interest')">Edit</button>
       </div>
     </div>
     <div class="fee-item">
       <span class="fee-label">Insurance Rate (%)</span>
       <div>
-        <span class="fee-value" id="insuranceRate">${platformSettings.insuranceRate || 1.0}%</span>
+        <span class="fee-value" id="insuranceRate">${fees.tradingFee || 1.0}%</span>
         <button class="btn edit" onclick="editFee('insurance')">Edit</button>
       </div>
     </div>
@@ -8109,14 +8115,14 @@ app.get('/admin/fees', authenticateToken, (req, res) => {
     <div class="fee-item">
       <span class="fee-label">Minimum Contract Value</span>
       <div>
-        <span class="fee-value" id="minContract">$${(platformSettings.minContractValue || 1000).toLocaleString()}</span>
+        <span class="fee-value" id="minContract">$${(1000).toLocaleString()}</span>
         <button class="btn edit" onclick="editFee('minContract')">Edit</button>
       </div>
     </div>
     <div class="fee-item">
       <span class="fee-label">Maximum Contract Value</span>
       <div>
-        <span class="fee-value" id="maxContract">$${(platformSettings.maxContractValue || 10000000).toLocaleString()}</span>
+        <span class="fee-value" id="maxContract">$${(10000000).toLocaleString()}</span>
         <button class="btn edit" onclick="editFee('maxContract')">Edit</button>
       </div>
     </div>
@@ -8178,7 +8184,14 @@ app.get('/admin/fees', authenticateToken, (req, res) => {
 </body>
 </html>`;
 
-    res.send(html);
+        res.send(html);
+    } catch (error) {
+        console.error('Admin fees page error:', error);
+        res.status(500).json({ 
+            error: 'Internal server error',
+            message: 'Failed to load fees page'
+        });
+    }
 });
 
 app.get('/admin/voyage-times', authenticateToken, (req, res) => {
@@ -8797,10 +8810,11 @@ app.use('*', (req, res) => {
 
 // Admin Blockchain Management Page
 app.get('/admin/blockchain', authenticateToken, (req, res) => {
-    // Check if user is admin
-    if (req.user.role !== 'admin') {
-        return res.status(403).send('Admin access required');
-    }
+    try {
+        // Check if user is admin
+        if (req.user.role !== 'admin') {
+            return res.status(403).send('Admin access required');
+        }
 
     const html = `<!DOCTYPE html>
 <html lang="en">
@@ -8972,7 +8986,14 @@ app.get('/admin/blockchain', authenticateToken, (req, res) => {
 </body>
 </html>`;
 
-    res.send(html);
+        res.send(html);
+    } catch (error) {
+        console.error('Admin blockchain page error:', error);
+        res.status(500).json({ 
+            error: 'Internal server error',
+            message: 'Failed to load blockchain management page'
+        });
+    }
 });
 
 // ================================
