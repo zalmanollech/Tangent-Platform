@@ -4158,8 +4158,7 @@ app.get('/api/blockchain/status', (req, res) => {
 // Deploy contracts (admin only)
 app.post('/api/blockchain/deploy', authenticateToken, async (req, res) => {
     try {
-        const user = database.users.get(req.user.userId);
-        if (user.role !== 'admin') {
+        if (req.user.role !== 'admin') {
             return res.status(403).json({ error: 'Admin access required' });
         }
 
@@ -7912,8 +7911,7 @@ app.get('/admin/kyc-reports', (req, res) => {
 
 app.get('/admin/active-trades', authenticateToken, (req, res) => {
     // Check if user is admin
-    const user = database.users.get(req.user.userId);
-    if (!user || user.role !== 'admin') {
+    if (req.user.role !== 'admin') {
         return res.status(403).send('Admin access required');
     }
   // Calculate real statistics from database
@@ -8048,8 +8046,7 @@ app.get('/admin/active-trades', authenticateToken, (req, res) => {
 // Admin Fees Management Page
 app.get('/admin/fees', authenticateToken, (req, res) => {
     // Check if user is admin
-    const user = database.users.get(req.user.userId);
-    if (!user || user.role !== 'admin') {
+    if (req.user.role !== 'admin') {
         return res.status(403).send('Admin access required');
     }
 
@@ -8186,8 +8183,7 @@ app.get('/admin/fees', authenticateToken, (req, res) => {
 
 app.get('/admin/voyage-times', authenticateToken, (req, res) => {
     // Check if user is admin
-    const user = database.users.get(req.user.userId);
-    if (!user || user.role !== 'admin') {
+    if (req.user.role !== 'admin') {
         return res.status(403).send('Admin access required');
     }
   const html = `<!DOCTYPE html>
@@ -8802,8 +8798,7 @@ app.use('*', (req, res) => {
 // Admin Blockchain Management Page
 app.get('/admin/blockchain', authenticateToken, (req, res) => {
     // Check if user is admin
-    const user = database.users.get(req.user.userId);
-    if (!user || user.role !== 'admin') {
+    if (req.user.role !== 'admin') {
         return res.status(403).send('Admin access required');
     }
 
