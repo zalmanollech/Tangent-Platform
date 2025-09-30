@@ -19,26 +19,35 @@ initializeOFAC().then(() => {
     console.error('OFAC initialization failed, continuing without OFAC screening');
 });
 
-// Initialize blockchain service
-const blockchainService = require('./lib/blockchain.js');
+// Initialize blockchain service with error handling
 let blockchain = null;
+let blockchainService = null;
 
-// Initialize blockchain if enabled
-if (process.env.BLOCKCHAIN_ENABLED === 'true') {
-    console.log('🔗 Initializing blockchain integration...');
-    blockchainService.initialize().then((service) => {
-        blockchain = service;
-        if (service.isInitialized) {
-            console.log('✅ Blockchain service initialized successfully');
-        } else {
-            console.log('⚠️ Blockchain service failed to initialize, using simulation mode');
-        }
-    }).catch(error => {
-        console.error('❌ Blockchain initialization error:', error.message);
-        console.log('⚠️ Continuing with simulated blockchain operations');
-    });
-} else {
-    console.log('📝 Blockchain disabled in configuration, using simulation mode');
+try {
+    // Try to load blockchain service (may not be available in all environments)
+    blockchainService = require('./lib/blockchain.js');
+    
+    // Initialize blockchain if enabled and service is available
+    if (process.env.BLOCKCHAIN_ENABLED === 'true' && blockchainService) {
+        console.log('🔗 Initializing blockchain integration...');
+        blockchainService.initialize().then((service) => {
+            blockchain = service;
+            if (service.isInitialized) {
+                console.log('✅ Blockchain service initialized successfully');
+            } else {
+                console.log('⚠️ Blockchain service failed to initialize, using simulation mode');
+            }
+        }).catch(error => {
+            console.error('❌ Blockchain initialization error:', error.message);
+            console.log('⚠️ Continuing with simulated blockchain operations');
+        });
+    } else {
+        console.log('📝 Blockchain disabled in configuration, using simulation mode');
+    }
+} catch (error) {
+    console.warn('⚠️ Blockchain service not available, using simulation mode:', error.message);
+    blockchain = null;
+    blockchainService = null;
 }
 
 // ================================
@@ -4145,6 +4154,14 @@ app.post('/api/blockchain/deploy', authenticateToken, async (req, res) => {
 
         console.log('🚀 Starting contract deployment...');
         
+        // Check if blockchain deployment is available
+        if (!blockchainService) {
+            return res.status(400).json({ 
+                error: 'Blockchain service not available in this environment',
+                success: false 
+            });
+        }
+
         // Import deployment script
         const { deployContracts, updateConfigWithAddresses } = require('./scripts/deploy-contracts.js');
         
