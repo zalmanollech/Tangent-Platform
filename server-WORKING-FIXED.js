@@ -11364,6 +11364,30 @@ app.get('/demo/supplier/step2-contract-details', (req, res) => {
             </div>
         </div>
 
+        <div style="background: #1e293b; border-radius: 12px; border: 1px solid #334155; padding: 2rem; margin-bottom: 2rem;">
+            <h3 style="color: #06b6d4; margin-bottom: 1.5rem;">📊 Contract Pricing Review</h3>
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1.5rem;">
+                <div style="background: #0f172a; padding: 1.5rem; border-radius: 8px; border: 1px solid #374151; text-align: center;">
+                    <div style="color: #94a3b8; margin-bottom: 0.5rem;">Contract Price</div>
+                    <div style="color: #059669; font-weight: bold; font-size: 1.3rem;">$285.50/MT</div>
+                    <div style="color: #94a3b8; font-size: 0.9rem;">Fixed Rate</div>
+                </div>
+                <div style="background: #0f172a; padding: 1.5rem; border-radius: 8px; border: 1px solid #374151; text-align: center;">
+                    <div style="color: #94a3b8; margin-bottom: 0.5rem;">Current Market</div>
+                    <div style="color: #f59e0b; font-weight: bold; font-size: 1.3rem;">$288.25/MT</div>
+                    <div style="color: #f59e0b; font-size: 0.9rem;">+$2.75 (+1.0%)</div>
+                </div>
+                <div style="background: #0f172a; padding: 1.5rem; border-radius: 8px; border: 1px solid #374151; text-align: center;">
+                    <div style="color: #94a3b8; margin-bottom: 0.5rem;">Contract Value</div>
+                    <div style="color: #059669; font-weight: bold; font-size: 1.3rem;">$1,427,500</div>
+                    <div style="color: #94a3b8; font-size: 0.9rem;">Guaranteed</div>
+                </div>
+            </div>
+            <div style="background: #451a03; border: 1px solid #92400e; border-radius: 6px; padding: 1rem; margin-top: 1rem; text-align: center;">
+                <span style="color: #f59e0b;">📈 Market moving up - good time to lock in this contract!</span>
+            </div>
+        </div>
+
         <div class="navigation">
             <a href="/demo/supplier/step1-new-contract" class="nav-btn">← Previous: New Contract</a>
             <a href="/demo/supplier/step3-waiting-deposit" class="nav-btn">Next: Waiting for Deposit →</a>
@@ -11494,17 +11518,41 @@ app.get('/demo/supplier/step3-waiting-deposit', (req, res) => {
 
             <div class="waiting-section">
                 <h3>⏳ Waiting for Buyer Deposit Payment</h3>
-                <p>The buyer needs to pay their 30% deposit ($428,250.00) to activate the contract. Once received, you'll get the full contract payment immediately and can begin preparing the shipment.</p>
+                <p>The buyer needs to pay their 30% deposit ($428,250.00) to the Tangent POOL to activate the contract. Once confirmed, you can begin preparing the shipment.</p>
                 <div style="background: #0f172a; border-radius: 6px; padding: 1rem; margin-top: 1rem;">
                     <h4 style="color: #06b6d4; margin-bottom: 0.5rem;">What happens next:</h4>
                     <ul style="color: #94a3b8; text-align: left; margin-left: 1.5rem;">
-                        <li>Buyer pays 30% deposit to platform</li>
-                        <li>You receive 100% payment ($1,427,500) immediately</li>
+                        <li>Buyer pays 30% deposit to Tangent POOL</li>
+                        <li>You receive deposit confirmation notification</li>
                         <li>Contract becomes active for shipping</li>
                         <li>You prepare and ship the commodity</li>
-                        <li>Upload shipping documents to release buyer's final payment</li>
+                        <li>Upload shipping documents to receive 100% payment from POOL</li>
                     </ul>
                 </div>
+            </div>
+        </div>
+
+        <div style="background: #1e293b; border-radius: 12px; border: 1px solid #334155; padding: 2rem; margin-bottom: 2rem;">
+            <h3 style="color: #06b6d4; margin-bottom: 1.5rem;">📊 Market Price Monitoring</h3>
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1.5rem;">
+                <div style="background: #0f172a; padding: 1.5rem; border-radius: 8px; border: 1px solid #374151; text-align: center;">
+                    <div style="color: #94a3b8; margin-bottom: 0.5rem;">Contract Price</div>
+                    <div style="color: #059669; font-weight: bold; font-size: 1.3rem;">$285.50/MT</div>
+                    <div style="color: #94a3b8; font-size: 0.9rem;">Secured</div>
+                </div>
+                <div style="background: #0f172a; padding: 1.5rem; border-radius: 8px; border: 1px solid #374151; text-align: center;">
+                    <div style="color: #94a3b8; margin-bottom: 0.5rem;">Current Market</div>
+                    <div style="color: #f59e0b; font-weight: bold; font-size: 1.3rem;">$289.50/MT</div>
+                    <div style="color: #f59e0b; font-size: 0.9rem;">+$4.00 (+1.4%)</div>
+                </div>
+                <div style="background: #0f172a; padding: 1.5rem; border-radius: 8px; border: 1px solid #374151; text-align: center;">
+                    <div style="color: #94a3b8; margin-bottom: 0.5rem;">Revenue Secured</div>
+                    <div style="color: #059669; font-weight: bold; font-size: 1.3rem;">$1,427,500</div>
+                    <div style="color: #94a3b8; font-size: 0.9rem;">Guaranteed</div>
+                </div>
+            </div>
+            <div style="background: #451a03; border: 1px solid #92400e; border-radius: 6px; padding: 1rem; margin-top: 1rem; text-align: center;">
+                <span style="color: #f59e0b;">📈 Market rising - your contract price is secured regardless of market volatility!</span>
             </div>
         </div>
 
@@ -11809,6 +11857,30 @@ app.get('/demo/supplier/step5-upload-documents', (req, res) => {
                 </div>
                 <p style="color: #fbbf24; text-align: center; margin-bottom: 1.5rem;">All documents have been cryptographically verified and stored on the blockchain for immutable proof of shipment.</p>
                 
+                <div style="background: #1e293b; border-radius: 12px; border: 1px solid #334155; padding: 2rem; margin: 2rem 0;">
+                    <h3 style="color: #06b6d4; margin-bottom: 1.5rem;">📊 Final Contract Performance</h3>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1.5rem;">
+                        <div style="background: #0f172a; padding: 1.5rem; border-radius: 8px; border: 1px solid #374151; text-align: center;">
+                            <div style="color: #94a3b8; margin-bottom: 0.5rem;">Contract Price</div>
+                            <div style="color: #059669; font-weight: bold; font-size: 1.3rem;">$285.50/MT</div>
+                            <div style="color: #94a3b8; font-size: 0.9rem;">Delivered</div>
+                        </div>
+                        <div style="background: #0f172a; padding: 1.5rem; border-radius: 8px; border: 1px solid #374151; text-align: center;">
+                            <div style="color: #94a3b8; margin-bottom: 0.5rem;">Current Market</div>
+                            <div style="color: #f59e0b; font-weight: bold; font-size: 1.3rem;">$295.80/MT</div>
+                            <div style="color: #f59e0b; font-size: 0.9rem;">+$10.30 (+3.6%)</div>
+                        </div>
+                        <div style="background: #0f172a; padding: 1.5rem; border-radius: 8px; border: 1px solid #374151; text-align: center;">
+                            <div style="color: #94a3b8; margin-bottom: 0.5rem;">Payment Due</div>
+                            <div style="color: #059669; font-weight: bold; font-size: 1.3rem;">$1,427,500</div>
+                            <div style="color: #94a3b8; font-size: 0.9rem;">From POOL</div>
+                        </div>
+                    </div>
+                    <div style="background: #451a03; border: 1px solid #92400e; border-radius: 6px; padding: 1rem; margin-top: 1rem; text-align: center;">
+                        <span style="color: #f59e0b;">🎯 Market has risen 3.6% since contract! Stable revenue secured through Tangent Platform.</span>
+                    </div>
+                </div>
+
                 <button type="button" class="btn large" onclick="completeUpload()">🚀 Complete Document Upload & Notify Buyer</button>
             </div>
         </div>
@@ -11975,6 +12047,30 @@ app.get('/demo/supplier/step6-completed', (req, res) => {
                     <h4 style="color: #f8fafc;">Contract Completed</h4>
                     <p style="color: #94a3b8;">October 27, 2024 - Buyer released final payment, contract complete</p>
                 </div>
+            </div>
+        </div>
+
+        <div style="background: #1e293b; border-radius: 12px; border: 1px solid #334155; padding: 2rem; margin-bottom: 2rem;">
+            <h3 style="color: #06b6d4; margin-bottom: 1.5rem;">📊 Contract vs Market Performance</h3>
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1.5rem;">
+                <div style="background: #0f172a; padding: 1.5rem; border-radius: 8px; border: 1px solid #374151; text-align: center;">
+                    <div style="color: #94a3b8; margin-bottom: 0.5rem;">Contract Price</div>
+                    <div style="color: #059669; font-weight: bold; font-size: 1.3rem;">$285.50/MT</div>
+                    <div style="color: #94a3b8; font-size: 0.9rem;">Completed</div>
+                </div>
+                <div style="background: #0f172a; padding: 1.5rem; border-radius: 8px; border: 1px solid #374151; text-align: center;">
+                    <div style="color: #94a3b8; margin-bottom: 0.5rem;">Final Market Price</div>
+                    <div style="color: #f59e0b; font-weight: bold; font-size: 1.3rem;">$298.20/MT</div>
+                    <div style="color: #f59e0b; font-size: 0.9rem;">+$12.70 (+4.4%)</div>
+                </div>
+                <div style="background: #0f172a; padding: 1.5rem; border-radius: 8px; border: 1px solid #374151; text-align: center;">
+                    <div style="color: #94a3b8; margin-bottom: 0.5rem;">Revenue Stability</div>
+                    <div style="color: #059669; font-weight: bold; font-size: 1.3rem;">100%</div>
+                    <div style="color: #94a3b8; font-size: 0.9rem;">Protected</div>
+                </div>
+            </div>
+            <div style="background: #451a03; border: 1px solid #92400e; border-radius: 6px; padding: 1rem; margin-top: 1rem; text-align: center;">
+                <span style="color: #f59e0b;">🎉 Excellent! Market volatility didn't affect your guaranteed revenue - Tangent Platform protected your income!</span>
             </div>
         </div>
 
