@@ -9015,8 +9015,14 @@ app.get('/admin/blockchain', authenticateToken, (req, res) => {
 // DEMO MODE SYSTEM
 // ================================
 
+// Simple test route
+app.get('/test-demo', (req, res) => {
+    res.send('<h1>Demo Test Route Working!</h1><p>If you see this, the server is responding.</p><a href="/demo">Go to Full Demo</a>');
+});
+
 // Demo Mode Navigation Page
 app.get('/demo', (req, res) => {
+    console.log('🎭 Demo route accessed successfully!');
     const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
