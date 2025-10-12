@@ -10360,6 +10360,30 @@ app.get('/demo/buyer/step4-create-contract', (req, res) => {
                 </div>
             </div>
             
+            <div style="background: #1e293b; border-radius: 12px; border: 1px solid #334155; padding: 2rem; margin: 2rem 0;">
+                <h3 style="color: #06b6d4; margin-bottom: 1.5rem;">📊 Current Market Price</h3>
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1.5rem;">
+                    <div style="background: #0f172a; padding: 1.5rem; border-radius: 8px; border: 1px solid #374151; text-align: center;">
+                        <div style="color: #94a3b8; margin-bottom: 0.5rem;">Your Offer Price</div>
+                        <div style="color: #2563eb; font-weight: bold; font-size: 1.3rem;">$285.50/MT</div>
+                        <div style="color: #94a3b8; font-size: 0.9rem;">Competitive Rate</div>
+                    </div>
+                    <div style="background: #0f172a; padding: 1.5rem; border-radius: 8px; border: 1px solid #374151; text-align: center;">
+                        <div style="color: #94a3b8; margin-bottom: 0.5rem;">Market Price</div>
+                        <div style="color: #f59e0b; font-weight: bold; font-size: 1.3rem;">$287.25/MT</div>
+                        <div style="color: #f59e0b; font-size: 0.9rem;">Current Trading</div>
+                    </div>
+                    <div style="background: #0f172a; padding: 1.5rem; border-radius: 8px; border: 1px solid #374151; text-align: center;">
+                        <div style="color: #94a3b8; margin-bottom: 0.5rem;">Total Contract</div>
+                        <div style="color: #2563eb; font-weight: bold; font-size: 1.3rem;">$1,427,500</div>
+                        <div style="color: #94a3b8; font-size: 0.9rem;">5,000 MT</div>
+                    </div>
+                </div>
+                <div style="background: #451a03; border: 1px solid #92400e; border-radius: 6px; padding: 1rem; margin-top: 1rem; text-align: center;">
+                    <span style="color: #f59e0b;">💡 Your offer is $1.75/MT below market - attractive to suppliers!</span>
+                </div>
+            </div>
+
             <button type="button" class="btn" onclick="nextStep()">Create Contract & Send to Supplier</button>
         </div>
 
@@ -10624,6 +10648,30 @@ app.get('/demo/buyer/step6-dashboard-deposit', (req, res) => {
                     </div>
                 </div>
                 
+                <div style="background: #1e293b; border-radius: 12px; border: 1px solid #334155; padding: 2rem; margin: 2rem 0;">
+                    <h3 style="color: #06b6d4; margin-bottom: 1.5rem;">📊 Price Lock Advantage</h3>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1.5rem;">
+                        <div style="background: #0f172a; padding: 1.5rem; border-radius: 8px; border: 1px solid #374151; text-align: center;">
+                            <div style="color: #94a3b8; margin-bottom: 0.5rem;">Contract Price</div>
+                            <div style="color: #2563eb; font-weight: bold; font-size: 1.3rem;">$285.50/MT</div>
+                            <div style="color: #94a3b8; font-size: 0.9rem;">Locked & Confirmed</div>
+                        </div>
+                        <div style="background: #0f172a; padding: 1.5rem; border-radius: 8px; border: 1px solid #374151; text-align: center;">
+                            <div style="color: #94a3b8; margin-bottom: 0.5rem;">Current Market</div>
+                            <div style="color: #f59e0b; font-weight: bold; font-size: 1.3rem;">$288.90/MT</div>
+                            <div style="color: #f59e0b; font-size: 0.9rem;">+$3.40 (+1.2%)</div>
+                        </div>
+                        <div style="background: #0f172a; padding: 1.5rem; border-radius: 8px; border: 1px solid #374151; text-align: center;">
+                            <div style="color: #94a3b8; margin-bottom: 0.5rem;">Savings</div>
+                            <div style="color: #059669; font-weight: bold; font-size: 1.3rem;">$17,000</div>
+                            <div style="color: #059669; font-size: 0.9rem;">vs Current Market</div>
+                        </div>
+                    </div>
+                    <div style="background: #451a03; border: 1px solid #92400e; border-radius: 6px; padding: 1rem; margin-top: 1rem; text-align: center;">
+                        <span style="color: #f59e0b;">🎯 Smart timing! Market has risen since your contract was confirmed.</span>
+                    </div>
+                </div>
+
                 <button type="button" class="btn large" onclick="nextStep()">💳 Make Deposit Payment ($431,676.00)</button>
             </div>
         </div>
@@ -11124,6 +11172,30 @@ app.get('/demo/supplier/step1-new-contract', (req, res) => {
                 <p style="color: #fbbf24; margin-bottom: 2rem;">Please review the contract details carefully. You can accept or decline this contract proposal.</p>
                 <a href="/demo/supplier/step2-contract-details" class="btn">📄 Review Full Contract Details</a>
                 <a href="#" class="btn secondary">❌ Decline Contract</a>
+            </div>
+        </div>
+
+        <div style="background: #1e293b; border-radius: 12px; border: 1px solid #334155; padding: 2rem; margin-bottom: 2rem;">
+            <h3 style="color: #06b6d4; margin-bottom: 1.5rem;">📊 Contract Price Analysis</h3>
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1.5rem;">
+                <div style="background: #0f172a; padding: 1.5rem; border-radius: 8px; border: 1px solid #374151; text-align: center;">
+                    <div style="color: #94a3b8; margin-bottom: 0.5rem;">Offered Price</div>
+                    <div style="color: #059669; font-weight: bold; font-size: 1.3rem;">$285.50/MT</div>
+                    <div style="color: #94a3b8; font-size: 0.9rem;">From Buyer</div>
+                </div>
+                <div style="background: #0f172a; padding: 1.5rem; border-radius: 8px; border: 1px solid #374151; text-align: center;">
+                    <div style="color: #94a3b8; margin-bottom: 0.5rem;">Current Market</div>
+                    <div style="color: #f59e0b; font-weight: bold; font-size: 1.3rem;">$287.25/MT</div>
+                    <div style="color: #f59e0b; font-size: 0.9rem;">Exchange Rate</div>
+                </div>
+                <div style="background: #0f172a; padding: 1.5rem; border-radius: 8px; border: 1px solid #374151; text-align: center;">
+                    <div style="color: #94a3b8; margin-bottom: 0.5rem;">Total Revenue</div>
+                    <div style="color: #059669; font-weight: bold; font-size: 1.3rem;">$1,427,500</div>
+                    <div style="color: #94a3b8; font-size: 0.9rem;">5,000 MT</div>
+                </div>
+            </div>
+            <div style="background: #451a03; border: 1px solid #92400e; border-radius: 6px; padding: 1rem; margin-top: 1rem; text-align: center;">
+                <span style="color: #f59e0b;">💰 Competitive offer - slightly below market but good volume contract!</span>
             </div>
         </div>
 
