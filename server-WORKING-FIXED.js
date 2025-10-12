@@ -2752,6 +2752,15 @@ app.get('/landing-two', (req, res) => {
                 transform: translateY(-2px);
                 box-shadow: 0 12px 35px rgba(245, 87, 108, 0.4);
             }
+            .btn-demo {
+                background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+                color: white;
+                box-shadow: 0 8px 25px rgba(245, 158, 11, 0.3);
+            }
+            .btn-demo:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 12px 35px rgba(245, 158, 11, 0.4);
+            }
             .back-link {
                 margin-top: 2rem;
                 padding-top: 2rem;
@@ -2793,10 +2802,211 @@ app.get('/landing-two', (req, res) => {
                 <a href="/signup" class="btn btn-signup">
                     ✨ Sign Up
                 </a>
+                <a href="/demo-main" class="btn btn-demo">
+                    🎭 Demo
+                </a>
             </div>
             
             <div class="back-link">
                 <a href="/">← Back to Main Platform</a>
+            </div>
+        </div>
+    </body>
+    </html>
+    `);
+});
+
+// Demo Main Page - Three Workflow Buttons
+app.get('/demo-main', (req, res) => {
+    res.send(`
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Tangent Platform - Demo Workflows</title>
+        <style>
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body { 
+                font-family: 'Arial', sans-serif; 
+                background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+                min-height: 100vh;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                padding: 2rem;
+            }
+            .container {
+                background: white;
+                padding: 3rem;
+                border-radius: 20px;
+                box-shadow: 0 25px 50px rgba(0, 0, 0, 0.3);
+                text-align: center;
+                max-width: 800px;
+                width: 100%;
+            }
+            h1 { 
+                color: #1e3c72; 
+                font-size: 2.5rem; 
+                margin-bottom: 1rem; 
+                font-weight: 700;
+            }
+            .subtitle { 
+                color: #666; 
+                font-size: 1.2rem; 
+                margin-bottom: 3rem; 
+                line-height: 1.6;
+            }
+            .demo-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+                gap: 2rem;
+                margin: 3rem 0;
+            }
+            .workflow-card {
+                background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+                border: 2px solid #e2e8f0;
+                border-radius: 16px;
+                padding: 2rem;
+                text-align: center;
+                cursor: pointer;
+                transition: all 0.3s ease;
+                position: relative;
+                overflow: hidden;
+            }
+            .workflow-card:hover {
+                transform: translateY(-8px);
+                box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+            }
+            .workflow-card.buyer {
+                border-color: #2563eb;
+            }
+            .workflow-card.buyer:hover {
+                background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+                box-shadow: 0 20px 40px rgba(37, 99, 235, 0.3);
+            }
+            .workflow-card.supplier {
+                border-color: #059669;
+            }
+            .workflow-card.supplier:hover {
+                background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+                box-shadow: 0 20px 40px rgba(5, 150, 105, 0.3);
+            }
+            .workflow-card.trader {
+                border-color: #7c3aed;
+            }
+            .workflow-card.trader:hover {
+                background: linear-gradient(135deg, #ede9fe 0%, #ddd6fe 100%);
+                box-shadow: 0 20px 40px rgba(124, 58, 237, 0.3);
+            }
+            .workflow-icon {
+                font-size: 4rem;
+                margin-bottom: 1rem;
+                display: block;
+            }
+            .workflow-card.buyer .workflow-icon { color: #2563eb; }
+            .workflow-card.supplier .workflow-icon { color: #059669; }
+            .workflow-card.trader .workflow-icon { color: #7c3aed; }
+            .workflow-title {
+                font-size: 1.5rem;
+                font-weight: 700;
+                margin-bottom: 0.5rem;
+                color: #1f2937;
+            }
+            .workflow-subtitle {
+                color: #6b7280;
+                font-size: 1rem;
+                margin-bottom: 1rem;
+            }
+            .workflow-description {
+                color: #4b5563;
+                font-size: 0.9rem;
+                line-height: 1.5;
+                margin-bottom: 1.5rem;
+            }
+            .workflow-steps {
+                color: #6b7280;
+                font-size: 0.8rem;
+                font-weight: 600;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+            }
+            .back-link {
+                margin-top: 3rem;
+                padding-top: 2rem;
+                border-top: 1px solid #e5e5e5;
+            }
+            .back-link a {
+                color: #666;
+                text-decoration: none;
+                font-size: 1rem;
+                transition: color 0.3s ease;
+            }
+            .back-link a:hover {
+                color: #1e3c72;
+            }
+            .demo-watermark {
+                position: absolute;
+                top: 15px;
+                right: 15px;
+                background: #f59e0b;
+                color: #000;
+                padding: 8px 12px;
+                border-radius: 6px;
+                font-weight: bold;
+                font-size: 0.8rem;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="demo-watermark">🎭 DEMO MODE</div>
+            
+            <h1>🎯 Platform Demo Workflows</h1>
+            <p class="subtitle">Experience the complete journey for each role in the Tangent Platform</p>
+            
+            <div class="demo-grid">
+                <div class="workflow-card buyer" onclick="window.location.href='/demo/buyer/step1-signup'">
+                    <div class="workflow-icon">🛒</div>
+                    <div class="workflow-title">Buyer Journey</div>
+                    <div class="workflow-subtitle">Purchase & Contract Management</div>
+                    <div class="workflow-description">
+                        Complete buyer experience from registration through contract creation, deposit payment, and final settlement.
+                    </div>
+                    <div class="workflow-steps">8 Steps • 15 min demo</div>
+                </div>
+                
+                <div class="workflow-card supplier" onclick="window.location.href='/demo/supplier/step1-new-contract'">
+                    <div class="workflow-icon">🏭</div>
+                    <div class="workflow-title">Supplier Journey</div>
+                    <div class="workflow-subtitle">Supply & Fulfillment</div>
+                    <div class="workflow-description">
+                        Complete supplier workflow from receiving contracts through shipping and document verification.
+                    </div>
+                    <div class="workflow-steps">6 Steps • 12 min demo</div>
+                </div>
+                
+                <div class="workflow-card trader" onclick="window.location.href='/demo/trader/step1-dashboard'">
+                    <div class="workflow-icon">📈</div>
+                    <div class="workflow-title">Trader Journey</div>
+                    <div class="workflow-subtitle">Dual-Contract Trading</div>
+                    <div class="workflow-description">
+                        Advanced trading system managing simultaneous buy and sell contracts with document transfer.
+                    </div>
+                    <div class="workflow-steps">5 Steps • 10 min demo</div>
+                </div>
+            </div>
+            
+            <div style="background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 12px; padding: 1.5rem; margin: 2rem 0; color: #0c4a6e;">
+                <strong>💡 Demo Features:</strong><br>
+                • Step-by-step navigation with progress indicators<br>
+                • Realistic contract data and professional interfaces<br>
+                • Blockchain document verification simulation<br>
+                • Complete end-to-end workflows for all roles
+            </div>
+            
+            <div class="back-link">
+                <a href="/landing-two">← Back to Access Portal</a>
             </div>
         </div>
     </body>
