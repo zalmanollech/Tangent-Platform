@@ -10897,7 +10897,7 @@ app.get('/demo/buyer/step8-dashboard-final-payment', (req, res) => {
                 const minutes = Math.floor((timeLeft % 3600) / 60);
                 const seconds = timeLeft % 60;
                 
-                const display = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                const display = hours.toString().padStart(2, '0') + ':' + minutes.toString().padStart(2, '0') + ':' + seconds.toString().padStart(2, '0');
                 countdownElement.textContent = display;
                 
                 if (timeLeft > 0) {
