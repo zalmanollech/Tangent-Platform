@@ -9100,6 +9100,17 @@ app.get('/demo', (req, res) => {
         </div>
 
         <div class="demo-section">
+            <h2 class="section-title">🎭 Complete Workflow Demo</h2>
+            <div class="demo-grid">
+                <div class="demo-card" style="border: 2px solid #f59e0b; background: linear-gradient(135deg, #451a03, #1e293b);">
+                    <h3 style="color: #f59e0b;">🚀 Step-by-Step Workflow</h3>
+                    <p>Experience the complete buyer, supplier, and trader journey with detailed step-by-step navigation through all processes</p>
+                    <a href="/demo/workflow" class="demo-btn" style="background: #f59e0b; color: #000; font-weight: bold;">🎯 Start Complete Demo</a>
+                </div>
+            </div>
+        </div>
+
+        <div class="demo-section">
             <h2 class="section-title">👑 Admin Dashboard Pages</h2>
             <div class="demo-grid">
                 <div class="demo-card">
@@ -9322,6 +9333,1356 @@ app.get('/demo/kyc-preview', (req, res) => {
     );
     
     res.redirect(`/kyc?token=${demoToken}&demo=true`);
+});
+
+// ================================
+// COMPREHENSIVE WORKFLOW DEMO SYSTEM
+// ================================
+
+// Main Workflow Demo Controller
+app.get('/demo/workflow', (req, res) => {
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tangent Platform - Complete Workflow Demo</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: system-ui, -apple-system, sans-serif; background: #0f172a; color: #f8fafc; min-height: 100vh; }
+        .header { background: #1e293b; padding: 2rem; text-align: center; border-bottom: 1px solid #334155; }
+        .header h1 { color: #2563eb; font-size: 2.5rem; margin-bottom: 0.5rem; }
+        .header p { color: #94a3b8; font-size: 1.1rem; }
+        .container { max-width: 1400px; margin: 0 auto; padding: 2rem; }
+        
+        .role-tabs { display: flex; gap: 1rem; margin-bottom: 2rem; justify-content: center; }
+        .role-tab { background: #374151; color: #f8fafc; padding: 1rem 2rem; border: none; border-radius: 8px; cursor: pointer; font-size: 1rem; font-weight: 600; transition: all 0.3s; }
+        .role-tab.active { background: #2563eb; }
+        .role-tab:hover { background: #4b5563; }
+        .role-tab.active:hover { background: #1d4ed8; }
+        
+        .workflow-section { background: #1e293b; border-radius: 12px; padding: 2rem; margin-bottom: 2rem; border: 1px solid #334155; }
+        .section-title { color: #06b6d4; font-size: 1.5rem; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.5rem; }
+        
+        .steps-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem; }
+        .step-card { background: #0f172a; padding: 1.5rem; border-radius: 8px; border: 1px solid #374151; transition: all 0.3s ease; position: relative; }
+        .step-card:hover { border-color: #2563eb; transform: translateY(-2px); }
+        .step-number { position: absolute; top: -10px; left: 15px; background: #2563eb; color: white; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 0.9rem; }
+        .step-card h3 { color: #f8fafc; margin-bottom: 0.5rem; margin-top: 0.5rem; }
+        .step-card p { color: #94a3b8; margin-bottom: 1rem; font-size: 0.9rem; }
+        .step-btn { background: #2563eb; color: white; padding: 0.75rem 1.5rem; border: none; border-radius: 6px; cursor: pointer; text-decoration: none; display: inline-block; font-weight: 500; transition: background 0.3s; width: 100%; text-align: center; }
+        .step-btn:hover { background: #1d4ed8; }
+        .step-btn.supplier { background: #059669; }
+        .step-btn.supplier:hover { background: #047857; }
+        .step-btn.trader { background: #7c3aed; }
+        .step-btn.trader:hover { background: #6d28d9; }
+        
+        .navigation-bar { background: #0f172a; padding: 1.5rem; border-radius: 8px; margin-bottom: 2rem; text-align: center; }
+        .nav-btn { background: #374151; color: #f8fafc; padding: 0.75rem 1.5rem; border: none; border-radius: 6px; cursor: pointer; margin: 0 0.5rem; font-weight: 500; }
+        .nav-btn:hover { background: #4b5563; }
+        .nav-btn.primary { background: #2563eb; }
+        .nav-btn.primary:hover { background: #1d4ed8; }
+        
+        .demo-watermark { position: fixed; top: 10px; right: 10px; background: #f59e0b; color: #000; padding: 5px 10px; border-radius: 4px; font-weight: bold; z-index: 9999; font-size: 12px; }
+        
+        .hidden { display: none; }
+        
+        .progress-bar { background: #374151; height: 8px; border-radius: 4px; margin: 1rem 0; overflow: hidden; }
+        .progress-fill { background: #2563eb; height: 100%; transition: width 0.3s ease; }
+        
+        .overview-card { background: #451a03; border: 1px solid #92400e; border-radius: 8px; padding: 1.5rem; margin-bottom: 2rem; }
+        .overview-card h3 { color: #f59e0b; margin-bottom: 1rem; }
+        .overview-card p { color: #fbbf24; }
+    </style>
+</head>
+<body>
+    <div class="demo-watermark">🎭 WORKFLOW DEMO</div>
+    
+    <div class="header">
+        <h1>🎭 Complete Workflow Demo</h1>
+        <p>Experience the full buyer, supplier, and trader journey step by step</p>
+    </div>
+
+    <div class="container">
+        <div class="overview-card">
+            <h3>🎯 Demo Overview</h3>
+            <p>This demo shows the complete end-to-end workflow for all platform roles. Navigate through each step to see how contracts flow from creation to completion, including the trader's dual-contract system with document transfer capabilities.</p>
+        </div>
+
+        <div class="navigation-bar">
+            <button class="nav-btn primary" onclick="startFullDemo()">🚀 Start Complete Demo</button>
+            <button class="nav-btn" onclick="resetDemo()">🔄 Reset Demo</button>
+            <button class="nav-btn" onclick="window.location.href='/demo'">← Back to Demo Hub</button>
+        </div>
+
+        <div class="role-tabs">
+            <button class="role-tab active" onclick="showRole('buyer')" id="buyer-tab">🛒 Buyer Flow (8 Steps)</button>
+            <button class="role-tab" onclick="showRole('supplier')" id="supplier-tab">🏭 Supplier Flow (6 Steps)</button>
+            <button class="role-tab" onclick="showRole('trader')" id="trader-tab">📈 Trader Flow (5 Steps)</button>
+        </div>
+
+        <!-- Buyer Flow -->
+        <div id="buyer-flow" class="workflow-section">
+            <h2 class="section-title">🛒 Buyer Complete Journey</h2>
+            <div class="progress-bar">
+                <div class="progress-fill" style="width: 0%" id="buyer-progress"></div>
+            </div>
+            <div class="steps-grid">
+                <div class="step-card">
+                    <div class="step-number">1</div>
+                    <h3>Sign Up Process</h3>
+                    <p>Registration form with role selection and account creation</p>
+                    <a href="/demo/buyer/step1-signup" class="step-btn">View Sign Up Page</a>
+                </div>
+                <div class="step-card">
+                    <div class="step-number">2</div>
+                    <h3>KYC Verification</h3>
+                    <p>Complete KYC form with document upload and compliance checks</p>
+                    <a href="/demo/buyer/step2-kyc" class="step-btn">View KYC Process</a>
+                </div>
+                <div class="step-card">
+                    <div class="step-number">3</div>
+                    <h3>Empty Dashboard</h3>
+                    <p>Clean buyer dashboard with create contract option</p>
+                    <a href="/demo/buyer/step3-dashboard-empty" class="step-btn">View Empty Dashboard</a>
+                </div>
+                <div class="step-card">
+                    <div class="step-number">4</div>
+                    <h3>Create Contract</h3>
+                    <p>Complete contract creation form with all details</p>
+                    <a href="/demo/buyer/step4-create-contract" class="step-btn">View Contract Form</a>
+                </div>
+                <div class="step-card">
+                    <div class="step-number">5</div>
+                    <h3>Waiting for Supplier</h3>
+                    <p>Dashboard showing contract pending supplier confirmation</p>
+                    <a href="/demo/buyer/step5-dashboard-pending" class="step-btn">View Pending Status</a>
+                </div>
+                <div class="step-card">
+                    <div class="step-number">6</div>
+                    <h3>Make Deposit</h3>
+                    <p>Contract confirmed, deposit payment interface active</p>
+                    <a href="/demo/buyer/step6-dashboard-deposit" class="step-btn">View Deposit Page</a>
+                </div>
+                <div class="step-card">
+                    <div class="step-number">7</div>
+                    <h3>Active Contract</h3>
+                    <p>Contract active, waiting for supplier document upload</p>
+                    <a href="/demo/buyer/step7-dashboard-active" class="step-btn">View Active Status</a>
+                </div>
+                <div class="step-card">
+                    <div class="step-number">8</div>
+                    <h3>Final Payment</h3>
+                    <p>Documents uploaded, countdown timer, release final payment</p>
+                    <a href="/demo/buyer/step8-dashboard-final-payment" class="step-btn">View Final Payment</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Supplier Flow -->
+        <div id="supplier-flow" class="workflow-section hidden">
+            <h2 class="section-title">🏭 Supplier Complete Journey</h2>
+            <div class="progress-bar">
+                <div class="progress-fill" style="width: 0%" id="supplier-progress"></div>
+            </div>
+            <div class="steps-grid">
+                <div class="step-card">
+                    <div class="step-number">1</div>
+                    <h3>New Contract Notification</h3>
+                    <p>Dashboard showing incoming contract from buyer</p>
+                    <a href="/demo/supplier/step1-new-contract" class="step-btn supplier">View New Contract</a>
+                </div>
+                <div class="step-card">
+                    <div class="step-number">2</div>
+                    <h3>Contract Details & Confirm</h3>
+                    <p>Full contract review and confirmation interface</p>
+                    <a href="/demo/supplier/step2-contract-details" class="step-btn supplier">View Contract Details</a>
+                </div>
+                <div class="step-card">
+                    <div class="step-number">3</div>
+                    <h3>Waiting for Deposit</h3>
+                    <p>Contract confirmed, waiting for buyer deposit</p>
+                    <a href="/demo/supplier/step3-waiting-deposit" class="step-btn supplier">View Waiting Status</a>
+                </div>
+                <div class="step-card">
+                    <div class="step-number">4</div>
+                    <h3>Active Contract</h3>
+                    <p>Deposit received, contract active, ready for shipping</p>
+                    <a href="/demo/supplier/step4-active-contract" class="step-btn supplier">View Active Contract</a>
+                </div>
+                <div class="step-card">
+                    <div class="step-number">5</div>
+                    <h3>Upload Documents</h3>
+                    <p>Shipping document upload interface</p>
+                    <a href="/demo/supplier/step5-upload-documents" class="step-btn supplier">View Document Upload</a>
+                </div>
+                <div class="step-card">
+                    <div class="step-number">6</div>
+                    <h3>Contract Completed</h3>
+                    <p>Documents uploaded, payment received, contract complete</p>
+                    <a href="/demo/supplier/step6-completed" class="step-btn supplier">View Completion</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Trader Flow -->
+        <div id="trader-flow" class="workflow-section hidden">
+            <h2 class="section-title">📈 Trader Dual-Contract System</h2>
+            <div class="progress-bar">
+                <div class="progress-fill" style="width: 0%" id="trader-progress"></div>
+            </div>
+            <div class="steps-grid">
+                <div class="step-card">
+                    <div class="step-number">1</div>
+                    <h3>Trader Dashboard</h3>
+                    <p>Overview of dual contracts - buying and selling sides</p>
+                    <a href="/demo/trader/step1-dashboard" class="step-btn trader">View Trader Dashboard</a>
+                </div>
+                <div class="step-card">
+                    <div class="step-number">2</div>
+                    <h3>Supplier Contract (Buy Side)</h3>
+                    <p>Contract with supplier, confirmation and deposit</p>
+                    <a href="/demo/trader/step2-supplier-contract" class="step-btn trader">View Buy Contract</a>
+                </div>
+                <div class="step-card">
+                    <div class="step-number">3</div>
+                    <h3>Buyer Contract (Sell Side)</h3>
+                    <p>Contract with buyer, waiting for confirmation</p>
+                    <a href="/demo/trader/step3-buyer-contract" class="step-btn trader">View Sell Contract</a>
+                </div>
+                <div class="step-card">
+                    <div class="step-number">4</div>
+                    <h3>Document Transfer System</h3>
+                    <p>Receive documents from supplier, transfer to buyer</p>
+                    <a href="/demo/trader/step4-document-transfer" class="step-btn trader">View Document Transfer</a>
+                </div>
+                <div class="step-card">
+                    <div class="step-number">5</div>
+                    <h3>Dual Contract Completion</h3>
+                    <p>Both contracts completed, profit calculation</p>
+                    <a href="/demo/trader/step5-completion" class="step-btn trader">View Completion</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function showRole(role) {
+            // Hide all flows
+            document.getElementById('buyer-flow').classList.add('hidden');
+            document.getElementById('supplier-flow').classList.add('hidden');
+            document.getElementById('trader-flow').classList.add('hidden');
+            
+            // Remove active class from all tabs
+            document.querySelectorAll('.role-tab').forEach(tab => tab.classList.remove('active'));
+            
+            // Show selected flow and activate tab
+            document.getElementById(role + '-flow').classList.remove('hidden');
+            document.getElementById(role + '-tab').classList.add('active');
+        }
+
+        function startFullDemo() {
+            window.location.href = '/demo/buyer/step1-signup';
+        }
+
+        function resetDemo() {
+            if (confirm('Reset demo progress and start from the beginning?')) {
+                localStorage.removeItem('demoProgress');
+                showRole('buyer');
+            }
+        }
+
+        // Initialize
+        showRole('buyer');
+    </script>
+</body>
+</html>`;
+
+    res.send(html);
+});
+
+// ================================
+// BUYER WORKFLOW DEMO STEPS
+// ================================
+
+// Buyer Step 1: Sign Up Process
+app.get('/demo/buyer/step1-signup', (req, res) => {
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Buyer Demo - Sign Up Process</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: system-ui, -apple-system, sans-serif; background: #0f172a; color: #f8fafc; min-height: 100vh; }
+        .demo-watermark { position: fixed; top: 10px; right: 10px; background: #f59e0b; color: #000; padding: 5px 10px; border-radius: 4px; font-weight: bold; z-index: 9999; font-size: 12px; }
+        .step-indicator { position: fixed; top: 10px; left: 10px; background: #2563eb; color: white; padding: 8px 15px; border-radius: 4px; font-weight: bold; z-index: 9999; }
+        .container { max-width: 500px; margin: 0 auto; padding: 2rem; min-height: 100vh; display: flex; flex-direction: column; justify-content: center; }
+        .form-container { background: #1e293b; padding: 2rem; border-radius: 12px; border: 1px solid #334155; }
+        .form-title { color: #2563eb; font-size: 2rem; text-align: center; margin-bottom: 2rem; }
+        .form-group { margin-bottom: 1.5rem; }
+        .form-group label { display: block; color: #f8fafc; margin-bottom: 0.5rem; font-weight: 500; }
+        .form-group input, .form-group select { width: 100%; padding: 0.75rem; border: 1px solid #374151; border-radius: 6px; background: #0f172a; color: #f8fafc; font-size: 1rem; }
+        .form-group input:focus, .form-group select:focus { outline: none; border-color: #2563eb; }
+        .role-selector { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; margin-top: 0.5rem; }
+        .role-option { padding: 1rem; border: 2px solid #374151; border-radius: 8px; text-align: center; cursor: pointer; transition: all 0.3s; }
+        .role-option.selected { border-color: #2563eb; background: #1e40af20; }
+        .role-option h4 { color: #f8fafc; margin-bottom: 0.5rem; }
+        .role-option p { color: #94a3b8; font-size: 0.9rem; }
+        .btn { background: #2563eb; color: white; padding: 0.75rem 2rem; border: none; border-radius: 6px; cursor: pointer; font-size: 1rem; font-weight: 500; width: 100%; margin-top: 1rem; }
+        .btn:hover { background: #1d4ed8; }
+        .navigation { display: flex; justify-content: space-between; margin-top: 2rem; }
+        .nav-btn { background: #374151; color: #f8fafc; padding: 0.5rem 1rem; border: none; border-radius: 4px; cursor: pointer; text-decoration: none; }
+        .nav-btn:hover { background: #4b5563; }
+        .demo-note { background: #451a03; border: 1px solid #92400e; border-radius: 8px; padding: 1rem; margin-bottom: 2rem; }
+        .demo-note h4 { color: #f59e0b; margin-bottom: 0.5rem; }
+        .demo-note p { color: #fbbf24; font-size: 0.9rem; }
+    </style>
+</head>
+<body>
+    <div class="demo-watermark">🎭 DEMO MODE</div>
+    <div class="step-indicator">Step 1/8: Sign Up</div>
+    
+    <div class="container">
+        <div class="demo-note">
+            <h4>🎯 Demo Step 1: Buyer Registration</h4>
+            <p>This shows the complete sign-up form that new buyers see. All fields are pre-filled with demo data for demonstration purposes.</p>
+        </div>
+
+        <div class="form-container">
+            <h1 class="form-title">🛒 Join as Buyer</h1>
+            
+            <form>
+                <div class="form-group">
+                    <label>Full Name</label>
+                    <input type="text" value="John Smith (Demo Buyer)" readonly>
+                </div>
+                
+                <div class="form-group">
+                    <label>Email Address</label>
+                    <input type="email" value="demo.buyer@tangent.com" readonly>
+                </div>
+                
+                <div class="form-group">
+                    <label>Company Name</label>
+                    <input type="text" value="Global Import Solutions Ltd" readonly>
+                </div>
+                
+                <div class="form-group">
+                    <label>Phone Number</label>
+                    <input type="tel" value="+1 (555) 123-4567" readonly>
+                </div>
+                
+                <div class="form-group">
+                    <label>Select Your Role</label>
+                    <div class="role-selector">
+                        <div class="role-option selected">
+                            <h4>🛒 Buyer</h4>
+                            <p>Purchase commodities and manage contracts</p>
+                        </div>
+                        <div class="role-option">
+                            <h4>🏭 Supplier</h4>
+                            <p>Sell commodities and fulfill orders</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label>Password</label>
+                    <input type="password" value="••••••••••" readonly>
+                </div>
+                
+                <div class="form-group">
+                    <label>Confirm Password</label>
+                    <input type="password" value="••••••••••" readonly>
+                </div>
+                
+                <button type="button" class="btn" onclick="nextStep()">Create Account & Continue to KYC</button>
+            </form>
+        </div>
+
+        <div class="navigation">
+            <a href="/demo/workflow" class="nav-btn">← Back to Workflow</a>
+            <a href="/demo/buyer/step2-kyc" class="nav-btn">Next: KYC Process →</a>
+        </div>
+    </div>
+
+    <script>
+        function nextStep() {
+            window.location.href = '/demo/buyer/step2-kyc';
+        }
+    </script>
+</body>
+</html>`;
+
+    res.send(html);
+});
+
+// Buyer Step 2: KYC Process
+app.get('/demo/buyer/step2-kyc', (req, res) => {
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Buyer Demo - KYC Verification</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: system-ui, -apple-system, sans-serif; background: #0f172a; color: #f8fafc; min-height: 100vh; }
+        .demo-watermark { position: fixed; top: 10px; right: 10px; background: #f59e0b; color: #000; padding: 5px 10px; border-radius: 4px; font-weight: bold; z-index: 9999; font-size: 12px; }
+        .step-indicator { position: fixed; top: 10px; left: 10px; background: #2563eb; color: white; padding: 8px 15px; border-radius: 4px; font-weight: bold; z-index: 9999; }
+        .container { max-width: 800px; margin: 0 auto; padding: 2rem; }
+        .kyc-container { background: #1e293b; padding: 2rem; border-radius: 12px; border: 1px solid #334155; }
+        .kyc-title { color: #2563eb; font-size: 2rem; text-align: center; margin-bottom: 2rem; }
+        .company-type-section { margin-bottom: 2rem; }
+        .company-type-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1rem; }
+        .company-btn { padding: 1.5rem; border: 2px solid #374151; border-radius: 8px; background: #0f172a; cursor: pointer; transition: all 0.3s; text-align: center; }
+        .company-btn.selected { border-color: #2563eb; background: #1e40af20; }
+        .company-btn h3 { color: #f8fafc; margin-bottom: 0.5rem; }
+        .company-btn p { color: #94a3b8; font-size: 0.9rem; }
+        .documents-section { margin-top: 2rem; }
+        .document-upload { background: #0f172a; border: 2px dashed #374151; border-radius: 8px; padding: 2rem; text-align: center; margin: 1rem 0; }
+        .document-upload.uploaded { border-color: #059669; background: #05966920; }
+        .upload-icon { font-size: 2rem; margin-bottom: 1rem; }
+        .compliance-checks { margin-top: 2rem; }
+        .check-item { display: flex; align-items: center; gap: 1rem; padding: 1rem; background: #0f172a; border-radius: 6px; margin-bottom: 0.5rem; }
+        .check-icon { color: #059669; font-size: 1.2rem; }
+        .btn { background: #2563eb; color: white; padding: 0.75rem 2rem; border: none; border-radius: 6px; cursor: pointer; font-size: 1rem; font-weight: 500; width: 100%; margin-top: 1rem; }
+        .btn:hover { background: #1d4ed8; }
+        .navigation { display: flex; justify-content: space-between; margin-top: 2rem; }
+        .nav-btn { background: #374151; color: #f8fafc; padding: 0.5rem 1rem; border: none; border-radius: 4px; cursor: pointer; text-decoration: none; }
+        .nav-btn:hover { background: #4b5563; }
+        .demo-note { background: #451a03; border: 1px solid #92400e; border-radius: 8px; padding: 1rem; margin-bottom: 2rem; }
+        .demo-note h4 { color: #f59e0b; margin-bottom: 0.5rem; }
+        .demo-note p { color: #fbbf24; font-size: 0.9rem; }
+    </style>
+</head>
+<body>
+    <div class="demo-watermark">🎭 DEMO MODE</div>
+    <div class="step-indicator">Step 2/8: KYC Verification</div>
+    
+    <div class="container">
+        <div class="demo-note">
+            <h4>🎯 Demo Step 2: KYC Document Verification</h4>
+            <p>This shows the complete KYC process including company type selection, document upload, and automated compliance checks. All documents are pre-uploaded for demo purposes.</p>
+        </div>
+
+        <div class="kyc-container">
+            <h1 class="kyc-title">🛡️ KYC Verification</h1>
+            
+            <div class="company-type-section">
+                <h3 style="color: #f8fafc; margin-bottom: 1rem;">Company Type</h3>
+                <div class="company-type-buttons">
+                    <div class="company-btn selected">
+                        <h3>📈 Listed Company</h3>
+                        <p>Publicly traded with additional transparency requirements</p>
+                    </div>
+                    <div class="company-btn">
+                        <h3>🏢 Private Company</h3>
+                        <p>Private entity with standard documentation</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="documents-section">
+                <h3 style="color: #f8fafc; margin-bottom: 1rem;">Required Documents</h3>
+                
+                <div class="document-upload uploaded">
+                    <div class="upload-icon">✅</div>
+                    <h4 style="color: #059669;">Certificate of Incorporation</h4>
+                    <p style="color: #94a3b8;">global-import-incorporation.pdf (uploaded)</p>
+                </div>
+                
+                <div class="document-upload uploaded">
+                    <div class="upload-icon">✅</div>
+                    <h4 style="color: #059669;">Business License</h4>
+                    <p style="color: #94a3b8;">business-license-2024.pdf (uploaded)</p>
+                </div>
+                
+                <div class="document-upload uploaded">
+                    <div class="upload-icon">✅</div>
+                    <h4 style="color: #059669;">Director Identification</h4>
+                    <p style="color: #94a3b8;">director-id-john-smith.pdf (uploaded)</p>
+                </div>
+                
+                <div class="document-upload uploaded">
+                    <div class="upload-icon">✅</div>
+                    <h4 style="color: #059669;">Financial Statements</h4>
+                    <p style="color: #94a3b8;">financial-statements-2024.pdf (uploaded)</p>
+                </div>
+            </div>
+
+            <div class="compliance-checks">
+                <h3 style="color: #f8fafc; margin-bottom: 1rem;">Automated Compliance Checks</h3>
+                
+                <div class="check-item">
+                    <div class="check-icon">✅</div>
+                    <div>
+                        <h4 style="color: #f8fafc;">Document Format Validation</h4>
+                        <p style="color: #94a3b8;">All documents in acceptable PDF format</p>
+                    </div>
+                </div>
+                
+                <div class="check-item">
+                    <div class="check-icon">✅</div>
+                    <div>
+                        <h4 style="color: #f8fafc;">OFAC Sanctions Screening</h4>
+                        <p style="color: #94a3b8;">No matches found in sanctions database</p>
+                    </div>
+                </div>
+                
+                <div class="check-item">
+                    <div class="check-icon">✅</div>
+                    <div>
+                        <h4 style="color: #f8fafc;">Company Registry Verification</h4>
+                        <p style="color: #94a3b8;">Company details verified against public records</p>
+                    </div>
+                </div>
+                
+                <div class="check-item">
+                    <div class="check-icon">✅</div>
+                    <div>
+                        <h4 style="color: #f8fafc;">Financial Standing Check</h4>
+                        <p style="color: #94a3b8;">Financial statements meet minimum requirements</p>
+                    </div>
+                </div>
+                
+                <div class="check-item">
+                    <div class="check-icon">✅</div>
+                    <div>
+                        <h4 style="color: #f8fafc;">Director Background Check</h4>
+                        <p style="color: #94a3b8;">No adverse findings on company directors</p>
+                    </div>
+                </div>
+            </div>
+            
+            <button type="button" class="btn" onclick="nextStep()">Complete KYC & Setup Wallet</button>
+        </div>
+
+        <div class="navigation">
+            <a href="/demo/buyer/step1-signup" class="nav-btn">← Previous: Sign Up</a>
+            <a href="/demo/buyer/step3-dashboard-empty" class="nav-btn">Next: Dashboard →</a>
+        </div>
+    </div>
+
+    <script>
+        function nextStep() {
+            window.location.href = '/demo/buyer/step3-dashboard-empty';
+        }
+    </script>
+</body>
+</html>`;
+
+    res.send(html);
+});
+
+// Buyer Step 3: Empty Dashboard
+app.get('/demo/buyer/step3-dashboard-empty', (req, res) => {
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Buyer Demo - Empty Dashboard</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: system-ui, -apple-system, sans-serif; background: #0f172a; color: #f8fafc; min-height: 100vh; }
+        .demo-watermark { position: fixed; top: 10px; right: 10px; background: #f59e0b; color: #000; padding: 5px 10px; border-radius: 4px; font-weight: bold; z-index: 9999; font-size: 12px; }
+        .step-indicator { position: fixed; top: 10px; left: 10px; background: #2563eb; color: white; padding: 8px 15px; border-radius: 4px; font-weight: bold; z-index: 9999; }
+        .header { background: #1e293b; padding: 1.5rem 2rem; border-bottom: 1px solid #334155; display: flex; justify-content: space-between; align-items: center; }
+        .header h1 { color: #2563eb; }
+        .user-info { display: flex; align-items: center; gap: 1rem; }
+        .balance { background: #059669; color: white; padding: 0.5rem 1rem; border-radius: 6px; font-weight: bold; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 2rem; }
+        .welcome-section { background: #1e293b; padding: 2rem; border-radius: 12px; border: 1px solid #334155; margin-bottom: 2rem; text-align: center; }
+        .welcome-section h2 { color: #2563eb; margin-bottom: 1rem; }
+        .welcome-section p { color: #94a3b8; margin-bottom: 2rem; }
+        .empty-state { background: #0f172a; border: 2px dashed #374151; border-radius: 12px; padding: 3rem; text-align: center; margin: 2rem 0; }
+        .empty-icon { font-size: 4rem; margin-bottom: 1rem; color: #374151; }
+        .empty-state h3 { color: #f8fafc; margin-bottom: 1rem; }
+        .empty-state p { color: #94a3b8; margin-bottom: 2rem; }
+        .btn { background: #2563eb; color: white; padding: 0.75rem 2rem; border: none; border-radius: 6px; cursor: pointer; font-size: 1rem; font-weight: 500; text-decoration: none; display: inline-block; }
+        .btn:hover { background: #1d4ed8; }
+        .btn.large { padding: 1rem 2rem; font-size: 1.1rem; }
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin: 2rem 0; }
+        .stat-card { background: #1e293b; padding: 1.5rem; border-radius: 8px; border: 1px solid #334155; text-align: center; }
+        .stat-number { font-size: 2rem; font-weight: bold; color: #2563eb; }
+        .stat-label { color: #94a3b8; margin-top: 0.5rem; }
+        .navigation { display: flex; justify-content: space-between; margin-top: 2rem; }
+        .nav-btn { background: #374151; color: #f8fafc; padding: 0.5rem 1rem; border: none; border-radius: 4px; cursor: pointer; text-decoration: none; }
+        .nav-btn:hover { background: #4b5563; }
+        .demo-note { background: #451a03; border: 1px solid #92400e; border-radius: 8px; padding: 1rem; margin-bottom: 2rem; }
+        .demo-note h4 { color: #f59e0b; margin-bottom: 0.5rem; }
+        .demo-note p { color: #fbbf24; font-size: 0.9rem; }
+    </style>
+</head>
+<body>
+    <div class="demo-watermark">🎭 DEMO MODE</div>
+    <div class="step-indicator">Step 3/8: Empty Dashboard</div>
+    
+    <div class="header">
+        <h1>🛒 Buyer Dashboard</h1>
+        <div class="user-info">
+            <span>John Smith (Demo Buyer)</span>
+            <div class="balance">💰 $100,000 TGT</div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="demo-note">
+            <h4>🎯 Demo Step 3: Clean Buyer Dashboard</h4>
+            <p>This shows what new buyers see when they first access their dashboard - a clean interface with the option to create their first contract.</p>
+        </div>
+
+        <div class="welcome-section">
+            <h2>Welcome to Tangent Platform!</h2>
+            <p>Your account is fully verified and ready for trading. Start by creating your first contract.</p>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-number">0</div>
+                <div class="stat-label">Active Contracts</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">$0</div>
+                <div class="stat-label">Total Volume</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">0</div>
+                <div class="stat-label">Completed Trades</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">100%</div>
+                <div class="stat-label">Success Rate</div>
+            </div>
+        </div>
+
+        <div class="empty-state">
+            <div class="empty-icon">📋</div>
+            <h3>No Contracts Yet</h3>
+            <p>You haven't created any contracts yet. Start your first trade by creating a new contract with a supplier.</p>
+            <a href="/demo/buyer/step4-create-contract" class="btn large">+ Create First Contract</a>
+        </div>
+
+        <div class="navigation">
+            <a href="/demo/buyer/step2-kyc" class="nav-btn">← Previous: KYC</a>
+            <a href="/demo/buyer/step4-create-contract" class="nav-btn">Next: Create Contract →</a>
+        </div>
+    </div>
+</body>
+</html>`;
+
+    res.send(html);
+});
+
+// Buyer Step 4: Create Contract Form
+app.get('/demo/buyer/step4-create-contract', (req, res) => {
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Buyer Demo - Create Contract</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: system-ui, -apple-system, sans-serif; background: #0f172a; color: #f8fafc; min-height: 100vh; }
+        .demo-watermark { position: fixed; top: 10px; right: 10px; background: #f59e0b; color: #000; padding: 5px 10px; border-radius: 4px; font-weight: bold; z-index: 9999; font-size: 12px; }
+        .step-indicator { position: fixed; top: 10px; left: 10px; background: #2563eb; color: white; padding: 8px 15px; border-radius: 4px; font-weight: bold; z-index: 9999; }
+        .container { max-width: 800px; margin: 0 auto; padding: 2rem; }
+        .form-container { background: #1e293b; padding: 2rem; border-radius: 12px; border: 1px solid #334155; }
+        .form-title { color: #2563eb; font-size: 2rem; text-align: center; margin-bottom: 2rem; }
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; }
+        .form-section { background: #0f172a; padding: 1.5rem; border-radius: 8px; border: 1px solid #374151; }
+        .section-title { color: #06b6d4; font-size: 1.2rem; margin-bottom: 1rem; }
+        .form-group { margin-bottom: 1.5rem; }
+        .form-group label { display: block; color: #f8fafc; margin-bottom: 0.5rem; font-weight: 500; }
+        .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 0.75rem; border: 1px solid #374151; border-radius: 6px; background: #1e293b; color: #f8fafc; font-size: 1rem; }
+        .form-group textarea { height: 100px; resize: vertical; }
+        .cost-summary { background: #451a03; border: 1px solid #92400e; border-radius: 8px; padding: 1.5rem; margin-top: 2rem; }
+        .cost-row { display: flex; justify-content: space-between; margin-bottom: 0.5rem; }
+        .cost-total { font-weight: bold; font-size: 1.1rem; border-top: 1px solid #92400e; padding-top: 0.5rem; margin-top: 0.5rem; }
+        .btn { background: #2563eb; color: white; padding: 0.75rem 2rem; border: none; border-radius: 6px; cursor: pointer; font-size: 1rem; font-weight: 500; width: 100%; margin-top: 1rem; }
+        .btn:hover { background: #1d4ed8; }
+        .navigation { display: flex; justify-content: space-between; margin-top: 2rem; }
+        .nav-btn { background: #374151; color: #f8fafc; padding: 0.5rem 1rem; border: none; border-radius: 4px; cursor: pointer; text-decoration: none; }
+        .nav-btn:hover { background: #4b5563; }
+        .demo-note { background: #451a03; border: 1px solid #92400e; border-radius: 8px; padding: 1rem; margin-bottom: 2rem; }
+        .demo-note h4 { color: #f59e0b; margin-bottom: 0.5rem; }
+        .demo-note p { color: #fbbf24; font-size: 0.9rem; }
+    </style>
+</head>
+<body>
+    <div class="demo-watermark">🎭 DEMO MODE</div>
+    <div class="step-indicator">Step 4/8: Create Contract</div>
+    
+    <div class="container">
+        <div class="demo-note">
+            <h4>🎯 Demo Step 4: Contract Creation Form</h4>
+            <p>This shows the complete contract creation interface with all required fields, cost calculation, and supplier selection. All fields are pre-filled with realistic demo data.</p>
+        </div>
+
+        <div class="form-container">
+            <h1 class="form-title">📋 Create New Contract</h1>
+            
+            <div class="form-grid">
+                <div class="form-section">
+                    <h3 class="section-title">📦 Commodity Details</h3>
+                    <div class="form-group">
+                        <label>Commodity Type</label>
+                        <select>
+                            <option>Wheat - Hard Red Winter</option>
+                            <option>Corn - Yellow #2</option>
+                            <option>Soybeans - #1 Yellow</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Quantity (MT)</label>
+                        <input type="number" value="5000" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label>Quality Grade</label>
+                        <select>
+                            <option>Premium Grade A</option>
+                            <option>Standard Grade</option>
+                            <option>Feed Grade</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Price per MT (USD)</label>
+                        <input type="number" value="285.50" readonly>
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <h3 class="section-title">🏭 Supplier Information</h3>
+                    <div class="form-group">
+                        <label>Supplier Email</label>
+                        <input type="email" value="demo.supplier@agriexport.com" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label>Supplier Company</label>
+                        <input type="text" value="AgriExport Global Ltd" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label>Origin Port</label>
+                        <select>
+                            <option>Port of New Orleans, USA</option>
+                            <option>Port of Rotterdam, Netherlands</option>
+                            <option>Port of Santos, Brazil</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Destination Port</label>
+                        <select>
+                            <option>Port of Hamburg, Germany</option>
+                            <option>Port of Antwerp, Belgium</option>
+                            <option>Port of Le Havre, France</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-section" style="margin-top: 2rem;">
+                <h3 class="section-title">📋 Contract Terms</h3>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Delivery Terms</label>
+                        <select>
+                            <option>FOB (Free on Board)</option>
+                            <option>CIF (Cost, Insurance, Freight)</option>
+                            <option>CFR (Cost and Freight)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Payment Terms</label>
+                        <select>
+                            <option>30% Deposit + 70% on Documents</option>
+                            <option>50% Deposit + 50% on Documents</option>
+                            <option>Letter of Credit</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Shipment Date</label>
+                        <input type="date" value="2024-11-15" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label>Contract Expiry</label>
+                        <input type="date" value="2024-12-31" readonly>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Special Terms & Conditions</label>
+                    <textarea readonly>- Moisture content max 14%
+- Protein content min 11.5%
+- No GMO certification required
+- Fumigation certificate required
+- Loading rate: 5,000 MT per day</textarea>
+                </div>
+            </div>
+
+            <div class="cost-summary">
+                <h3 style="color: #f59e0b; margin-bottom: 1rem;">💰 Cost Summary</h3>
+                <div class="cost-row">
+                    <span>Commodity Value (5,000 MT × $285.50):</span>
+                    <span>$1,427,500.00</span>
+                </div>
+                <div class="cost-row">
+                    <span>Platform Fee (0.5%):</span>
+                    <span>$7,137.50</span>
+                </div>
+                <div class="cost-row">
+                    <span>Insurance (0.2%):</span>
+                    <span>$2,855.00</span>
+                </div>
+                <div class="cost-row">
+                    <span>Escrow Fee (0.1%):</span>
+                    <span>$1,427.50</span>
+                </div>
+                <div class="cost-row cost-total">
+                    <span>Total Contract Value:</span>
+                    <span>$1,438,920.00</span>
+                </div>
+                <div class="cost-row" style="color: #06b6d4;">
+                    <span>Required Deposit (30%):</span>
+                    <span>$431,676.00</span>
+                </div>
+            </div>
+            
+            <button type="button" class="btn" onclick="nextStep()">Create Contract & Send to Supplier</button>
+        </div>
+
+        <div class="navigation">
+            <a href="/demo/buyer/step3-dashboard-empty" class="nav-btn">← Previous: Dashboard</a>
+            <a href="/demo/buyer/step5-dashboard-pending" class="nav-btn">Next: Pending Status →</a>
+        </div>
+    </div>
+
+    <script>
+        function nextStep() {
+            window.location.href = '/demo/buyer/step5-dashboard-pending';
+        }
+    </script>
+</body>
+</html>`;
+
+    res.send(html);
+});
+
+// Buyer Step 5: Dashboard with Pending Contract
+app.get('/demo/buyer/step5-dashboard-pending', (req, res) => {
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Buyer Demo - Pending Contract</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: system-ui, -apple-system, sans-serif; background: #0f172a; color: #f8fafc; min-height: 100vh; }
+        .demo-watermark { position: fixed; top: 10px; right: 10px; background: #f59e0b; color: #000; padding: 5px 10px; border-radius: 4px; font-weight: bold; z-index: 9999; font-size: 12px; }
+        .step-indicator { position: fixed; top: 10px; left: 10px; background: #2563eb; color: white; padding: 8px 15px; border-radius: 4px; font-weight: bold; z-index: 9999; }
+        .header { background: #1e293b; padding: 1.5rem 2rem; border-bottom: 1px solid #334155; display: flex; justify-content: space-between; align-items: center; }
+        .header h1 { color: #2563eb; }
+        .user-info { display: flex; align-items: center; gap: 1rem; }
+        .balance { background: #059669; color: white; padding: 0.5rem 1rem; border-radius: 6px; font-weight: bold; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 2rem; }
+        .contract-card { background: #1e293b; border-radius: 12px; border: 1px solid #334155; padding: 2rem; margin-bottom: 2rem; }
+        .contract-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
+        .contract-id { color: #06b6d4; font-weight: bold; }
+        .status-badge { padding: 0.5rem 1rem; border-radius: 20px; font-weight: bold; font-size: 0.9rem; }
+        .status-pending { background: #f59e0b; color: #000; }
+        .contract-details { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.5rem; }
+        .detail-group { background: #0f172a; padding: 1rem; border-radius: 6px; border: 1px solid #374151; }
+        .detail-label { color: #94a3b8; font-size: 0.9rem; margin-bottom: 0.25rem; }
+        .detail-value { color: #f8fafc; font-weight: 500; }
+        .waiting-message { background: #451a03; border: 1px solid #92400e; border-radius: 8px; padding: 1.5rem; text-align: center; margin-top: 2rem; }
+        .waiting-message h3 { color: #f59e0b; margin-bottom: 0.5rem; }
+        .waiting-message p { color: #fbbf24; }
+        .navigation { display: flex; justify-content: space-between; margin-top: 2rem; }
+        .nav-btn { background: #374151; color: #f8fafc; padding: 0.5rem 1rem; border: none; border-radius: 4px; cursor: pointer; text-decoration: none; }
+        .nav-btn:hover { background: #4b5563; }
+        .demo-note { background: #451a03; border: 1px solid #92400e; border-radius: 8px; padding: 1rem; margin-bottom: 2rem; }
+        .demo-note h4 { color: #f59e0b; margin-bottom: 0.5rem; }
+        .demo-note p { color: #fbbf24; font-size: 0.9rem; }
+    </style>
+</head>
+<body>
+    <div class="demo-watermark">🎭 DEMO MODE</div>
+    <div class="step-indicator">Step 5/8: Pending Contract</div>
+    
+    <div class="header">
+        <h1>🛒 Buyer Dashboard</h1>
+        <div class="user-info">
+            <span>John Smith (Demo Buyer)</span>
+            <div class="balance">💰 $100,000 TGT</div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="demo-note">
+            <h4>🎯 Demo Step 5: Contract Awaiting Supplier Confirmation</h4>
+            <p>This shows the buyer's dashboard after creating a contract. The contract is now pending supplier confirmation before the buyer can make the deposit.</p>
+        </div>
+
+        <div class="contract-card">
+            <div class="contract-header">
+                <div>
+                    <div class="contract-id">Contract #DEMO-2024-001</div>
+                    <div style="color: #94a3b8; margin-top: 0.25rem;">Created: October 12, 2024</div>
+                </div>
+                <div class="status-badge status-pending">⏳ PENDING SUPPLIER CONFIRMATION</div>
+            </div>
+
+            <div class="contract-details">
+                <div class="detail-group">
+                    <div class="detail-label">Commodity</div>
+                    <div class="detail-value">Wheat - Hard Red Winter</div>
+                </div>
+                <div class="detail-group">
+                    <div class="detail-label">Quantity</div>
+                    <div class="detail-value">5,000 MT</div>
+                </div>
+                <div class="detail-group">
+                    <div class="detail-label">Price per MT</div>
+                    <div class="detail-value">$285.50 USD</div>
+                </div>
+                <div class="detail-group">
+                    <div class="detail-label">Total Value</div>
+                    <div class="detail-value">$1,438,920.00</div>
+                </div>
+                <div class="detail-group">
+                    <div class="detail-label">Supplier</div>
+                    <div class="detail-value">AgriExport Global Ltd</div>
+                </div>
+                <div class="detail-group">
+                    <div class="detail-label">Supplier Email</div>
+                    <div class="detail-value">demo.supplier@agriexport.com</div>
+                </div>
+                <div class="detail-group">
+                    <div class="detail-label">Origin Port</div>
+                    <div class="detail-value">New Orleans, USA</div>
+                </div>
+                <div class="detail-group">
+                    <div class="detail-label">Destination Port</div>
+                    <div class="detail-value">Hamburg, Germany</div>
+                </div>
+                <div class="detail-group">
+                    <div class="detail-label">Shipment Date</div>
+                    <div class="detail-value">November 15, 2024</div>
+                </div>
+                <div class="detail-group">
+                    <div class="detail-label">Required Deposit</div>
+                    <div class="detail-value">$431,676.00 (30%)</div>
+                </div>
+            </div>
+
+            <div class="waiting-message">
+                <h3>⏳ Waiting for Supplier Confirmation</h3>
+                <p>We've sent the contract details to AgriExport Global Ltd. You'll be notified once they confirm the contract, and then you can proceed with the deposit payment.</p>
+            </div>
+        </div>
+
+        <div class="navigation">
+            <a href="/demo/buyer/step4-create-contract" class="nav-btn">← Previous: Create Contract</a>
+            <a href="/demo/buyer/step6-dashboard-deposit" class="nav-btn">Next: Make Deposit →</a>
+        </div>
+    </div>
+</body>
+</html>`;
+
+    res.send(html);
+});
+
+// Buyer Step 6: Dashboard with Deposit Payment
+app.get('/demo/buyer/step6-dashboard-deposit', (req, res) => {
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Buyer Demo - Make Deposit</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: system-ui, -apple-system, sans-serif; background: #0f172a; color: #f8fafc; min-height: 100vh; }
+        .demo-watermark { position: fixed; top: 10px; right: 10px; background: #f59e0b; color: #000; padding: 5px 10px; border-radius: 4px; font-weight: bold; z-index: 9999; font-size: 12px; }
+        .step-indicator { position: fixed; top: 10px; left: 10px; background: #2563eb; color: white; padding: 8px 15px; border-radius: 4px; font-weight: bold; z-index: 9999; }
+        .header { background: #1e293b; padding: 1.5rem 2rem; border-bottom: 1px solid #334155; display: flex; justify-content: space-between; align-items: center; }
+        .header h1 { color: #2563eb; }
+        .user-info { display: flex; align-items: center; gap: 1rem; }
+        .balance { background: #059669; color: white; padding: 0.5rem 1rem; border-radius: 6px; font-weight: bold; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 2rem; }
+        .contract-card { background: #1e293b; border-radius: 12px; border: 1px solid #334155; padding: 2rem; margin-bottom: 2rem; }
+        .contract-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
+        .contract-id { color: #06b6d4; font-weight: bold; }
+        .status-badge { padding: 0.5rem 1rem; border-radius: 20px; font-weight: bold; font-size: 0.9rem; }
+        .status-confirmed { background: #059669; color: white; }
+        .deposit-section { background: #451a03; border: 1px solid #92400e; border-radius: 8px; padding: 2rem; margin-top: 2rem; }
+        .deposit-amount { font-size: 2rem; font-weight: bold; color: #f59e0b; text-align: center; margin-bottom: 1rem; }
+        .payment-options { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1.5rem; }
+        .payment-option { background: #0f172a; border: 2px solid #374151; border-radius: 8px; padding: 1.5rem; text-align: center; cursor: pointer; transition: all 0.3s; }
+        .payment-option.selected { border-color: #2563eb; background: #1e40af20; }
+        .payment-option h4 { color: #f8fafc; margin-bottom: 0.5rem; }
+        .payment-option p { color: #94a3b8; font-size: 0.9rem; }
+        .btn { background: #2563eb; color: white; padding: 0.75rem 2rem; border: none; border-radius: 6px; cursor: pointer; font-size: 1rem; font-weight: 500; width: 100%; margin-top: 1rem; }
+        .btn:hover { background: #1d4ed8; }
+        .btn.large { padding: 1rem 2rem; font-size: 1.1rem; }
+        .navigation { display: flex; justify-content: space-between; margin-top: 2rem; }
+        .nav-btn { background: #374151; color: #f8fafc; padding: 0.5rem 1rem; border: none; border-radius: 4px; cursor: pointer; text-decoration: none; }
+        .nav-btn:hover { background: #4b5563; }
+        .demo-note { background: #451a03; border: 1px solid #92400e; border-radius: 8px; padding: 1rem; margin-bottom: 2rem; }
+        .demo-note h4 { color: #f59e0b; margin-bottom: 0.5rem; }
+        .demo-note p { color: #fbbf24; font-size: 0.9rem; }
+    </style>
+</head>
+<body>
+    <div class="demo-watermark">🎭 DEMO MODE</div>
+    <div class="step-indicator">Step 6/8: Make Deposit</div>
+    
+    <div class="header">
+        <h1>🛒 Buyer Dashboard</h1>
+        <div class="user-info">
+            <span>John Smith (Demo Buyer)</span>
+            <div class="balance">💰 $100,000 TGT</div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="demo-note">
+            <h4>🎯 Demo Step 6: Contract Confirmed - Make Deposit</h4>
+            <p>The supplier has confirmed the contract! Now the buyer can make the required 30% deposit to activate the contract and trigger the supplier payment.</p>
+        </div>
+
+        <div class="contract-card">
+            <div class="contract-header">
+                <div>
+                    <div class="contract-id">Contract #DEMO-2024-001</div>
+                    <div style="color: #94a3b8; margin-top: 0.25rem;">Confirmed: October 12, 2024</div>
+                </div>
+                <div class="status-badge status-confirmed">✅ CONFIRMED - READY FOR DEPOSIT</div>
+            </div>
+
+            <div class="deposit-section">
+                <h3 style="color: #f59e0b; text-align: center; margin-bottom: 1rem;">💰 Deposit Payment Required</h3>
+                <div class="deposit-amount">$431,676.00</div>
+                <p style="text-align: center; color: #fbbf24; margin-bottom: 1.5rem;">30% of total contract value ($1,438,920.00)</p>
+                
+                <div style="background: #0f172a; border-radius: 6px; padding: 1rem; margin-bottom: 1.5rem;">
+                    <h4 style="color: #06b6d4; margin-bottom: 0.5rem;">What happens after deposit:</h4>
+                    <ul style="color: #94a3b8; margin-left: 1.5rem;">
+                        <li>Supplier receives 100% payment ($1,427,500) immediately</li>
+                        <li>Contract becomes active and supplier can begin shipping</li>
+                        <li>Your remaining 70% ($1,007,244) is held in escrow</li>
+                        <li>Final payment released when shipping documents are uploaded</li>
+                    </ul>
+                </div>
+
+                <div class="payment-options">
+                    <div class="payment-option selected">
+                        <h4>💰 TGT Wallet</h4>
+                        <p>Pay from your TGT balance<br>Balance: $100,000 TGT</p>
+                    </div>
+                    <div class="payment-option">
+                        <h4>🔗 Blockchain</h4>
+                        <p>Direct blockchain payment<br>MetaMask integration</p>
+                    </div>
+                </div>
+                
+                <button type="button" class="btn large" onclick="nextStep()">💳 Make Deposit Payment ($431,676.00)</button>
+            </div>
+        </div>
+
+        <div class="navigation">
+            <a href="/demo/buyer/step5-dashboard-pending" class="nav-btn">← Previous: Pending Status</a>
+            <a href="/demo/buyer/step7-dashboard-active" class="nav-btn">Next: Active Contract →</a>
+        </div>
+    </div>
+
+    <script>
+        function nextStep() {
+            window.location.href = '/demo/buyer/step7-dashboard-active';
+        }
+    </script>
+</body>
+</html>`;
+
+    res.send(html);
+});
+
+// Buyer Step 7: Active Contract Dashboard
+app.get('/demo/buyer/step7-dashboard-active', (req, res) => {
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Buyer Demo - Active Contract</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: system-ui, -apple-system, sans-serif; background: #0f172a; color: #f8fafc; min-height: 100vh; }
+        .demo-watermark { position: fixed; top: 10px; right: 10px; background: #f59e0b; color: #000; padding: 5px 10px; border-radius: 4px; font-weight: bold; z-index: 9999; font-size: 12px; }
+        .step-indicator { position: fixed; top: 10px; left: 10px; background: #2563eb; color: white; padding: 8px 15px; border-radius: 4px; font-weight: bold; z-index: 9999; }
+        .header { background: #1e293b; padding: 1.5rem 2rem; border-bottom: 1px solid #334155; display: flex; justify-content: space-between; align-items: center; }
+        .header h1 { color: #2563eb; }
+        .user-info { display: flex; align-items: center; gap: 1rem; }
+        .balance { background: #059669; color: white; padding: 0.5rem 1rem; border-radius: 6px; font-weight: bold; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 2rem; }
+        .contract-card { background: #1e293b; border-radius: 12px; border: 1px solid #334155; padding: 2rem; margin-bottom: 2rem; }
+        .contract-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
+        .contract-id { color: #06b6d4; font-weight: bold; }
+        .status-badge { padding: 0.5rem 1rem; border-radius: 20px; font-weight: bold; font-size: 0.9rem; }
+        .status-active { background: #059669; color: white; }
+        .progress-section { background: #0f172a; border-radius: 8px; padding: 1.5rem; margin-top: 2rem; }
+        .progress-steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 2rem; }
+        .progress-step { text-align: center; padding: 1rem; border-radius: 6px; }
+        .progress-step.completed { background: #059669; color: white; }
+        .progress-step.current { background: #f59e0b; color: #000; }
+        .progress-step.pending { background: #374151; color: #94a3b8; }
+        .waiting-message { background: #451a03; border: 1px solid #92400e; border-radius: 8px; padding: 1.5rem; text-align: center; margin-top: 2rem; }
+        .waiting-message h3 { color: #f59e0b; margin-bottom: 0.5rem; }
+        .waiting-message p { color: #fbbf24; }
+        .navigation { display: flex; justify-content: space-between; margin-top: 2rem; }
+        .nav-btn { background: #374151; color: #f8fafc; padding: 0.5rem 1rem; border: none; border-radius: 4px; cursor: pointer; text-decoration: none; }
+        .nav-btn:hover { background: #4b5563; }
+        .demo-note { background: #451a03; border: 1px solid #92400e; border-radius: 8px; padding: 1rem; margin-bottom: 2rem; }
+        .demo-note h4 { color: #f59e0b; margin-bottom: 0.5rem; }
+        .demo-note p { color: #fbbf24; font-size: 0.9rem; }
+    </style>
+</head>
+<body>
+    <div class="demo-watermark">🎭 DEMO MODE</div>
+    <div class="step-indicator">Step 7/8: Active Contract</div>
+    
+    <div class="header">
+        <h1>🛒 Buyer Dashboard</h1>
+        <div class="user-info">
+            <span>John Smith (Demo Buyer)</span>
+            <div class="balance">💰 $68,324 TGT</div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="demo-note">
+            <h4>🎯 Demo Step 7: Contract Active - Awaiting Documents</h4>
+            <p>Deposit paid successfully! The supplier has received full payment and the contract is now active. Waiting for the supplier to upload shipping documents.</p>
+        </div>
+
+        <div class="contract-card">
+            <div class="contract-header">
+                <div>
+                    <div class="contract-id">Contract #DEMO-2024-001</div>
+                    <div style="color: #94a3b8; margin-top: 0.25rem;">Activated: October 12, 2024</div>
+                </div>
+                <div class="status-badge status-active">🚢 ACTIVE - AWAITING DOCUMENTS</div>
+            </div>
+
+            <div class="progress-section">
+                <h3 style="color: #06b6d4; margin-bottom: 1rem;">📋 Contract Progress</h3>
+                <div class="progress-steps">
+                    <div class="progress-step completed">
+                        <div style="font-size: 1.5rem; margin-bottom: 0.5rem;">✅</div>
+                        <div style="font-weight: bold;">Contract Created</div>
+                        <div style="font-size: 0.8rem;">Oct 12</div>
+                    </div>
+                    <div class="progress-step completed">
+                        <div style="font-size: 1.5rem; margin-bottom: 0.5rem;">✅</div>
+                        <div style="font-weight: bold;">Supplier Confirmed</div>
+                        <div style="font-size: 0.8rem;">Oct 12</div>
+                    </div>
+                    <div class="progress-step completed">
+                        <div style="font-size: 1.5rem; margin-bottom: 0.5rem;">✅</div>
+                        <div style="font-weight: bold;">Deposit Paid</div>
+                        <div style="font-size: 0.8rem;">Oct 12</div>
+                    </div>
+                    <div class="progress-step current">
+                        <div style="font-size: 1.5rem; margin-bottom: 0.5rem;">📄</div>
+                        <div style="font-weight: bold;">Documents Upload</div>
+                        <div style="font-size: 0.8rem;">Pending</div>
+                    </div>
+                </div>
+
+                <div style="background: #1e293b; border-radius: 6px; padding: 1.5rem;">
+                    <h4 style="color: #f8fafc; margin-bottom: 1rem;">💰 Payment Summary</h4>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
+                        <div>
+                            <div style="color: #94a3b8; margin-bottom: 0.25rem;">Deposit Paid</div>
+                            <div style="color: #059669; font-weight: bold; font-size: 1.1rem;">$431,676.00</div>
+                        </div>
+                        <div>
+                            <div style="color: #94a3b8; margin-bottom: 0.25rem;">Remaining Balance</div>
+                            <div style="color: #f59e0b; font-weight: bold; font-size: 1.1rem;">$1,007,244.00</div>
+                        </div>
+                    </div>
+                    <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #374151;">
+                        <div style="color: #94a3b8; margin-bottom: 0.25rem;">Supplier Payment Status</div>
+                        <div style="color: #059669; font-weight: bold;">✅ Full payment sent to AgriExport Global Ltd ($1,427,500)</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="waiting-message">
+                <h3>📄 Waiting for Shipping Documents</h3>
+                <p>The supplier is preparing shipment and will upload the required shipping documents (Bill of Lading, Certificate of Origin, Quality Certificate) once the cargo is loaded. You'll be notified to release the final payment.</p>
+            </div>
+        </div>
+
+        <div class="navigation">
+            <a href="/demo/buyer/step6-dashboard-deposit" class="nav-btn">← Previous: Make Deposit</a>
+            <a href="/demo/buyer/step8-dashboard-final-payment" class="nav-btn">Next: Final Payment →</a>
+        </div>
+    </div>
+</body>
+</html>`;
+
+    res.send(html);
+});
+
+// Buyer Step 8: Final Payment Dashboard
+app.get('/demo/buyer/step8-dashboard-final-payment', (req, res) => {
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Buyer Demo - Final Payment</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: system-ui, -apple-system, sans-serif; background: #0f172a; color: #f8fafc; min-height: 100vh; }
+        .demo-watermark { position: fixed; top: 10px; right: 10px; background: #f59e0b; color: #000; padding: 5px 10px; border-radius: 4px; font-weight: bold; z-index: 9999; font-size: 12px; }
+        .step-indicator { position: fixed; top: 10px; left: 10px; background: #2563eb; color: white; padding: 8px 15px; border-radius: 4px; font-weight: bold; z-index: 9999; }
+        .header { background: #1e293b; padding: 1.5rem 2rem; border-bottom: 1px solid #334155; display: flex; justify-content: space-between; align-items: center; }
+        .header h1 { color: #2563eb; }
+        .user-info { display: flex; align-items: center; gap: 1rem; }
+        .balance { background: #059669; color: white; padding: 0.5rem 1rem; border-radius: 6px; font-weight: bold; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 2rem; }
+        .contract-card { background: #1e293b; border-radius: 12px; border: 1px solid #334155; padding: 2rem; margin-bottom: 2rem; }
+        .contract-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
+        .contract-id { color: #06b6d4; font-weight: bold; }
+        .status-badge { padding: 0.5rem 1rem; border-radius: 20px; font-weight: bold; font-size: 0.9rem; }
+        .status-documents { background: #7c3aed; color: white; }
+        .documents-section { background: #0f172a; border-radius: 8px; padding: 1.5rem; margin-top: 2rem; }
+        .document-item { display: flex; align-items: center; gap: 1rem; padding: 1rem; background: #1e293b; border-radius: 6px; margin-bottom: 0.5rem; }
+        .document-icon { color: #059669; font-size: 1.2rem; }
+        .countdown-section { background: #451a03; border: 1px solid #92400e; border-radius: 8px; padding: 2rem; margin-top: 2rem; text-align: center; }
+        .countdown-timer { font-size: 3rem; font-weight: bold; color: #f59e0b; margin: 1rem 0; }
+        .btn { background: #2563eb; color: white; padding: 0.75rem 2rem; border: none; border-radius: 6px; cursor: pointer; font-size: 1rem; font-weight: 500; width: 100%; margin-top: 1rem; }
+        .btn:hover { background: #1d4ed8; }
+        .btn.large { padding: 1rem 2rem; font-size: 1.1rem; }
+        .btn.success { background: #059669; }
+        .btn.success:hover { background: #047857; }
+        .navigation { display: flex; justify-content: space-between; margin-top: 2rem; }
+        .nav-btn { background: #374151; color: #f8fafc; padding: 0.5rem 1rem; border: none; border-radius: 4px; cursor: pointer; text-decoration: none; }
+        .nav-btn:hover { background: #4b5563; }
+        .demo-note { background: #451a03; border: 1px solid #92400e; border-radius: 8px; padding: 1rem; margin-bottom: 2rem; }
+        .demo-note h4 { color: #f59e0b; margin-bottom: 0.5rem; }
+        .demo-note p { color: #fbbf24; font-size: 0.9rem; }
+    </style>
+</head>
+<body>
+    <div class="demo-watermark">🎭 DEMO MODE</div>
+    <div class="step-indicator">Step 8/8: Final Payment</div>
+    
+    <div class="header">
+        <h1>🛒 Buyer Dashboard</h1>
+        <div class="user-info">
+            <span>John Smith (Demo Buyer)</span>
+            <div class="balance">💰 $68,324 TGT</div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="demo-note">
+            <h4>🎯 Demo Step 8: Documents Uploaded - Release Final Payment</h4>
+            <p>The supplier has uploaded all shipping documents! Review the documents and release the final payment to complete the contract. The countdown timer shows time remaining for document review.</p>
+        </div>
+
+        <div class="contract-card">
+            <div class="contract-header">
+                <div>
+                    <div class="contract-id">Contract #DEMO-2024-001</div>
+                    <div style="color: #94a3b8; margin-top: 0.25rem;">Documents uploaded: October 12, 2024</div>
+                </div>
+                <div class="status-badge status-documents">📄 DOCUMENTS UPLOADED</div>
+            </div>
+
+            <div class="documents-section">
+                <h3 style="color: #06b6d4; margin-bottom: 1rem;">📋 Shipping Documents</h3>
+                
+                <div class="document-item">
+                    <div class="document-icon">✅</div>
+                    <div>
+                        <h4 style="color: #f8fafc;">Bill of Lading</h4>
+                        <p style="color: #94a3b8;">BL-DEMO-2024-001.pdf • Uploaded 2 hours ago</p>
+                    </div>
+                </div>
+                
+                <div class="document-item">
+                    <div class="document-icon">✅</div>
+                    <div>
+                        <h4 style="color: #f8fafc;">Certificate of Origin</h4>
+                        <p style="color: #94a3b8;">COO-DEMO-2024-001.pdf • Uploaded 2 hours ago</p>
+                    </div>
+                </div>
+                
+                <div class="document-item">
+                    <div class="document-icon">✅</div>
+                    <div>
+                        <h4 style="color: #f8fafc;">Quality Certificate</h4>
+                        <p style="color: #94a3b8;">QC-DEMO-2024-001.pdf • Uploaded 2 hours ago</p>
+                    </div>
+                </div>
+                
+                <div class="document-item">
+                    <div class="document-icon">✅</div>
+                    <div>
+                        <h4 style="color: #f8fafc;">Fumigation Certificate</h4>
+                        <p style="color: #94a3b8;">FC-DEMO-2024-001.pdf • Uploaded 2 hours ago</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="countdown-section">
+                <h3 style="color: #f59e0b; margin-bottom: 1rem;">⏰ Document Review Period</h3>
+                <div class="countdown-timer">47:23:15</div>
+                <p style="color: #fbbf24; margin-bottom: 1.5rem;">Time remaining to review documents and release payment</p>
+                
+                <div style="background: #0f172a; border-radius: 6px; padding: 1.5rem; margin-bottom: 2rem;">
+                    <h4 style="color: #06b6d4; margin-bottom: 1rem;">💰 Final Payment Details</h4>
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                        <span>Remaining Balance:</span>
+                        <span style="font-weight: bold;">$1,007,244.00</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                        <span>Platform Fee (final):</span>
+                        <span>$0.00</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 1.1rem; border-top: 1px solid #374151; padding-top: 0.5rem; margin-top: 0.5rem;">
+                        <span>Total to Release:</span>
+                        <span style="color: #059669;">$1,007,244.00</span>
+                    </div>
+                </div>
+                
+                <button type="button" class="btn large success" onclick="completeContract()">✅ Release Final Payment & Complete Contract</button>
+            </div>
+        </div>
+
+        <div class="navigation">
+            <a href="/demo/buyer/step7-dashboard-active" class="nav-btn">← Previous: Active Contract</a>
+            <a href="/demo/workflow" class="nav-btn">🎯 Back to Workflow Demo</a>
+        </div>
+    </div>
+
+    <script>
+        function completeContract() {
+            alert('🎉 Contract completed successfully!\\n\\nFinal payment of $1,007,244.00 has been released to the supplier.\\nContract #DEMO-2024-001 is now complete.');
+            window.location.href = '/demo/workflow';
+        }
+    </script>
+</body>
+</html>`;
+
+    res.send(html);
 });
 
 // ================================
