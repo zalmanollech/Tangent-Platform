@@ -10581,10 +10581,10 @@ app.get('/demo/buyer/step6-dashboard-deposit', (req, res) => {
                 <div style="background: #0f172a; border-radius: 6px; padding: 1rem; margin-bottom: 1.5rem;">
                     <h4 style="color: #06b6d4; margin-bottom: 0.5rem;">What happens after deposit:</h4>
                     <ul style="color: #94a3b8; margin-left: 1.5rem;">
-                        <li>Supplier receives 100% payment ($1,427,500) immediately</li>
+                        <li>Supplier receives 30% deposit payment ($428,250) immediately</li>
                         <li>Contract becomes active and supplier can begin shipping</li>
                         <li>Your remaining 70% ($1,007,244) is held in escrow</li>
-                        <li>Final payment released when shipping documents are uploaded</li>
+                        <li>Final payment (70%) released when shipping documents are uploaded</li>
                     </ul>
                 </div>
 
