@@ -9015,6 +9015,20 @@ app.get('/admin/blockchain', authenticateToken, (req, res) => {
 // DEMO MODE SYSTEM
 // ================================
 
+// Health check route
+app.get('/health', (req, res) => {
+    res.json({ 
+        status: 'OK', 
+        timestamp: new Date().toISOString(),
+        message: 'Tangent Platform is running',
+        routes: {
+            demo: '/demo',
+            admin: '/landing-two',
+            dashboard: '/dashboard/authenticated?role=admin'
+        }
+    });
+});
+
 // Simple test route
 app.get('/test-demo', (req, res) => {
     res.send('<h1>Demo Test Route Working!</h1><p>If you see this, the server is responding.</p><a href="/demo">Go to Full Demo</a>');
