@@ -10581,10 +10581,11 @@ app.get('/demo/buyer/step6-dashboard-deposit', (req, res) => {
                 <div style="background: #0f172a; border-radius: 6px; padding: 1rem; margin-bottom: 1.5rem;">
                     <h4 style="color: #06b6d4; margin-bottom: 0.5rem;">What happens after deposit:</h4>
                     <ul style="color: #94a3b8; margin-left: 1.5rem;">
-                        <li>Supplier receives 30% deposit payment ($428,250) immediately</li>
+                        <li>Your 30% deposit ($428,250) goes to Tangent POOL</li>
+                        <li>Supplier is notified of deposit confirmation</li>
                         <li>Contract becomes active and supplier can begin shipping</li>
-                        <li>Your remaining 70% ($1,007,244) is held in escrow</li>
-                        <li>Final payment (70%) released when shipping documents are uploaded</li>
+                        <li>POOL finances remaining 70% to supplier upon document upload</li>
+                        <li>You repay the 70% ($1,007,244) to POOL when documents are verified</li>
                     </ul>
                 </div>
 
@@ -10726,7 +10727,7 @@ app.get('/demo/buyer/step7-dashboard-active', (req, res) => {
                     </div>
                     <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #374151;">
                         <div style="color: #94a3b8; margin-bottom: 0.25rem;">Supplier Payment Status</div>
-                        <div style="color: #f59e0b; font-weight: bold;">⏳ Deposit sent to AgriExport Global Ltd ($431,676) - Final payment pending documents</div>
+                        <div style="color: #f59e0b; font-weight: bold;">⏳ Deposit secured in Tangent POOL ($431,676) - Supplier notified, awaiting documents</div>
                     </div>
                 </div>
             </div>
@@ -10882,22 +10883,46 @@ app.get('/demo/buyer/step8-dashboard-final-payment', (req, res) => {
                 <p style="color: #fbbf24; margin-bottom: 1.5rem;">Time remaining to review documents and release payment</p>
                 
                 <div style="background: #0f172a; border-radius: 6px; padding: 1.5rem; margin-bottom: 2rem;">
-                    <h4 style="color: #06b6d4; margin-bottom: 1rem;">💰 Final Payment Details</h4>
+                    <h4 style="color: #06b6d4; margin-bottom: 1rem;">💰 POOL Repayment Details</h4>
                     <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
-                        <span>Remaining Balance:</span>
+                        <span>POOL Financing (70%):</span>
                         <span style="font-weight: bold;">$1,007,244.00</span>
                     </div>
                     <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
-                        <span>Platform Fee (final):</span>
+                        <span>Platform Fee:</span>
                         <span>$0.00</span>
                     </div>
                     <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 1.1rem; border-top: 1px solid #374151; padding-top: 0.5rem; margin-top: 0.5rem;">
-                        <span>Total to Release:</span>
+                        <span>Total Repayment to POOL:</span>
                         <span style="color: #059669;">$1,007,244.00</span>
                     </div>
                 </div>
                 
-                <button type="button" class="btn large success" onclick="completeContract()">✅ Release Final Payment & Complete Contract</button>
+                <button type="button" class="btn large success" onclick="completeContract()">✅ Repay POOL & Complete Contract</button>
+            </div>
+        </div>
+
+        <div style="background: #1e293b; border-radius: 12px; border: 1px solid #334155; padding: 2rem; margin-bottom: 2rem;">
+            <h3 style="color: #06b6d4; margin-bottom: 1.5rem;">📊 Final Contract Performance</h3>
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1.5rem;">
+                <div style="background: #0f172a; padding: 1.5rem; border-radius: 8px; border: 1px solid #374151; text-align: center;">
+                    <div style="color: #94a3b8; margin-bottom: 0.5rem;">Contract Price</div>
+                    <div style="color: #2563eb; font-weight: bold; font-size: 1.3rem;">$285.50/MT</div>
+                    <div style="color: #94a3b8; font-size: 0.9rem;">Locked Oct 12</div>
+                </div>
+                <div style="background: #0f172a; padding: 1.5rem; border-radius: 8px; border: 1px solid #374151; text-align: center;">
+                    <div style="color: #94a3b8; margin-bottom: 0.5rem;">Current Market</div>
+                    <div style="color: #059669; font-weight: bold; font-size: 1.3rem;">$298.20/MT</div>
+                    <div style="color: #059669; font-size: 0.9rem;">+$12.70 (+4.4%)</div>
+                </div>
+                <div style="background: #0f172a; padding: 1.5rem; border-radius: 8px; border: 1px solid #374151; text-align: center;">
+                    <div style="color: #94a3b8; margin-bottom: 0.5rem;">Total Savings</div>
+                    <div style="color: #059669; font-weight: bold; font-size: 1.3rem;">$63,500</div>
+                    <div style="color: #059669; font-size: 0.9rem;">vs Current Market</div>
+                </div>
+            </div>
+            <div style="background: #451a03; border: 1px solid #92400e; border-radius: 6px; padding: 1rem; margin-top: 1rem; text-align: center;">
+                <span style="color: #f59e0b;">🎯 Excellent timing! Market has risen 4.4% since contract creation - you saved $63,500!</span>
             </div>
         </div>
 
@@ -10941,7 +10966,7 @@ app.get('/demo/buyer/step8-dashboard-final-payment', (req, res) => {
         document.addEventListener('DOMContentLoaded', startCountdown);
         
         function completeContract() {
-            alert('🎉 Contract completed successfully!\\n\\nFinal payment of $1,007,244.00 has been released to the supplier.\\nContract #DEMO-2024-001 is now complete.');
+            alert('🎉 Contract completed successfully!\\n\\nYour 70% repayment of $1,007,244.00 has been sent to Tangent POOL.\\nSupplier received full payment from POOL.\\nContract #DEMO-2024-001 is now complete.');
             window.location.href = '/demo/workflow';
         }
     </script>
@@ -11453,29 +11478,29 @@ app.get('/demo/supplier/step4-active-contract', (req, res) => {
     <div class="container">
         <div class="demo-note">
             <h4>🎯 Demo Step 4: Contract Active - Payment Received!</h4>
-            <p>Great news! The buyer has made their deposit and you've received the initial payment (30%). The contract is now active and you can begin shipping preparations.</p>
+            <p>Great news! The buyer has made their deposit to the Tangent POOL and you've been notified of confirmation. The contract is now active and you can begin shipping preparations.</p>
         </div>
 
         <div class="payment-received">
-            <h3 style="margin-bottom: 1rem;">🎉 Payment Received!</h3>
+            <h3 style="margin-bottom: 1rem;">🎉 Deposit Confirmed!</h3>
             <div class="payment-amount">$428,250.00</div>
-            <p style="margin-bottom: 1rem;">Initial deposit (30%) received from Tangent Platform</p>
+            <p style="margin-bottom: 1rem;">Buyer deposit (30%) confirmed in Tangent POOL</p>
             <div style="background: rgba(0,0,0,0.2); border-radius: 6px; padding: 1rem;">
                 <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
                     <span>Total Contract Value:</span>
                     <span>$1,427,500.00</span>
                 </div>
                 <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
-                    <span>Deposit Received (30%):</span>
+                    <span>Buyer Deposit in POOL (30%):</span>
                     <span style="color: #059669;">$428,250.00</span>
                 </div>
                 <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
-                    <span>Remaining (70%):</span>
+                    <span>POOL Financing (70%):</span>
                     <span style="color: #f59e0b;">$999,250.00</span>
                 </div>
                 <div style="display: flex; justify-content: space-between; font-weight: bold; border-top: 1px solid rgba(255,255,255,0.2); padding-top: 0.5rem;">
-                    <span>Status:</span>
-                    <span style="color: #f59e0b;">Awaiting Document Upload</span>
+                    <span>Payment on Document Upload:</span>
+                    <span style="color: #059669;">$1,427,500.00 (100%)</span>
                 </div>
             </div>
         </div>
@@ -11795,16 +11820,16 @@ app.get('/demo/supplier/step6-completed', (req, res) => {
             <div class="timeline-item">
                 <div class="timeline-icon">✅</div>
                 <div>
-                    <h4 style="color: #f8fafc;">Deposit Received</h4>
-                    <p style="color: #94a3b8;">October 12, 2024 - Initial deposit of $428,250 (30%) received</p>
+                    <h4 style="color: #f8fafc;">Deposit Confirmed</h4>
+                    <p style="color: #94a3b8;">October 12, 2024 - Buyer deposit of $428,250 (30%) confirmed in Tangent POOL</p>
                 </div>
             </div>
             
             <div class="timeline-item">
                 <div class="timeline-icon">✅</div>
                 <div>
-                    <h4 style="color: #f8fafc;">Final Payment Received</h4>
-                    <p style="color: #94a3b8;">October 27, 2024 - Final payment of $999,250 (70%) received after document verification</p>
+                    <h4 style="color: #f8fafc;">Full Payment Received from POOL</h4>
+                    <p style="color: #94a3b8;">October 27, 2024 - Complete payment of $1,427,500 (100%) received from Tangent POOL after document upload</p>
                 </div>
             </div>
             
