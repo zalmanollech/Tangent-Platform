@@ -10675,7 +10675,7 @@ app.get('/demo/buyer/step7-dashboard-active', (req, res) => {
     <div class="container">
         <div class="demo-note">
             <h4>🎯 Demo Step 7: Contract Active - Awaiting Documents</h4>
-            <p>Deposit paid successfully! The supplier has received full payment and the contract is now active. Waiting for the supplier to upload shipping documents.</p>
+            <p>Deposit paid successfully! The supplier has received the 30% deposit payment and the contract is now active. Waiting for the supplier to upload shipping documents.</p>
         </div>
 
         <div class="contract-card">
@@ -10854,7 +10854,7 @@ app.get('/demo/buyer/step8-dashboard-final-payment', (req, res) => {
 
             <div class="countdown-section">
                 <h3 style="color: #f59e0b; margin-bottom: 1rem;">⏰ Document Review Period</h3>
-                <div class="countdown-timer">47:23:15</div>
+                <div class="countdown-timer" id="countdownTimer">47:23:15</div>
                 <p style="color: #fbbf24; margin-bottom: 1.5rem;">Time remaining to review documents and release payment</p>
                 
                 <div style="background: #0f172a; border-radius: 6px; padding: 1.5rem; margin-bottom: 2rem;">
@@ -10884,6 +10884,38 @@ app.get('/demo/buyer/step8-dashboard-final-payment', (req, res) => {
     </div>
 
     <script>
+        // Countdown Timer Functionality
+        function startCountdown() {
+            const countdownElement = document.getElementById('countdownTimer');
+            if (!countdownElement) return;
+            
+            // Set countdown to 48 hours from now (demo purposes)
+            let timeLeft = 47 * 3600 + 23 * 60 + 15; // 47:23:15 in seconds
+            
+            function updateTimer() {
+                const hours = Math.floor(timeLeft / 3600);
+                const minutes = Math.floor((timeLeft % 3600) / 60);
+                const seconds = timeLeft % 60;
+                
+                const display = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                countdownElement.textContent = display;
+                
+                if (timeLeft > 0) {
+                    timeLeft--;
+                } else {
+                    countdownElement.textContent = "00:00:00";
+                    countdownElement.style.color = "#ef4444";
+                    alert('⏰ Document review period has expired!\\n\\nPlease contact support if you need to extend the review period.');
+                }
+            }
+            
+            updateTimer(); // Initial call
+            setInterval(updateTimer, 1000); // Update every second
+        }
+        
+        // Start countdown when page loads
+        document.addEventListener('DOMContentLoaded', startCountdown);
+        
         function completeContract() {
             alert('🎉 Contract completed successfully!\\n\\nFinal payment of $1,007,244.00 has been released to the supplier.\\nContract #DEMO-2024-001 is now complete.');
             window.location.href = '/demo/workflow';
@@ -11390,32 +11422,36 @@ app.get('/demo/supplier/step4-active-contract', (req, res) => {
         <h1>🏭 Supplier Dashboard</h1>
         <div class="user-info">
             <span>Sarah Johnson (Demo Supplier)</span>
-            <div class="balance">💰 $1,477,500 TGT</div>
+            <div class="balance">💰 $478,250 TGT</div>
         </div>
     </div>
 
     <div class="container">
         <div class="demo-note">
             <h4>🎯 Demo Step 4: Contract Active - Payment Received!</h4>
-            <p>Great news! The buyer has made their deposit and you've received the full contract payment. The contract is now active and you can begin shipping preparations.</p>
+            <p>Great news! The buyer has made their deposit and you've received the initial payment (30%). The contract is now active and you can begin shipping preparations.</p>
         </div>
 
         <div class="payment-received">
             <h3 style="margin-bottom: 1rem;">🎉 Payment Received!</h3>
-            <div class="payment-amount">$1,427,500.00</div>
-            <p style="margin-bottom: 1rem;">Full contract payment received from Tangent Platform</p>
+            <div class="payment-amount">$428,250.00</div>
+            <p style="margin-bottom: 1rem;">Initial deposit (30%) received from Tangent Platform</p>
             <div style="background: rgba(0,0,0,0.2); border-radius: 6px; padding: 1rem;">
                 <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
-                    <span>Contract Value:</span>
+                    <span>Total Contract Value:</span>
                     <span>$1,427,500.00</span>
                 </div>
                 <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
-                    <span>Platform Fee:</span>
-                    <span>$0.00</span>
+                    <span>Deposit Received (30%):</span>
+                    <span style="color: #059669;">$428,250.00</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                    <span>Remaining (70%):</span>
+                    <span style="color: #f59e0b;">$999,250.00</span>
                 </div>
                 <div style="display: flex; justify-content: space-between; font-weight: bold; border-top: 1px solid rgba(255,255,255,0.2); padding-top: 0.5rem;">
-                    <span>Net Payment:</span>
-                    <span>$1,427,500.00</span>
+                    <span>Status:</span>
+                    <span style="color: #f59e0b;">Awaiting Document Upload</span>
                 </div>
             </div>
         </div>
@@ -11735,8 +11771,16 @@ app.get('/demo/supplier/step6-completed', (req, res) => {
             <div class="timeline-item">
                 <div class="timeline-icon">✅</div>
                 <div>
-                    <h4 style="color: #f8fafc;">Payment Received</h4>
-                    <p style="color: #94a3b8;">October 12, 2024 - Full payment of $1,427,500 received</p>
+                    <h4 style="color: #f8fafc;">Deposit Received</h4>
+                    <p style="color: #94a3b8;">October 12, 2024 - Initial deposit of $428,250 (30%) received</p>
+                </div>
+            </div>
+            
+            <div class="timeline-item">
+                <div class="timeline-icon">✅</div>
+                <div>
+                    <h4 style="color: #f8fafc;">Final Payment Received</h4>
+                    <p style="color: #94a3b8;">October 27, 2024 - Final payment of $999,250 (70%) received after document verification</p>
                 </div>
             </div>
             
