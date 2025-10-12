@@ -10488,6 +10488,30 @@ app.get('/demo/buyer/step5-dashboard-pending', (req, res) => {
                 </div>
             </div>
 
+            <div style="background: #1e293b; border-radius: 12px; border: 1px solid #334155; padding: 2rem; margin-bottom: 2rem;">
+                <h3 style="color: #06b6d4; margin-bottom: 1.5rem;">📊 Market Price Tracking</h3>
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1.5rem;">
+                    <div style="background: #0f172a; padding: 1.5rem; border-radius: 8px; border: 1px solid #374151; text-align: center;">
+                        <div style="color: #94a3b8; margin-bottom: 0.5rem;">Contract Price</div>
+                        <div style="color: #2563eb; font-weight: bold; font-size: 1.3rem;">$285.50/MT</div>
+                        <div style="color: #94a3b8; font-size: 0.9rem;">Locked Oct 12</div>
+                    </div>
+                    <div style="background: #0f172a; padding: 1.5rem; border-radius: 8px; border: 1px solid #374151; text-align: center;">
+                        <div style="color: #94a3b8; margin-bottom: 0.5rem;">Current Market</div>
+                        <div style="color: #059669; font-weight: bold; font-size: 1.3rem;">$289.75/MT</div>
+                        <div style="color: #059669; font-size: 0.9rem;">+$4.25 (+1.5%)</div>
+                    </div>
+                    <div style="background: #0f172a; padding: 1.5rem; border-radius: 8px; border: 1px solid #374151; text-align: center;">
+                        <div style="color: #94a3b8; margin-bottom: 0.5rem;">Potential Savings</div>
+                        <div style="color: #059669; font-weight: bold; font-size: 1.3rem;">$21,250</div>
+                        <div style="color: #059669; font-size: 0.9rem;">vs Current Market</div>
+                    </div>
+                </div>
+                <div style="background: #451a03; border: 1px solid #92400e; border-radius: 6px; padding: 1rem; margin-top: 1rem; text-align: center;">
+                    <span style="color: #f59e0b;">📈 Market is trending up! Your locked price is looking favorable.</span>
+                </div>
+            </div>
+
             <div class="waiting-message">
                 <h3>⏳ Waiting for Supplier Confirmation</h3>
                 <p>We've sent the contract details to AgriExport Global Ltd. You'll be notified once they confirm the contract, and then you can proceed with the deposit payment.</p>
@@ -11566,6 +11590,30 @@ app.get('/demo/supplier/step4-active-contract', (req, res) => {
                 </div>
 
                 <a href="/demo/supplier/step5-upload-documents" class="btn large">📄 Proceed to Document Upload</a>
+            </div>
+        </div>
+
+        <div style="background: #1e293b; border-radius: 12px; border: 1px solid #334155; padding: 2rem; margin-bottom: 2rem;">
+            <h3 style="color: #06b6d4; margin-bottom: 1.5rem;">📊 Contract vs Market Price</h3>
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1.5rem;">
+                <div style="background: #0f172a; padding: 1.5rem; border-radius: 8px; border: 1px solid #374151; text-align: center;">
+                    <div style="color: #94a3b8; margin-bottom: 0.5rem;">Contract Price</div>
+                    <div style="color: #059669; font-weight: bold; font-size: 1.3rem;">$285.50/MT</div>
+                    <div style="color: #94a3b8; font-size: 0.9rem;">Agreed Oct 12</div>
+                </div>
+                <div style="background: #0f172a; padding: 1.5rem; border-radius: 8px; border: 1px solid #374151; text-align: center;">
+                    <div style="color: #94a3b8; margin-bottom: 0.5rem;">Current Market</div>
+                    <div style="color: #059669; font-weight: bold; font-size: 1.3rem;">$289.75/MT</div>
+                    <div style="color: #059669; font-size: 0.9rem;">+$4.25 (+1.5%)</div>
+                </div>
+                <div style="background: #0f172a; padding: 1.5rem; border-radius: 8px; border: 1px solid #374151; text-align: center;">
+                    <div style="color: #94a3b8; margin-bottom: 0.5rem;">Total Contract</div>
+                    <div style="color: #059669; font-weight: bold; font-size: 1.3rem;">$1,427,500</div>
+                    <div style="color: #059669; font-size: 0.9rem;">5,000 MT</div>
+                </div>
+            </div>
+            <div style="background: #451a03; border: 1px solid #92400e; border-radius: 6px; padding: 1rem; margin-top: 1rem; text-align: center;">
+                <span style="color: #f59e0b;">📈 Market trending up - good timing on this contract!</span>
             </div>
         </div>
 
