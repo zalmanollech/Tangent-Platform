@@ -9012,6 +9012,299 @@ app.get('/admin/blockchain', authenticateToken, (req, res) => {
 });
 
 // ================================
+// DEMO MODE SYSTEM
+// ================================
+
+// Demo Mode Navigation Page
+app.get('/demo', (req, res) => {
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tangent Platform - Demo Mode</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: system-ui, -apple-system, sans-serif; background: #0f172a; color: #f8fafc; min-height: 100vh; }
+        .header { background: #1e293b; padding: 2rem; text-align: center; border-bottom: 1px solid #334155; }
+        .header h1 { color: #2563eb; font-size: 3rem; margin-bottom: 1rem; }
+        .header p { color: #94a3b8; font-size: 1.2rem; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 2rem; }
+        .demo-section { background: #1e293b; border-radius: 12px; padding: 2rem; margin-bottom: 2rem; border: 1px solid #334155; }
+        .section-title { color: #06b6d4; font-size: 1.5rem; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.5rem; }
+        .demo-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem; }
+        .demo-card { background: #0f172a; padding: 1.5rem; border-radius: 8px; border: 1px solid #374151; transition: all 0.3s ease; }
+        .demo-card:hover { border-color: #2563eb; transform: translateY(-2px); }
+        .demo-card h3 { color: #f8fafc; margin-bottom: 0.5rem; }
+        .demo-card p { color: #94a3b8; margin-bottom: 1rem; font-size: 0.9rem; }
+        .demo-btn { background: #2563eb; color: white; padding: 0.75rem 1.5rem; border: none; border-radius: 6px; cursor: pointer; text-decoration: none; display: inline-block; font-weight: 500; transition: background 0.3s; }
+        .demo-btn:hover { background: #1d4ed8; }
+        .demo-btn.admin { background: #7c3aed; }
+        .demo-btn.admin:hover { background: #6d28d9; }
+        .demo-btn.kyc { background: #059669; }
+        .demo-btn.kyc:hover { background: #047857; }
+        .demo-btn.contract { background: #dc2626; }
+        .demo-btn.contract:hover { background: #b91c1c; }
+        .quick-access { background: #0f172a; padding: 1.5rem; border-radius: 8px; border: 1px solid #374151; margin-bottom: 2rem; }
+        .quick-access h3 { color: #f59e0b; margin-bottom: 1rem; }
+        .quick-links { display: flex; gap: 1rem; flex-wrap: wrap; }
+        .quick-links a { background: #374151; color: #f8fafc; padding: 0.5rem 1rem; border-radius: 4px; text-decoration: none; font-size: 0.9rem; }
+        .quick-links a:hover { background: #4b5563; }
+        .warning { background: #451a03; border: 1px solid #92400e; border-radius: 8px; padding: 1rem; margin-bottom: 2rem; }
+        .warning h4 { color: #f59e0b; margin-bottom: 0.5rem; }
+        .warning p { color: #fbbf24; font-size: 0.9rem; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🎭 Tangent Platform Demo Mode</h1>
+        <p>Explore all pages and workflows without real data requirements</p>
+    </div>
+
+    <div class="container">
+        <div class="warning">
+            <h4>⚡ Demo Mode Active</h4>
+            <p>This mode allows you to preview all platform pages and workflows for demonstration purposes. No real uploads or transactions are required.</p>
+        </div>
+
+        <div class="quick-access">
+            <h3>🚀 Quick Access</h3>
+            <div class="quick-links">
+                <a href="/demo/login-admin">Admin Login</a>
+                <a href="/demo/login-buyer">Buyer Login</a>
+                <a href="/demo/login-supplier">Supplier Login</a>
+                <a href="/demo/kyc-preview">KYC Preview</a>
+                <a href="/demo/contract-preview">Contract Preview</a>
+                <a href="/">Live Platform</a>
+            </div>
+        </div>
+
+        <div class="demo-section">
+            <h2 class="section-title">👑 Admin Dashboard Pages</h2>
+            <div class="demo-grid">
+                <div class="demo-card">
+                    <h3>Admin Dashboard</h3>
+                    <p>Complete admin control center with all management tools</p>
+                    <a href="/demo/admin-dashboard" class="demo-btn admin">View Admin Dashboard</a>
+                </div>
+                <div class="demo-card">
+                    <h3>Fee Management</h3>
+                    <p>Platform fee configuration and transaction limits</p>
+                    <a href="/demo/admin-fees" class="demo-btn admin">View Fee Management</a>
+                </div>
+                <div class="demo-card">
+                    <h3>Blockchain Management</h3>
+                    <p>Smart contract deployment and blockchain status</p>
+                    <a href="/demo/admin-blockchain" class="demo-btn admin">View Blockchain Panel</a>
+                </div>
+                <div class="demo-card">
+                    <h3>KYC Reports</h3>
+                    <p>KYC application review and compliance management</p>
+                    <a href="/demo/admin-kyc" class="demo-btn admin">View KYC Reports</a>
+                </div>
+            </div>
+        </div>
+
+        <div class="demo-section">
+            <h2 class="section-title">📋 KYC & Compliance Pages</h2>
+            <div class="demo-grid">
+                <div class="demo-card">
+                    <h3>KYC Application Form</h3>
+                    <p>Complete KYC form with document upload interface</p>
+                    <a href="/demo/kyc-form" class="demo-btn kyc">View KYC Form</a>
+                </div>
+                <div class="demo-card">
+                    <h3>Document Upload</h3>
+                    <p>File upload interface with validation preview</p>
+                    <a href="/demo/document-upload" class="demo-btn kyc">View Upload Interface</a>
+                </div>
+                <div class="demo-card">
+                    <h3>OFAC Screening</h3>
+                    <p>Sanctions screening interface and results</p>
+                    <a href="/demo/ofac-screening" class="demo-btn kyc">View OFAC System</a>
+                </div>
+            </div>
+        </div>
+
+        <div class="demo-section">
+            <h2 class="section-title">📄 Contract Management Pages</h2>
+            <div class="demo-grid">
+                <div class="demo-card">
+                    <h3>Create Contract</h3>
+                    <p>Contract creation form with all fields</p>
+                    <a href="/demo/create-contract" class="demo-btn contract">View Contract Form</a>
+                </div>
+                <div class="demo-card">
+                    <h3>Contract Dashboard</h3>
+                    <p>Contract management with different statuses</p>
+                    <a href="/demo/contract-dashboard" class="demo-btn contract">View Contract Dashboard</a>
+                </div>
+                <div class="demo-card">
+                    <h3>Document Upload</h3>
+                    <p>Shipping document upload interface</p>
+                    <a href="/demo/contract-documents" class="demo-btn contract">View Document Upload</a>
+                </div>
+                <div class="demo-card">
+                    <h3>Payment Interface</h3>
+                    <p>TGT payment and deposit interface</p>
+                    <a href="/demo/payment-interface" class="demo-btn contract">View Payment System</a>
+                </div>
+            </div>
+        </div>
+
+        <div class="demo-section">
+            <h2 class="section-title">🎭 Role-Based Dashboards</h2>
+            <div class="demo-grid">
+                <div class="demo-card">
+                    <h3>Buyer Dashboard</h3>
+                    <p>Buyer interface with contract creation and management</p>
+                    <a href="/demo/buyer-dashboard" class="demo-btn">View Buyer Dashboard</a>
+                </div>
+                <div class="demo-card">
+                    <h3>Supplier Dashboard</h3>
+                    <p>Supplier interface with contract confirmation and shipping</p>
+                    <a href="/demo/supplier-dashboard" class="demo-btn">View Supplier Dashboard</a>
+                </div>
+                <div class="demo-card">
+                    <h3>Trader Dashboard</h3>
+                    <p>Trader interface with dual contract management</p>
+                    <a href="/demo/trader-dashboard" class="demo-btn">View Trader Dashboard</a>
+                </div>
+                <div class="demo-card">
+                    <h3>Insurer Dashboard</h3>
+                    <p>Insurance interface with risk assessment</p>
+                    <a href="/demo/insurer-dashboard" class="demo-btn">View Insurer Dashboard</a>
+                </div>
+            </div>
+        </div>
+
+        <div class="demo-section">
+            <h2 class="section-title">🔐 Authentication Pages</h2>
+            <div class="demo-grid">
+                <div class="demo-card">
+                    <h3>Landing Page</h3>
+                    <p>Main landing page with platform introduction</p>
+                    <a href="/" class="demo-btn">View Landing Page</a>
+                </div>
+                <div class="demo-card">
+                    <h3>Sign In / Sign Up</h3>
+                    <p>Authentication interface with role selection</p>
+                    <a href="/landing-two" class="demo-btn">View Auth Page</a>
+                </div>
+                <div class="demo-card">
+                    <h3>Wallet Setup</h3>
+                    <p>TGT wallet creation and MetaMask integration</p>
+                    <a href="/demo/wallet-setup" class="demo-btn">View Wallet Setup</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Add demo mode indicator
+        document.body.style.borderTop = '5px solid #f59e0b';
+        
+        // Add demo watermark
+        const watermark = document.createElement('div');
+        watermark.innerHTML = '🎭 DEMO MODE';
+        watermark.style.cssText = 'position: fixed; top: 10px; right: 10px; background: #f59e0b; color: #000; padding: 5px 10px; border-radius: 4px; font-weight: bold; z-index: 9999; font-size: 12px;';
+        document.body.appendChild(watermark);
+    </script>
+</body>
+</html>`;
+
+    res.send(html);
+});
+
+// Demo Quick Login Routes (bypass authentication for demo)
+app.get('/demo/login-admin', (req, res) => {
+    // Generate demo token for admin
+    const demoToken = jwt.sign(
+        { userId: 'demo-admin', email: 'demo@admin.com', role: 'admin' },
+        process.env.JWT_SECRET || 'tangent-secret-key',
+        { expiresIn: '1h' }
+    );
+    
+    res.send(`
+    <!DOCTYPE html>
+    <html>
+    <head><title>Demo Admin Login</title></head>
+    <body style="font-family: system-ui; background: #0f172a; color: #f8fafc; padding: 2rem;">
+        <div style="max-width: 600px; margin: 0 auto; text-align: center;">
+            <h1 style="color: #2563eb;">🎭 Demo Admin Access</h1>
+            <p>You are now logged in as Demo Admin</p>
+            <div style="background: #1e293b; padding: 2rem; border-radius: 8px; margin: 2rem 0;">
+                <h3>Quick Access:</h3>
+                <div style="display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; margin-top: 1rem;">
+                    <a href="/dashboard/authenticated?role=admin" style="background: #2563eb; color: white; padding: 0.75rem 1.5rem; text-decoration: none; border-radius: 6px;">Admin Dashboard</a>
+                    <a href="/admin/fees" style="background: #059669; color: white; padding: 0.75rem 1.5rem; text-decoration: none; border-radius: 6px;">Fee Management</a>
+                    <a href="/admin/blockchain" style="background: #7c3aed; color: white; padding: 0.75rem 1.5rem; text-decoration: none; border-radius: 6px;">Blockchain</a>
+                    <a href="/admin/kyc-reports" style="background: #dc2626; color: white; padding: 0.75rem 1.5rem; text-decoration: none; border-radius: 6px;">KYC Reports</a>
+                </div>
+            </div>
+            <a href="/demo" style="color: #06b6d4;">← Back to Demo Mode</a>
+        </div>
+        <script>
+            localStorage.setItem('token', '${demoToken}');
+            localStorage.setItem('user', JSON.stringify({
+                id: 'demo-admin',
+                email: 'demo@admin.com', 
+                role: 'admin'
+            }));
+        </script>
+    </body>
+    </html>`);
+});
+
+app.get('/demo/login-buyer', (req, res) => {
+    const demoToken = jwt.sign(
+        { userId: 'demo-buyer', email: 'demo@buyer.com', role: 'buyer' },
+        process.env.JWT_SECRET || 'tangent-secret-key',
+        { expiresIn: '1h' }
+    );
+    
+    res.send(`
+    <!DOCTYPE html>
+    <html>
+    <head><title>Demo Buyer Login</title></head>
+    <body style="font-family: system-ui; background: #0f172a; color: #f8fafc; padding: 2rem;">
+        <div style="max-width: 600px; margin: 0 auto; text-align: center;">
+            <h1 style="color: #2563eb;">🎭 Demo Buyer Access</h1>
+            <p>You are now logged in as Demo Buyer</p>
+            <div style="background: #1e293b; padding: 2rem; border-radius: 8px; margin: 2rem 0;">
+                <h3>Quick Access:</h3>
+                <div style="display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; margin-top: 1rem;">
+                    <a href="/dashboard/authenticated?role=buyer" style="background: #2563eb; color: white; padding: 0.75rem 1.5rem; text-decoration: none; border-radius: 6px;">Buyer Dashboard</a>
+                    <a href="/create-contract" style="background: #059669; color: white; padding: 0.75rem 1.5rem; text-decoration: none; border-radius: 6px;">Create Contract</a>
+                    <a href="/kyc" style="background: #7c3aed; color: white; padding: 0.75rem 1.5rem; text-decoration: none; border-radius: 6px;">KYC Process</a>
+                </div>
+            </div>
+            <a href="/demo" style="color: #06b6d4;">← Back to Demo Mode</a>
+        </div>
+        <script>
+            localStorage.setItem('token', '${demoToken}');
+            localStorage.setItem('user', JSON.stringify({
+                id: 'demo-buyer',
+                email: 'demo@buyer.com', 
+                role: 'buyer'
+            }));
+        </script>
+    </body>
+    </html>`);
+});
+
+app.get('/demo/kyc-preview', (req, res) => {
+    // Redirect to actual KYC page with demo token
+    const demoToken = jwt.sign(
+        { userId: 'demo-user', email: 'demo@user.com', role: 'buyer' },
+        process.env.JWT_SECRET || 'tangent-secret-key',
+        { expiresIn: '1h' }
+    );
+    
+    res.redirect(`/kyc?token=${demoToken}&demo=true`);
+});
+
+// ================================
 // 404 HANDLER - MUST BE LAST
 // ================================
 app.use('*', (req, res) => {
