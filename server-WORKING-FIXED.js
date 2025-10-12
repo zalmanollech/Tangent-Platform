@@ -10686,6 +10686,1229 @@ app.get('/demo/buyer/step8-dashboard-final-payment', (req, res) => {
 });
 
 // ================================
+// SUPPLIER WORKFLOW DEMO STEPS
+// ================================
+
+// Supplier Step 1: New Contract Notification
+app.get('/demo/supplier/step1-new-contract', (req, res) => {
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Supplier Demo - New Contract</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: system-ui, -apple-system, sans-serif; background: #0f172a; color: #f8fafc; min-height: 100vh; }
+        .demo-watermark { position: fixed; top: 10px; right: 10px; background: #f59e0b; color: #000; padding: 5px 10px; border-radius: 4px; font-weight: bold; z-index: 9999; font-size: 12px; }
+        .step-indicator { position: fixed; top: 10px; left: 10px; background: #059669; color: white; padding: 8px 15px; border-radius: 4px; font-weight: bold; z-index: 9999; }
+        .header { background: #1e293b; padding: 1.5rem 2rem; border-bottom: 1px solid #334155; display: flex; justify-content: space-between; align-items: center; }
+        .header h1 { color: #059669; }
+        .user-info { display: flex; align-items: center; gap: 1rem; }
+        .balance { background: #059669; color: white; padding: 0.5rem 1rem; border-radius: 6px; font-weight: bold; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 2rem; }
+        .notification-banner { background: #f59e0b; color: #000; padding: 1rem 2rem; border-radius: 8px; margin-bottom: 2rem; text-align: center; font-weight: bold; }
+        .contract-card { background: #1e293b; border-radius: 12px; border: 1px solid #334155; padding: 2rem; margin-bottom: 2rem; }
+        .contract-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
+        .contract-id { color: #06b6d4; font-weight: bold; }
+        .status-badge { padding: 0.5rem 1rem; border-radius: 20px; font-weight: bold; font-size: 0.9rem; }
+        .status-new { background: #f59e0b; color: #000; }
+        .contract-details { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.5rem; }
+        .detail-group { background: #0f172a; padding: 1rem; border-radius: 6px; border: 1px solid #374151; }
+        .detail-label { color: #94a3b8; font-size: 0.9rem; margin-bottom: 0.25rem; }
+        .detail-value { color: #f8fafc; font-weight: 500; }
+        .action-section { background: #451a03; border: 1px solid #92400e; border-radius: 8px; padding: 2rem; margin-top: 2rem; text-align: center; }
+        .btn { background: #059669; color: white; padding: 0.75rem 2rem; border: none; border-radius: 6px; cursor: pointer; font-size: 1rem; font-weight: 500; text-decoration: none; display: inline-block; margin: 0 0.5rem; }
+        .btn:hover { background: #047857; }
+        .btn.secondary { background: #374151; }
+        .btn.secondary:hover { background: #4b5563; }
+        .navigation { display: flex; justify-content: space-between; margin-top: 2rem; }
+        .nav-btn { background: #374151; color: #f8fafc; padding: 0.5rem 1rem; border: none; border-radius: 4px; cursor: pointer; text-decoration: none; }
+        .nav-btn:hover { background: #4b5563; }
+        .demo-note { background: #451a03; border: 1px solid #92400e; border-radius: 8px; padding: 1rem; margin-bottom: 2rem; }
+        .demo-note h4 { color: #f59e0b; margin-bottom: 0.5rem; }
+        .demo-note p { color: #fbbf24; font-size: 0.9rem; }
+    </style>
+</head>
+<body>
+    <div class="demo-watermark">🎭 DEMO MODE</div>
+    <div class="step-indicator">Step 1/6: New Contract</div>
+    
+    <div class="header">
+        <h1>🏭 Supplier Dashboard</h1>
+        <div class="user-info">
+            <span>Sarah Johnson (Demo Supplier)</span>
+            <div class="balance">💰 $50,000 TGT</div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="demo-note">
+            <h4>🎯 Demo Step 1: New Contract Notification</h4>
+            <p>A buyer has created a new contract and sent it to you for review. This shows the supplier's dashboard when they receive a new contract proposal.</p>
+        </div>
+
+        <div class="notification-banner">
+            🔔 New Contract Received from Global Import Solutions Ltd
+        </div>
+
+        <div class="contract-card">
+            <div class="contract-header">
+                <div>
+                    <div class="contract-id">Contract #DEMO-2024-001</div>
+                    <div style="color: #94a3b8; margin-top: 0.25rem;">Received: October 12, 2024</div>
+                </div>
+                <div class="status-badge status-new">📋 NEW CONTRACT - REVIEW REQUIRED</div>
+            </div>
+
+            <div class="contract-details">
+                <div class="detail-group">
+                    <div class="detail-label">Buyer Company</div>
+                    <div class="detail-value">Global Import Solutions Ltd</div>
+                </div>
+                <div class="detail-group">
+                    <div class="detail-label">Buyer Contact</div>
+                    <div class="detail-value">demo.buyer@tangent.com</div>
+                </div>
+                <div class="detail-group">
+                    <div class="detail-label">Commodity</div>
+                    <div class="detail-value">Wheat - Hard Red Winter</div>
+                </div>
+                <div class="detail-group">
+                    <div class="detail-label">Quantity</div>
+                    <div class="detail-value">5,000 MT</div>
+                </div>
+                <div class="detail-group">
+                    <div class="detail-label">Price per MT</div>
+                    <div class="detail-value">$285.50 USD</div>
+                </div>
+                <div class="detail-group">
+                    <div class="detail-label">Total Value</div>
+                    <div class="detail-value">$1,427,500.00</div>
+                </div>
+                <div class="detail-group">
+                    <div class="detail-label">Origin Port</div>
+                    <div class="detail-value">New Orleans, USA</div>
+                </div>
+                <div class="detail-group">
+                    <div class="detail-label">Destination Port</div>
+                    <div class="detail-value">Hamburg, Germany</div>
+                </div>
+                <div class="detail-group">
+                    <div class="detail-label">Shipment Date</div>
+                    <div class="detail-value">November 15, 2024</div>
+                </div>
+                <div class="detail-group">
+                    <div class="detail-label">Payment Terms</div>
+                    <div class="detail-value">30% Deposit + 70% on Documents</div>
+                </div>
+            </div>
+
+            <div class="action-section">
+                <h3 style="color: #f59e0b; margin-bottom: 1rem;">📋 Contract Review Required</h3>
+                <p style="color: #fbbf24; margin-bottom: 2rem;">Please review the contract details carefully. You can accept or decline this contract proposal.</p>
+                <a href="/demo/supplier/step2-contract-details" class="btn">📄 Review Full Contract Details</a>
+                <a href="#" class="btn secondary">❌ Decline Contract</a>
+            </div>
+        </div>
+
+        <div class="navigation">
+            <a href="/demo/workflow" class="nav-btn">← Back to Workflow</a>
+            <a href="/demo/supplier/step2-contract-details" class="nav-btn">Next: Review Details →</a>
+        </div>
+    </div>
+</body>
+</html>`;
+
+    res.send(html);
+});
+
+// Supplier Step 2: Contract Details & Confirmation
+app.get('/demo/supplier/step2-contract-details', (req, res) => {
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Supplier Demo - Contract Details</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: system-ui, -apple-system, sans-serif; background: #0f172a; color: #f8fafc; min-height: 100vh; }
+        .demo-watermark { position: fixed; top: 10px; right: 10px; background: #f59e0b; color: #000; padding: 5px 10px; border-radius: 4px; font-weight: bold; z-index: 9999; font-size: 12px; }
+        .step-indicator { position: fixed; top: 10px; left: 10px; background: #059669; color: white; padding: 8px 15px; border-radius: 4px; font-weight: bold; z-index: 9999; }
+        .container { max-width: 1000px; margin: 0 auto; padding: 2rem; }
+        .contract-details { background: #1e293b; border-radius: 12px; border: 1px solid #334155; padding: 2rem; margin-bottom: 2rem; }
+        .contract-title { color: #059669; font-size: 2rem; text-align: center; margin-bottom: 2rem; }
+        .details-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-bottom: 2rem; }
+        .detail-section { background: #0f172a; padding: 1.5rem; border-radius: 8px; border: 1px solid #374151; }
+        .section-title { color: #06b6d4; font-size: 1.2rem; margin-bottom: 1rem; }
+        .detail-row { display: flex; justify-content: space-between; margin-bottom: 0.75rem; padding-bottom: 0.5rem; border-bottom: 1px solid #374151; }
+        .detail-row:last-child { border-bottom: none; margin-bottom: 0; }
+        .detail-label { color: #94a3b8; }
+        .detail-value { color: #f8fafc; font-weight: 500; }
+        .terms-section { background: #0f172a; padding: 1.5rem; border-radius: 8px; border: 1px solid #374151; margin-bottom: 2rem; }
+        .terms-text { color: #94a3b8; line-height: 1.6; white-space: pre-line; }
+        .confirmation-section { background: #451a03; border: 1px solid #92400e; border-radius: 8px; padding: 2rem; text-align: center; }
+        .btn { background: #059669; color: white; padding: 0.75rem 2rem; border: none; border-radius: 6px; cursor: pointer; font-size: 1rem; font-weight: 500; text-decoration: none; display: inline-block; margin: 0 0.5rem; }
+        .btn:hover { background: #047857; }
+        .btn.large { padding: 1rem 2rem; font-size: 1.1rem; }
+        .btn.secondary { background: #dc2626; }
+        .btn.secondary:hover { background: #b91c1c; }
+        .navigation { display: flex; justify-content: space-between; margin-top: 2rem; }
+        .nav-btn { background: #374151; color: #f8fafc; padding: 0.5rem 1rem; border: none; border-radius: 4px; cursor: pointer; text-decoration: none; }
+        .nav-btn:hover { background: #4b5563; }
+        .demo-note { background: #451a03; border: 1px solid #92400e; border-radius: 8px; padding: 1rem; margin-bottom: 2rem; }
+        .demo-note h4 { color: #f59e0b; margin-bottom: 0.5rem; }
+        .demo-note p { color: #fbbf24; font-size: 0.9rem; }
+    </style>
+</head>
+<body>
+    <div class="demo-watermark">🎭 DEMO MODE</div>
+    <div class="step-indicator">Step 2/6: Review & Confirm</div>
+    
+    <div class="container">
+        <div class="demo-note">
+            <h4>🎯 Demo Step 2: Full Contract Review & Confirmation</h4>
+            <p>This shows the detailed contract review interface where suppliers can examine all terms before confirming or declining the contract.</p>
+        </div>
+
+        <div class="contract-details">
+            <h1 class="contract-title">📋 Contract Review & Confirmation</h1>
+            
+            <div class="details-grid">
+                <div class="detail-section">
+                    <h3 class="section-title">📦 Commodity Information</h3>
+                    <div class="detail-row">
+                        <span class="detail-label">Type:</span>
+                        <span class="detail-value">Wheat - Hard Red Winter</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Quantity:</span>
+                        <span class="detail-value">5,000 MT</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Quality Grade:</span>
+                        <span class="detail-value">Premium Grade A</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Price per MT:</span>
+                        <span class="detail-value">$285.50 USD</span>
+                    </div>
+                </div>
+
+                <div class="detail-section">
+                    <h3 class="section-title">💰 Financial Terms</h3>
+                    <div class="detail-row">
+                        <span class="detail-label">Total Value:</span>
+                        <span class="detail-value">$1,427,500.00</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Payment Terms:</span>
+                        <span class="detail-value">30% + 70% on Documents</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Buyer Deposit:</span>
+                        <span class="detail-value">$428,250.00 (30%)</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Your Payment:</span>
+                        <span class="detail-value">$1,427,500.00 (100%)</span>
+                    </div>
+                </div>
+
+                <div class="detail-section">
+                    <h3 class="section-title">🚢 Shipping Details</h3>
+                    <div class="detail-row">
+                        <span class="detail-label">Origin Port:</span>
+                        <span class="detail-value">New Orleans, USA</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Destination:</span>
+                        <span class="detail-value">Hamburg, Germany</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Shipment Date:</span>
+                        <span class="detail-value">November 15, 2024</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Delivery Terms:</span>
+                        <span class="detail-value">FOB (Free on Board)</span>
+                    </div>
+                </div>
+
+                <div class="detail-section">
+                    <h3 class="section-title">🏢 Buyer Information</h3>
+                    <div class="detail-row">
+                        <span class="detail-label">Company:</span>
+                        <span class="detail-value">Global Import Solutions Ltd</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Contact:</span>
+                        <span class="detail-value">demo.buyer@tangent.com</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Contract ID:</span>
+                        <span class="detail-value">#DEMO-2024-001</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Expiry Date:</span>
+                        <span class="detail-value">December 31, 2024</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="terms-section">
+                <h3 class="section-title">📋 Special Terms & Conditions</h3>
+                <div class="terms-text">- Moisture content max 14%
+- Protein content min 11.5%
+- No GMO certification required
+- Fumigation certificate required
+- Loading rate: 5,000 MT per day
+- Quality inspection at loading port
+- Payment upon document presentation
+- Force majeure clause applies</div>
+            </div>
+
+            <div class="confirmation-section">
+                <h3 style="color: #f59e0b; margin-bottom: 1rem;">✅ Contract Confirmation</h3>
+                <p style="color: #fbbf24; margin-bottom: 2rem;">By confirming this contract, you agree to supply the specified commodity under the terms outlined above. The buyer will be notified and can proceed with the deposit payment.</p>
+                <button type="button" class="btn large" onclick="confirmContract()">✅ Confirm Contract & Notify Buyer</button>
+                <a href="#" class="btn secondary large">❌ Decline Contract</a>
+            </div>
+        </div>
+
+        <div class="navigation">
+            <a href="/demo/supplier/step1-new-contract" class="nav-btn">← Previous: New Contract</a>
+            <a href="/demo/supplier/step3-waiting-deposit" class="nav-btn">Next: Waiting for Deposit →</a>
+        </div>
+    </div>
+
+    <script>
+        function confirmContract() {
+            alert('✅ Contract confirmed successfully!\\n\\nThe buyer has been notified and can now proceed with the deposit payment.');
+            window.location.href = '/demo/supplier/step3-waiting-deposit';
+        }
+    </script>
+</body>
+</html>`;
+
+    res.send(html);
+});
+
+// Supplier Step 3: Waiting for Deposit
+app.get('/demo/supplier/step3-waiting-deposit', (req, res) => {
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Supplier Demo - Waiting for Deposit</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: system-ui, -apple-system, sans-serif; background: #0f172a; color: #f8fafc; min-height: 100vh; }
+        .demo-watermark { position: fixed; top: 10px; right: 10px; background: #f59e0b; color: #000; padding: 5px 10px; border-radius: 4px; font-weight: bold; z-index: 9999; font-size: 12px; }
+        .step-indicator { position: fixed; top: 10px; left: 10px; background: #059669; color: white; padding: 8px 15px; border-radius: 4px; font-weight: bold; z-index: 9999; }
+        .header { background: #1e293b; padding: 1.5rem 2rem; border-bottom: 1px solid #334155; display: flex; justify-content: space-between; align-items: center; }
+        .header h1 { color: #059669; }
+        .user-info { display: flex; align-items: center; gap: 1rem; }
+        .balance { background: #059669; color: white; padding: 0.5rem 1rem; border-radius: 6px; font-weight: bold; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 2rem; }
+        .contract-card { background: #1e293b; border-radius: 12px; border: 1px solid #334155; padding: 2rem; margin-bottom: 2rem; }
+        .contract-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
+        .contract-id { color: #06b6d4; font-weight: bold; }
+        .status-badge { padding: 0.5rem 1rem; border-radius: 20px; font-weight: bold; font-size: 0.9rem; }
+        .status-confirmed { background: #059669; color: white; }
+        .waiting-section { background: #451a03; border: 1px solid #92400e; border-radius: 8px; padding: 2rem; margin-top: 2rem; text-align: center; }
+        .waiting-section h3 { color: #f59e0b; margin-bottom: 1rem; }
+        .waiting-section p { color: #fbbf24; margin-bottom: 1.5rem; }
+        .progress-steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin: 2rem 0; }
+        .progress-step { text-align: center; padding: 1rem; border-radius: 6px; }
+        .progress-step.completed { background: #059669; color: white; }
+        .progress-step.current { background: #f59e0b; color: #000; }
+        .progress-step.pending { background: #374151; color: #94a3b8; }
+        .navigation { display: flex; justify-content: space-between; margin-top: 2rem; }
+        .nav-btn { background: #374151; color: #f8fafc; padding: 0.5rem 1rem; border: none; border-radius: 4px; cursor: pointer; text-decoration: none; }
+        .nav-btn:hover { background: #4b5563; }
+        .demo-note { background: #451a03; border: 1px solid #92400e; border-radius: 8px; padding: 1rem; margin-bottom: 2rem; }
+        .demo-note h4 { color: #f59e0b; margin-bottom: 0.5rem; }
+        .demo-note p { color: #fbbf24; font-size: 0.9rem; }
+    </style>
+</head>
+<body>
+    <div class="demo-watermark">🎭 DEMO MODE</div>
+    <div class="step-indicator">Step 3/6: Waiting for Deposit</div>
+    
+    <div class="header">
+        <h1>🏭 Supplier Dashboard</h1>
+        <div class="user-info">
+            <span>Sarah Johnson (Demo Supplier)</span>
+            <div class="balance">💰 $50,000 TGT</div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="demo-note">
+            <h4>🎯 Demo Step 3: Contract Confirmed - Waiting for Buyer Deposit</h4>
+            <p>You've confirmed the contract! Now waiting for the buyer to make their 30% deposit payment. Once received, you'll get the full payment and can begin shipping.</p>
+        </div>
+
+        <div class="contract-card">
+            <div class="contract-header">
+                <div>
+                    <div class="contract-id">Contract #DEMO-2024-001</div>
+                    <div style="color: #94a3b8; margin-top: 0.25rem;">Confirmed: October 12, 2024</div>
+                </div>
+                <div class="status-badge status-confirmed">✅ CONFIRMED - AWAITING DEPOSIT</div>
+            </div>
+
+            <div style="background: #0f172a; border-radius: 8px; padding: 1.5rem; margin-bottom: 2rem;">
+                <h3 style="color: #06b6d4; margin-bottom: 1rem;">📋 Contract Progress</h3>
+                <div class="progress-steps">
+                    <div class="progress-step completed">
+                        <div style="font-size: 1.5rem; margin-bottom: 0.5rem;">✅</div>
+                        <div style="font-weight: bold;">Contract Created</div>
+                        <div style="font-size: 0.8rem;">Oct 12</div>
+                    </div>
+                    <div class="progress-step completed">
+                        <div style="font-size: 1.5rem; margin-bottom: 0.5rem;">✅</div>
+                        <div style="font-weight: bold;">Supplier Confirmed</div>
+                        <div style="font-size: 0.8rem;">Oct 12</div>
+                    </div>
+                    <div class="progress-step current">
+                        <div style="font-size: 1.5rem; margin-bottom: 0.5rem;">💰</div>
+                        <div style="font-weight: bold;">Buyer Deposit</div>
+                        <div style="font-size: 0.8rem;">Pending</div>
+                    </div>
+                    <div class="progress-step pending">
+                        <div style="font-size: 1.5rem; margin-bottom: 0.5rem;">📄</div>
+                        <div style="font-weight: bold;">Ship & Upload Docs</div>
+                        <div style="font-size: 0.8rem;">Waiting</div>
+                    </div>
+                </div>
+            </div>
+
+            <div style="background: #1e293b; border-radius: 6px; padding: 1.5rem; margin-bottom: 2rem;">
+                <h4 style="color: #f8fafc; margin-bottom: 1rem;">💰 Payment Details</h4>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
+                    <div>
+                        <div style="color: #94a3b8; margin-bottom: 0.25rem;">Contract Value</div>
+                        <div style="color: #f8fafc; font-weight: bold; font-size: 1.1rem;">$1,427,500.00</div>
+                    </div>
+                    <div>
+                        <div style="color: #94a3b8; margin-bottom: 0.25rem;">Your Payment (100%)</div>
+                        <div style="color: #059669; font-weight: bold; font-size: 1.1rem;">$1,427,500.00</div>
+                    </div>
+                </div>
+                <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #374151;">
+                    <div style="color: #94a3b8; margin-bottom: 0.25rem;">Buyer Required Deposit</div>
+                    <div style="color: #f59e0b; font-weight: bold;">$428,250.00 (30% of contract value)</div>
+                </div>
+            </div>
+
+            <div class="waiting-section">
+                <h3>⏳ Waiting for Buyer Deposit Payment</h3>
+                <p>The buyer needs to pay their 30% deposit ($428,250.00) to activate the contract. Once received, you'll get the full contract payment immediately and can begin preparing the shipment.</p>
+                <div style="background: #0f172a; border-radius: 6px; padding: 1rem; margin-top: 1rem;">
+                    <h4 style="color: #06b6d4; margin-bottom: 0.5rem;">What happens next:</h4>
+                    <ul style="color: #94a3b8; text-align: left; margin-left: 1.5rem;">
+                        <li>Buyer pays 30% deposit to platform</li>
+                        <li>You receive 100% payment ($1,427,500) immediately</li>
+                        <li>Contract becomes active for shipping</li>
+                        <li>You prepare and ship the commodity</li>
+                        <li>Upload shipping documents to release buyer's final payment</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="navigation">
+            <a href="/demo/supplier/step2-contract-details" class="nav-btn">← Previous: Contract Details</a>
+            <a href="/demo/supplier/step4-active-contract" class="nav-btn">Next: Active Contract →</a>
+        </div>
+    </div>
+</body>
+</html>`;
+
+    res.send(html);
+});
+
+// Supplier Step 4: Active Contract
+app.get('/demo/supplier/step4-active-contract', (req, res) => {
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Supplier Demo - Active Contract</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: system-ui, -apple-system, sans-serif; background: #0f172a; color: #f8fafc; min-height: 100vh; }
+        .demo-watermark { position: fixed; top: 10px; right: 10px; background: #f59e0b; color: #000; padding: 5px 10px; border-radius: 4px; font-weight: bold; z-index: 9999; font-size: 12px; }
+        .step-indicator { position: fixed; top: 10px; left: 10px; background: #059669; color: white; padding: 8px 15px; border-radius: 4px; font-weight: bold; z-index: 9999; }
+        .header { background: #1e293b; padding: 1.5rem 2rem; border-bottom: 1px solid #334155; display: flex; justify-content: space-between; align-items: center; }
+        .header h1 { color: #059669; }
+        .user-info { display: flex; align-items: center; gap: 1rem; }
+        .balance { background: #059669; color: white; padding: 0.5rem 1rem; border-radius: 6px; font-weight: bold; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 2rem; }
+        .contract-card { background: #1e293b; border-radius: 12px; border: 1px solid #334155; padding: 2rem; margin-bottom: 2rem; }
+        .contract-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
+        .contract-id { color: #06b6d4; font-weight: bold; }
+        .status-badge { padding: 0.5rem 1rem; border-radius: 20px; font-weight: bold; font-size: 0.9rem; }
+        .status-active { background: #059669; color: white; }
+        .payment-received { background: #059669; border: 1px solid #047857; border-radius: 8px; padding: 2rem; margin-bottom: 2rem; text-align: center; }
+        .payment-amount { font-size: 2.5rem; font-weight: bold; color: white; margin: 1rem 0; }
+        .shipping-section { background: #0f172a; border-radius: 8px; padding: 1.5rem; margin-top: 2rem; }
+        .shipping-checklist { margin-top: 1rem; }
+        .checklist-item { display: flex; align-items: center; gap: 1rem; padding: 1rem; background: #1e293b; border-radius: 6px; margin-bottom: 0.5rem; }
+        .checklist-icon { color: #f59e0b; font-size: 1.2rem; }
+        .btn { background: #059669; color: white; padding: 0.75rem 2rem; border: none; border-radius: 6px; cursor: pointer; font-size: 1rem; font-weight: 500; text-decoration: none; display: inline-block; margin-top: 1rem; }
+        .btn:hover { background: #047857; }
+        .btn.large { padding: 1rem 2rem; font-size: 1.1rem; }
+        .navigation { display: flex; justify-content: space-between; margin-top: 2rem; }
+        .nav-btn { background: #374151; color: #f8fafc; padding: 0.5rem 1rem; border: none; border-radius: 4px; cursor: pointer; text-decoration: none; }
+        .nav-btn:hover { background: #4b5563; }
+        .demo-note { background: #451a03; border: 1px solid #92400e; border-radius: 8px; padding: 1rem; margin-bottom: 2rem; }
+        .demo-note h4 { color: #f59e0b; margin-bottom: 0.5rem; }
+        .demo-note p { color: #fbbf24; font-size: 0.9rem; }
+    </style>
+</head>
+<body>
+    <div class="demo-watermark">🎭 DEMO MODE</div>
+    <div class="step-indicator">Step 4/6: Active Contract</div>
+    
+    <div class="header">
+        <h1>🏭 Supplier Dashboard</h1>
+        <div class="user-info">
+            <span>Sarah Johnson (Demo Supplier)</span>
+            <div class="balance">💰 $1,477,500 TGT</div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="demo-note">
+            <h4>🎯 Demo Step 4: Contract Active - Payment Received!</h4>
+            <p>Great news! The buyer has made their deposit and you've received the full contract payment. The contract is now active and you can begin shipping preparations.</p>
+        </div>
+
+        <div class="payment-received">
+            <h3 style="margin-bottom: 1rem;">🎉 Payment Received!</h3>
+            <div class="payment-amount">$1,427,500.00</div>
+            <p style="margin-bottom: 1rem;">Full contract payment received from Tangent Platform</p>
+            <div style="background: rgba(0,0,0,0.2); border-radius: 6px; padding: 1rem;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                    <span>Contract Value:</span>
+                    <span>$1,427,500.00</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                    <span>Platform Fee:</span>
+                    <span>$0.00</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; font-weight: bold; border-top: 1px solid rgba(255,255,255,0.2); padding-top: 0.5rem;">
+                    <span>Net Payment:</span>
+                    <span>$1,427,500.00</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="contract-card">
+            <div class="contract-header">
+                <div>
+                    <div class="contract-id">Contract #DEMO-2024-001</div>
+                    <div style="color: #94a3b8; margin-top: 0.25rem;">Activated: October 12, 2024</div>
+                </div>
+                <div class="status-badge status-active">🚢 ACTIVE - READY FOR SHIPPING</div>
+            </div>
+
+            <div class="shipping-section">
+                <h3 style="color: #06b6d4; margin-bottom: 1rem;">🚢 Shipping Preparation Checklist</h3>
+                
+                <div class="shipping-checklist">
+                    <div class="checklist-item">
+                        <div class="checklist-icon">📋</div>
+                        <div>
+                            <h4 style="color: #f8fafc;">Quality Control & Inspection</h4>
+                            <p style="color: #94a3b8;">Ensure wheat meets specifications: max 14% moisture, min 11.5% protein</p>
+                        </div>
+                    </div>
+                    
+                    <div class="checklist-item">
+                        <div class="checklist-icon">🚛</div>
+                        <div>
+                            <h4 style="color: #f8fafc;">Transportation to Port</h4>
+                            <p style="color: #94a3b8;">Arrange transport of 5,000 MT to Port of New Orleans</p>
+                        </div>
+                    </div>
+                    
+                    <div class="checklist-item">
+                        <div class="checklist-icon">🚢</div>
+                        <div>
+                            <h4 style="color: #f8fafc;">Vessel Booking & Loading</h4>
+                            <p style="color: #94a3b8;">Book vessel space and coordinate loading at 5,000 MT per day rate</p>
+                        </div>
+                    </div>
+                    
+                    <div class="checklist-item">
+                        <div class="checklist-icon">📄</div>
+                        <div>
+                            <h4 style="color: #f8fafc;">Documentation Preparation</h4>
+                            <p style="color: #94a3b8;">Prepare Bill of Lading, Certificate of Origin, Quality Certificate, Fumigation Certificate</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="background: #451a03; border: 1px solid #92400e; border-radius: 6px; padding: 1.5rem; margin-top: 2rem;">
+                    <h4 style="color: #f59e0b; margin-bottom: 1rem;">📅 Important Dates</h4>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                        <div>
+                            <div style="color: #94a3b8; margin-bottom: 0.25rem;">Shipment Date:</div>
+                            <div style="color: #fbbf24; font-weight: bold;">November 15, 2024</div>
+                        </div>
+                        <div>
+                            <div style="color: #94a3b8; margin-bottom: 0.25rem;">Contract Expiry:</div>
+                            <div style="color: #fbbf24; font-weight: bold;">December 31, 2024</div>
+                        </div>
+                    </div>
+                </div>
+
+                <a href="/demo/supplier/step5-upload-documents" class="btn large">📄 Proceed to Document Upload</a>
+            </div>
+        </div>
+
+        <div class="navigation">
+            <a href="/demo/supplier/step3-waiting-deposit" class="nav-btn">← Previous: Waiting for Deposit</a>
+            <a href="/demo/supplier/step5-upload-documents" class="nav-btn">Next: Upload Documents →</a>
+        </div>
+    </div>
+</body>
+</html>`;
+
+    res.send(html);
+});
+
+// Supplier Step 5: Upload Documents
+app.get('/demo/supplier/step5-upload-documents', (req, res) => {
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Supplier Demo - Upload Documents</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: system-ui, -apple-system, sans-serif; background: #0f172a; color: #f8fafc; min-height: 100vh; }
+        .demo-watermark { position: fixed; top: 10px; right: 10px; background: #f59e0b; color: #000; padding: 5px 10px; border-radius: 4px; font-weight: bold; z-index: 9999; font-size: 12px; }
+        .step-indicator { position: fixed; top: 10px; left: 10px; background: #059669; color: white; padding: 8px 15px; border-radius: 4px; font-weight: bold; z-index: 9999; }
+        .container { max-width: 1000px; margin: 0 auto; padding: 2rem; }
+        .upload-container { background: #1e293b; border-radius: 12px; border: 1px solid #334155; padding: 2rem; margin-bottom: 2rem; }
+        .upload-title { color: #059669; font-size: 2rem; text-align: center; margin-bottom: 2rem; }
+        .document-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem; }
+        .document-upload { background: #0f172a; border: 2px dashed #374151; border-radius: 8px; padding: 2rem; text-align: center; transition: all 0.3s; }
+        .document-upload.uploaded { border-color: #059669; background: #05966920; }
+        .upload-icon { font-size: 3rem; margin-bottom: 1rem; color: #374151; }
+        .upload-icon.uploaded { color: #059669; }
+        .document-upload h4 { color: #f8fafc; margin-bottom: 0.5rem; }
+        .document-upload p { color: #94a3b8; margin-bottom: 1rem; font-size: 0.9rem; }
+        .upload-btn { background: #059669; color: white; padding: 0.5rem 1rem; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9rem; }
+        .upload-btn:hover { background: #047857; }
+        .upload-btn.uploaded { background: #374151; }
+        .blockchain-section { background: #451a03; border: 1px solid #92400e; border-radius: 8px; padding: 2rem; margin-bottom: 2rem; }
+        .btn { background: #059669; color: white; padding: 0.75rem 2rem; border: none; border-radius: 6px; cursor: pointer; font-size: 1rem; font-weight: 500; text-decoration: none; display: inline-block; width: 100%; text-align: center; }
+        .btn:hover { background: #047857; }
+        .btn.large { padding: 1rem 2rem; font-size: 1.1rem; }
+        .navigation { display: flex; justify-content: space-between; margin-top: 2rem; }
+        .nav-btn { background: #374151; color: #f8fafc; padding: 0.5rem 1rem; border: none; border-radius: 4px; cursor: pointer; text-decoration: none; }
+        .nav-btn:hover { background: #4b5563; }
+        .demo-note { background: #451a03; border: 1px solid #92400e; border-radius: 8px; padding: 1rem; margin-bottom: 2rem; }
+        .demo-note h4 { color: #f59e0b; margin-bottom: 0.5rem; }
+        .demo-note p { color: #fbbf24; font-size: 0.9rem; }
+    </style>
+</head>
+<body>
+    <div class="demo-watermark">🎭 DEMO MODE</div>
+    <div class="step-indicator">Step 5/6: Upload Documents</div>
+    
+    <div class="container">
+        <div class="demo-note">
+            <h4>🎯 Demo Step 5: Upload Shipping Documents</h4>
+            <p>The cargo has been shipped! Now upload the required shipping documents to trigger the buyer's final payment release. All documents are pre-uploaded for demo purposes.</p>
+        </div>
+
+        <div class="upload-container">
+            <h1 class="upload-title">📄 Upload Shipping Documents</h1>
+            
+            <div style="background: #0f172a; border-radius: 6px; padding: 1.5rem; margin-bottom: 2rem; text-align: center;">
+                <h3 style="color: #06b6d4; margin-bottom: 1rem;">🚢 Shipment Status</h3>
+                <p style="color: #94a3b8; margin-bottom: 1rem;">Vessel: MV Grain Carrier • Departed: Port of New Orleans • ETA Hamburg: Nov 28, 2024</p>
+                <div style="background: #059669; color: white; padding: 0.5rem 1rem; border-radius: 4px; display: inline-block; font-weight: bold;">✅ CARGO LOADED & SHIPPED</div>
+            </div>
+
+            <div class="document-grid">
+                <div class="document-upload uploaded">
+                    <div class="upload-icon uploaded">📋</div>
+                    <h4>Bill of Lading</h4>
+                    <p>Original signed B/L with vessel and cargo details</p>
+                    <div style="color: #059669; font-weight: bold; margin-bottom: 1rem;">✅ BL-DEMO-2024-001.pdf</div>
+                    <button class="upload-btn uploaded">Uploaded</button>
+                </div>
+                
+                <div class="document-upload uploaded">
+                    <div class="upload-icon uploaded">🌍</div>
+                    <h4>Certificate of Origin</h4>
+                    <p>Official certificate confirming commodity origin</p>
+                    <div style="color: #059669; font-weight: bold; margin-bottom: 1rem;">✅ COO-DEMO-2024-001.pdf</div>
+                    <button class="upload-btn uploaded">Uploaded</button>
+                </div>
+                
+                <div class="document-upload uploaded">
+                    <div class="upload-icon uploaded">🔬</div>
+                    <h4>Quality Certificate</h4>
+                    <p>Independent inspection report and quality analysis</p>
+                    <div style="color: #059669; font-weight: bold; margin-bottom: 1rem;">✅ QC-DEMO-2024-001.pdf</div>
+                    <button class="upload-btn uploaded">Uploaded</button>
+                </div>
+                
+                <div class="document-upload uploaded">
+                    <div class="upload-icon uploaded">🛡️</div>
+                    <h4>Fumigation Certificate</h4>
+                    <p>Pest control treatment certification</p>
+                    <div style="color: #059669; font-weight: bold; margin-bottom: 1rem;">✅ FC-DEMO-2024-001.pdf</div>
+                    <button class="upload-btn uploaded">Uploaded</button>
+                </div>
+            </div>
+
+            <div class="blockchain-section">
+                <h3 style="color: #f59e0b; margin-bottom: 1rem; text-align: center;">🔗 Blockchain Document Verification</h3>
+                <div style="background: #0f172a; border-radius: 6px; padding: 1rem; margin-bottom: 1.5rem;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                        <span>Document Hash:</span>
+                        <span style="font-family: monospace; color: #06b6d4;">0x7f9a2b8c...</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                        <span>Block Number:</span>
+                        <span style="color: #059669;">#18,942,156</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between;">
+                        <span>Verification Status:</span>
+                        <span style="color: #059669; font-weight: bold;">✅ VERIFIED</span>
+                    </div>
+                </div>
+                <p style="color: #fbbf24; text-align: center; margin-bottom: 1.5rem;">All documents have been cryptographically verified and stored on the blockchain for immutable proof of shipment.</p>
+                
+                <button type="button" class="btn large" onclick="completeUpload()">🚀 Complete Document Upload & Notify Buyer</button>
+            </div>
+        </div>
+
+        <div class="navigation">
+            <a href="/demo/supplier/step4-active-contract" class="nav-btn">← Previous: Active Contract</a>
+            <a href="/demo/supplier/step6-completed" class="nav-btn">Next: Contract Completed →</a>
+        </div>
+    </div>
+
+    <script>
+        function completeUpload() {
+            alert('📄 Documents uploaded successfully!\\n\\nAll shipping documents have been verified and uploaded to the blockchain.\\nThe buyer has been notified and can now review documents and release the final payment.');
+            window.location.href = '/demo/supplier/step6-completed';
+        }
+    </script>
+</body>
+</html>`;
+
+    res.send(html);
+});
+
+// Supplier Step 6: Contract Completed
+app.get('/demo/supplier/step6-completed', (req, res) => {
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=1.0">
+    <title>Supplier Demo - Contract Completed</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: system-ui, -apple-system, sans-serif; background: #0f172a; color: #f8fafc; min-height: 100vh; }
+        .demo-watermark { position: fixed; top: 10px; right: 10px; background: #f59e0b; color: #000; padding: 5px 10px; border-radius: 4px; font-weight: bold; z-index: 9999; font-size: 12px; }
+        .step-indicator { position: fixed; top: 10px; left: 10px; background: #059669; color: white; padding: 8px 15px; border-radius: 4px; font-weight: bold; z-index: 9999; }
+        .header { background: #1e293b; padding: 1.5rem 2rem; border-bottom: 1px solid #334155; display: flex; justify-content: space-between; align-items: center; }
+        .header h1 { color: #059669; }
+        .user-info { display: flex; align-items: center; gap: 1rem; }
+        .balance { background: #059669; color: white; padding: 0.5rem 1rem; border-radius: 6px; font-weight: bold; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 2rem; }
+        .success-banner { background: #059669; color: white; padding: 2rem; border-radius: 12px; text-align: center; margin-bottom: 2rem; }
+        .success-icon { font-size: 4rem; margin-bottom: 1rem; }
+        .contract-summary { background: #1e293b; border-radius: 12px; border: 1px solid #334155; padding: 2rem; margin-bottom: 2rem; }
+        .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.5rem; }
+        .summary-item { background: #0f172a; padding: 1.5rem; border-radius: 8px; border: 1px solid #374151; text-align: center; }
+        .summary-value { font-size: 1.5rem; font-weight: bold; color: #059669; margin-bottom: 0.5rem; }
+        .summary-label { color: #94a3b8; }
+        .timeline-section { background: #0f172a; border-radius: 8px; padding: 1.5rem; margin-bottom: 2rem; }
+        .timeline-item { display: flex; align-items: center; gap: 1rem; padding: 1rem; margin-bottom: 0.5rem; }
+        .timeline-icon { color: #059669; font-size: 1.2rem; width: 30px; }
+        .btn { background: #2563eb; color: white; padding: 0.75rem 2rem; border: none; border-radius: 6px; cursor: pointer; font-size: 1rem; font-weight: 500; text-decoration: none; display: inline-block; margin: 0 0.5rem; }
+        .btn:hover { background: #1d4ed8; }
+        .btn.success { background: #059669; }
+        .btn.success:hover { background: #047857; }
+        .navigation { display: flex; justify-content: space-between; margin-top: 2rem; }
+        .nav-btn { background: #374151; color: #f8fafc; padding: 0.5rem 1rem; border: none; border-radius: 4px; cursor: pointer; text-decoration: none; }
+        .nav-btn:hover { background: #4b5563; }
+        .demo-note { background: #451a03; border: 1px solid #92400e; border-radius: 8px; padding: 1rem; margin-bottom: 2rem; }
+        .demo-note h4 { color: #f59e0b; margin-bottom: 0.5rem; }
+        .demo-note p { color: #fbbf24; font-size: 0.9rem; }
+    </style>
+</head>
+<body>
+    <div class="demo-watermark">🎭 DEMO MODE</div>
+    <div class="step-indicator">Step 6/6: Contract Completed</div>
+    
+    <div class="header">
+        <h1>🏭 Supplier Dashboard</h1>
+        <div class="user-info">
+            <span>Sarah Johnson (Demo Supplier)</span>
+            <div class="balance">💰 $1,477,500 TGT</div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="demo-note">
+            <h4>🎯 Demo Step 6: Contract Successfully Completed!</h4>
+            <p>Congratulations! The buyer has reviewed your documents and released the final payment. The contract is now complete and all parties have fulfilled their obligations.</p>
+        </div>
+
+        <div class="success-banner">
+            <div class="success-icon">🎉</div>
+            <h2 style="margin-bottom: 1rem;">Contract Successfully Completed!</h2>
+            <p style="font-size: 1.1rem;">Contract #DEMO-2024-001 has been completed successfully. All payments received and documents verified.</p>
+        </div>
+
+        <div class="contract-summary">
+            <h3 style="color: #06b6d4; margin-bottom: 2rem; text-align: center;">📊 Contract Summary</h3>
+            
+            <div class="summary-grid">
+                <div class="summary-item">
+                    <div class="summary-value">$1,427,500.00</div>
+                    <div class="summary-label">Total Payment Received</div>
+                </div>
+                <div class="summary-item">
+                    <div class="summary-value">5,000 MT</div>
+                    <div class="summary-label">Wheat Delivered</div>
+                </div>
+                <div class="summary-item">
+                    <div class="summary-value">100%</div>
+                    <div class="summary-label">Contract Completion</div>
+                </div>
+                <div class="summary-item">
+                    <div class="summary-value">15 Days</div>
+                    <div class="summary-label">Total Duration</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="timeline-section">
+            <h3 style="color: #06b6d4; margin-bottom: 1.5rem;">📅 Contract Timeline</h3>
+            
+            <div class="timeline-item">
+                <div class="timeline-icon">✅</div>
+                <div>
+                    <h4 style="color: #f8fafc;">Contract Created & Received</h4>
+                    <p style="color: #94a3b8;">October 12, 2024 - Buyer created contract proposal</p>
+                </div>
+            </div>
+            
+            <div class="timeline-item">
+                <div class="timeline-icon">✅</div>
+                <div>
+                    <h4 style="color: #f8fafc;">Contract Confirmed</h4>
+                    <p style="color: #94a3b8;">October 12, 2024 - You confirmed contract terms</p>
+                </div>
+            </div>
+            
+            <div class="timeline-item">
+                <div class="timeline-icon">✅</div>
+                <div>
+                    <h4 style="color: #f8fafc;">Payment Received</h4>
+                    <p style="color: #94a3b8;">October 12, 2024 - Full payment of $1,427,500 received</p>
+                </div>
+            </div>
+            
+            <div class="timeline-item">
+                <div class="timeline-icon">✅</div>
+                <div>
+                    <h4 style="color: #f8fafc;">Cargo Shipped</h4>
+                    <p style="color: #94a3b8;">October 15, 2024 - 5,000 MT wheat loaded and shipped</p>
+                </div>
+            </div>
+            
+            <div class="timeline-item">
+                <div class="timeline-icon">✅</div>
+                <div>
+                    <h4 style="color: #f8fafc;">Documents Uploaded</h4>
+                    <p style="color: #94a3b8;">October 15, 2024 - All shipping documents verified on blockchain</p>
+                </div>
+            </div>
+            
+            <div class="timeline-item">
+                <div class="timeline-icon">✅</div>
+                <div>
+                    <h4 style="color: #f8fafc;">Contract Completed</h4>
+                    <p style="color: #94a3b8;">October 27, 2024 - Buyer released final payment, contract complete</p>
+                </div>
+            </div>
+        </div>
+
+        <div style="text-align: center; margin: 2rem 0;">
+            <a href="/demo/workflow" class="btn success">🎯 Back to Workflow Demo</a>
+            <a href="/demo/supplier/step1-new-contract" class="btn">🔄 Restart Supplier Journey</a>
+        </div>
+
+        <div class="navigation">
+            <a href="/demo/supplier/step5-upload-documents" class="nav-btn">← Previous: Upload Documents</a>
+            <a href="/demo/workflow" class="nav-btn">🎯 Back to Workflow Demo</a>
+        </div>
+    </div>
+</body>
+</html>`;
+
+    res.send(html);
+});
+
+// ================================
+// TRADER WORKFLOW DEMO STEPS
+// ================================
+
+// Trader Step 1: Trader Dashboard Overview
+app.get('/demo/trader/step1-dashboard', (req, res) => {
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trader Demo - Dashboard Overview</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: system-ui, -apple-system, sans-serif; background: #0f172a; color: #f8fafc; min-height: 100vh; }
+        .demo-watermark { position: fixed; top: 10px; right: 10px; background: #f59e0b; color: #000; padding: 5px 10px; border-radius: 4px; font-weight: bold; z-index: 9999; font-size: 12px; }
+        .step-indicator { position: fixed; top: 10px; left: 10px; background: #7c3aed; color: white; padding: 8px 15px; border-radius: 4px; font-weight: bold; z-index: 9999; }
+        .header { background: #1e293b; padding: 1.5rem 2rem; border-bottom: 1px solid #334155; display: flex; justify-content: space-between; align-items: center; }
+        .header h1 { color: #7c3aed; }
+        .user-info { display: flex; align-items: center; gap: 1rem; }
+        .balance { background: #7c3aed; color: white; padding: 0.5rem 1rem; border-radius: 6px; font-weight: bold; }
+        .container { max-width: 1400px; margin: 0 auto; padding: 2rem; }
+        .dual-contract-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-bottom: 2rem; }
+        .contract-side { background: #1e293b; border-radius: 12px; border: 1px solid #334155; padding: 2rem; }
+        .side-title { font-size: 1.5rem; margin-bottom: 1.5rem; text-align: center; }
+        .buy-side { border-color: #059669; }
+        .buy-side .side-title { color: #059669; }
+        .sell-side { border-color: #2563eb; }
+        .sell-side .side-title { color: #2563eb; }
+        .contract-card { background: #0f172a; border-radius: 8px; padding: 1.5rem; border: 1px solid #374151; margin-bottom: 1rem; }
+        .contract-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+        .contract-id { color: #06b6d4; font-weight: bold; }
+        .status-badge { padding: 0.25rem 0.75rem; border-radius: 12px; font-weight: bold; font-size: 0.8rem; }
+        .status-active { background: #059669; color: white; }
+        .status-pending { background: #f59e0b; color: #000; }
+        .profit-section { background: #451a03; border: 1px solid #92400e; border-radius: 8px; padding: 2rem; margin-bottom: 2rem; text-align: center; }
+        .profit-amount { font-size: 2rem; font-weight: bold; color: #f59e0b; margin: 1rem 0; }
+        .btn { background: #7c3aed; color: white; padding: 0.75rem 1.5rem; border: none; border-radius: 6px; cursor: pointer; font-size: 1rem; font-weight: 500; text-decoration: none; display: inline-block; }
+        .btn:hover { background: #6d28d9; }
+        .btn.buy { background: #059669; }
+        .btn.buy:hover { background: #047857; }
+        .btn.sell { background: #2563eb; }
+        .btn.sell:hover { background: #1d4ed8; }
+        .navigation { display: flex; justify-content: space-between; margin-top: 2rem; }
+        .nav-btn { background: #374151; color: #f8fafc; padding: 0.5rem 1rem; border: none; border-radius: 4px; cursor: pointer; text-decoration: none; }
+        .nav-btn:hover { background: #4b5563; }
+        .demo-note { background: #451a03; border: 1px solid #92400e; border-radius: 8px; padding: 1rem; margin-bottom: 2rem; }
+        .demo-note h4 { color: #f59e0b; margin-bottom: 0.5rem; }
+        .demo-note p { color: #fbbf24; font-size: 0.9rem; }
+    </style>
+</head>
+<body>
+    <div class="demo-watermark">🎭 DEMO MODE</div>
+    <div class="step-indicator">Step 1/5: Trader Dashboard</div>
+    
+    <div class="header">
+        <h1>📈 Trader Dashboard</h1>
+        <div class="user-info">
+            <span>Michael Chen (Demo Trader)</span>
+            <div class="balance">💰 $250,000 TGT</div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="demo-note">
+            <h4>🎯 Demo Step 1: Trader Dual-Contract System Overview</h4>
+            <p>Traders manage two simultaneous contracts: buying from suppliers and selling to buyers. This shows the complete dual-contract dashboard with profit calculations and document transfer capabilities.</p>
+        </div>
+
+        <div class="profit-section">
+            <h3 style="color: #f59e0b; margin-bottom: 1rem;">💰 Active Trading Position</h3>
+            <div class="profit-amount">$57,500.00</div>
+            <p style="color: #fbbf24; margin-bottom: 1rem;">Projected profit from current dual contracts</p>
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; margin-top: 1.5rem;">
+                <div style="background: #0f172a; padding: 1rem; border-radius: 6px;">
+                    <div style="color: #94a3b8; font-size: 0.9rem;">Buy Price</div>
+                    <div style="color: #059669; font-weight: bold;">$285.50/MT</div>
+                </div>
+                <div style="background: #0f172a; padding: 1rem; border-radius: 6px;">
+                    <div style="color: #94a3b8; font-size: 0.9rem;">Sell Price</div>
+                    <div style="color: #2563eb; font-weight: bold;">$297.00/MT</div>
+                </div>
+                <div style="background: #0f172a; padding: 1rem; border-radius: 6px;">
+                    <div style="color: #94a3b8; font-size: 0.9rem;">Margin</div>
+                    <div style="color: #f59e0b; font-weight: bold;">$11.50/MT</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="dual-contract-grid">
+            <div class="contract-side buy-side">
+                <h2 class="side-title">🏭 BUY SIDE (Supplier Contract)</h2>
+                
+                <div class="contract-card">
+                    <div class="contract-header">
+                        <div class="contract-id">Contract #TRADER-BUY-001</div>
+                        <div class="status-badge status-active">ACTIVE</div>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                        <div>
+                            <div style="color: #94a3b8; font-size: 0.9rem;">Supplier</div>
+                            <div style="color: #f8fafc; font-weight: 500;">AgriExport Global Ltd</div>
+                        </div>
+                        <div>
+                            <div style="color: #94a3b8; font-size: 0.9rem;">Quantity</div>
+                            <div style="color: #f8fafc; font-weight: 500;">5,000 MT</div>
+                        </div>
+                        <div>
+                            <div style="color: #94a3b8; font-size: 0.9rem;">Price</div>
+                            <div style="color: #059669; font-weight: 500;">$285.50/MT</div>
+                        </div>
+                        <div>
+                            <div style="color: #94a3b8; font-size: 0.9rem;">Total</div>
+                            <div style="color: #059669; font-weight: 500;">$1,427,500</div>
+                        </div>
+                    </div>
+                    <a href="/demo/trader/step2-supplier-contract" class="btn buy">View Buy Contract</a>
+                </div>
+            </div>
+
+            <div class="contract-side sell-side">
+                <h2 class="side-title">🛒 SELL SIDE (Buyer Contract)</h2>
+                
+                <div class="contract-card">
+                    <div class="contract-header">
+                        <div class="contract-id">Contract #TRADER-SELL-001</div>
+                        <div class="status-badge status-pending">PENDING</div>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                        <div>
+                            <div style="color: #94a3b8; font-size: 0.9rem;">Buyer</div>
+                            <div style="color: #f8fafc; font-weight: 500;">European Grain Corp</div>
+                        </div>
+                        <div>
+                            <div style="color: #94a3b8; font-size: 0.9rem;">Quantity</div>
+                            <div style="color: #f8fafc; font-weight: 500;">5,000 MT</div>
+                        </div>
+                        <div>
+                            <div style="color: #94a3b8; font-size: 0.9rem;">Price</div>
+                            <div style="color: #2563eb; font-weight: 500;">$297.00/MT</div>
+                        </div>
+                        <div>
+                            <div style="color: #94a3b8; font-size: 0.9rem;">Total</div>
+                            <div style="color: #2563eb; font-weight: 500;">$1,485,000</div>
+                        </div>
+                    </div>
+                    <a href="/demo/trader/step3-buyer-contract" class="btn sell">View Sell Contract</a>
+                </div>
+            </div>
+        </div>
+
+        <div style="background: #1e293b; border-radius: 8px; padding: 1.5rem; text-align: center;">
+            <h3 style="color: #06b6d4; margin-bottom: 1rem;">📋 Trading Workflow</h3>
+            <p style="color: #94a3b8; margin-bottom: 1.5rem;">As a trader, you simultaneously manage contracts with suppliers (buy side) and buyers (sell side), transferring documents and capturing the price difference as profit.</p>
+            <a href="/demo/trader/step4-document-transfer" class="btn">📄 View Document Transfer System</a>
+        </div>
+
+        <div class="navigation">
+            <a href="/demo/workflow" class="nav-btn">← Back to Workflow</a>
+            <a href="/demo/trader/step2-supplier-contract" class="nav-btn">Next: Supplier Contract →</a>
+        </div>
+    </div>
+</body>
+</html>`;
+
+    res.send(html);
+});
+
+// Trader Step 2: Supplier Contract (Buy Side)
+app.get('/demo/trader/step2-supplier-contract', (req, res) => {
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trader Demo - Supplier Contract</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: system-ui, -apple-system, sans-serif; background: #0f172a; color: #f8fafc; min-height: 100vh; }
+        .demo-watermark { position: fixed; top: 10px; right: 10px; background: #f59e0b; color: #000; padding: 5px 10px; border-radius: 4px; font-weight: bold; z-index: 9999; font-size: 12px; }
+        .step-indicator { position: fixed; top: 10px; left: 10px; background: #7c3aed; color: white; padding: 8px 15px; border-radius: 4px; font-weight: bold; z-index: 9999; }
+        .container { max-width: 1000px; margin: 0 auto; padding: 2rem; }
+        .contract-header { background: #059669; color: white; padding: 2rem; border-radius: 12px 12px 0 0; text-align: center; }
+        .contract-details { background: #1e293b; border-radius: 0 0 12px 12px; border: 1px solid #334155; padding: 2rem; }
+        .details-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-bottom: 2rem; }
+        .detail-section { background: #0f172a; padding: 1.5rem; border-radius: 8px; border: 1px solid #374151; }
+        .section-title { color: #06b6d4; font-size: 1.2rem; margin-bottom: 1rem; }
+        .detail-row { display: flex; justify-content: space-between; margin-bottom: 0.75rem; padding-bottom: 0.5rem; border-bottom: 1px solid #374151; }
+        .detail-row:last-child { border-bottom: none; margin-bottom: 0; }
+        .detail-label { color: #94a3b8; }
+        .detail-value { color: #f8fafc; font-weight: 500; }
+        .status-section { background: #451a03; border: 1px solid #92400e; border-radius: 8px; padding: 2rem; margin-bottom: 2rem; text-align: center; }
+        .btn { background: #059669; color: white; padding: 0.75rem 2rem; border: none; border-radius: 6px; cursor: pointer; font-size: 1rem; font-weight: 500; text-decoration: none; display: inline-block; }
+        .btn:hover { background: #047857; }
+        .btn.large { padding: 1rem 2rem; font-size: 1.1rem; }
+        .navigation { display: flex; justify-content: space-between; margin-top: 2rem; }
+        .nav-btn { background: #374151; color: #f8fafc; padding: 0.5rem 1rem; border: none; border-radius: 4px; cursor: pointer; text-decoration: none; }
+        .nav-btn:hover { background: #4b5563; }
+        .demo-note { background: #451a03; border: 1px solid #92400e; border-radius: 8px; padding: 1rem; margin-bottom: 2rem; }
+        .demo-note h4 { color: #f59e0b; margin-bottom: 0.5rem; }
+        .demo-note p { color: #fbbf24; font-size: 0.9rem; }
+    </style>
+</head>
+<body>
+    <div class="demo-watermark">🎭 DEMO MODE</div>
+    <div class="step-indicator">Step 2/5: Buy Side Contract</div>
+    
+    <div class="container">
+        <div class="demo-note">
+            <h4>🎯 Demo Step 2: Supplier Contract (Buy Side)</h4>
+            <p>This shows the trader's contract with the supplier where they purchase the commodity. The trader has already paid the supplier and received the goods.</p>
+        </div>
+
+        <div class="contract-header">
+            <h1>🏭 BUY SIDE: Supplier Contract</h1>
+            <p style="margin-top: 0.5rem; opacity: 0.9;">Contract #TRADER-BUY-001 • Active Since Oct 12, 2024</p>
+        </div>
+
+        <div class="contract-details">
+            <div class="details-grid">
+                <div class="detail-section">
+                    <h3 class="section-title">🏭 Supplier Information</h3>
+                    <div class="detail-row">
+                        <span class="detail-label">Company:</span>
+                        <span class="detail-value">AgriExport Global Ltd</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Contact:</span>
+                        <span class="detail-value">demo.supplier@agriexport.com</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Origin Port:</span>
+                        <span class="detail-value">New Orleans, USA</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Status:</span>
+                        <span class="detail-value" style="color: #059669;">✅ ACTIVE</span>
+                    </div>
+                </div>
+
+                <div class="detail-section">
+                    <h3 class="section-title">📦 Commodity Details</h3>
+                    <div class="detail-row">
+                        <span class="detail-label">Type:</span>
+                        <span class="detail-value">Wheat - Hard Red Winter</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Quantity:</span>
+                        <span class="detail-value">5,000 MT</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Quality:</span>
+                        <span class="detail-value">Premium Grade A</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Purchase Price:</span>
+                        <span class="detail-value" style="color: #059669;">$285.50/MT</span>
+                    </div>
+                </div>
+
+                <div class="detail-section">
+                    <h3 class="section-title">💰 Financial Summary</h3>
+                    <div class="detail-row">
+                        <span class="detail-label">Total Purchase:</span>
+                        <span class="detail-value">$1,427,500.00</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Payment Status:</span>
+                        <span class="detail-value" style="color: #059669;">✅ PAID</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Payment Date:</span>
+                        <span class="detail-value">Oct 12, 2024</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Documents:</span>
+                        <span class="detail-value" style="color: #059669;">✅ RECEIVED</span>
+                    </div>
+                </div>
+
+                <div class="detail-section">
+                    <h3 class="section-title">🚢 Shipping Status</h3>
+                    <div class="detail-row">
+                        <span class="detail-label">Vessel:</span>
+                        <span class="detail-value">MV Grain Carrier</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Departure:</span>
+                        <span class="detail-value">Oct 15, 2024</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">ETA Hamburg:</span>
+                        <span class="detail-value">Nov 28, 2024</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Cargo Status:</span>
+                        <span class="detail-value" style="color: #059669;">🚢 IN TRANSIT</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="status-section">
+                <h3 style="color: #f59e0b; margin-bottom: 1rem;">📄 Documents Received from Supplier</h3>
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; margin-bottom: 1.5rem;">
+                    <div style="background: #0f172a; padding: 1rem; border-radius: 6px;">
+                        <div style="color: #059669; font-weight: bold; margin-bottom: 0.25rem;">✅ Bill of Lading</div>
+                        <div style="color: #94a3b8; font-size: 0.9rem;">BL-TRADER-BUY-001.pdf</div>
+                    </div>
+                    <div style="background: #0f172a; padding: 1rem; border-radius: 6px;">
+                        <div style="color: #059669; font-weight: bold; margin-bottom: 0.25rem;">✅ Certificate of Origin</div>
+                        <div style="color: #94a3b8; font-size: 0.9rem;">COO-TRADER-BUY-001.pdf</div>
+                    </div>
+                    <div style="background: #0f172a; padding: 1rem; border-radius: 6px;">
+                        <div style="color: #059669; font-weight: bold; margin-bottom: 0.25rem;">✅ Quality Certificate</div>
+                        <div style="color: #94a3b8; font-size: 0.9rem;">QC-TRADER-BUY-001.pdf</div>
+                    </div>
+                    <div style="background: #0f172a; padding: 1rem; border-radius: 6px;">
+                        <div style="color: #059669; font-weight: bold; margin-bottom: 0.25rem;">✅ Fumigation Certificate</div>
+                        <div style="color: #94a3b8; font-size: 0.9rem;">FC-TRADER-BUY-001.pdf</div>
+                    </div>
+                </div>
+                <p style="color: #fbbf24; margin-bottom: 1.5rem;">All documents received and verified. Ready for transfer to buyer upon their payment.</p>
+                <a href="/demo/trader/step4-document-transfer" class="btn large">📄 Transfer Documents to Buyer</a>
+            </div>
+        </div>
+
+        <div class="navigation">
+            <a href="/demo/trader/step1-dashboard" class="nav-btn">← Previous: Dashboard</a>
+            <a href="/demo/trader/step3-buyer-contract" class="nav-btn">Next: Buyer Contract →</a>
+        </div>
+    </div>
+</body>
+</html>`;
+
+    res.send(html);
+});
+
+// ================================
 // 404 HANDLER - MUST BE LAST
 // ================================
 app.use('*', (req, res) => {
