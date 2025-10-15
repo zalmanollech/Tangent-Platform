@@ -12304,6 +12304,284 @@ app.get('/demo/admin/step1-dashboard', (req, res) => {
     res.send(html);
 });
 
+// Admin Step 2: User Management & KYC
+app.get('/demo/admin/step2-user-management', (req, res) => {
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Demo - User Management & KYC</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: system-ui, -apple-system, sans-serif; background: #0f172a; color: #f8fafc; min-height: 100vh; }
+        .demo-watermark { position: fixed; top: 10px; right: 10px; background: #f59e0b; color: #000; padding: 5px 10px; border-radius: 4px; font-weight: bold; z-index: 9999; font-size: 12px; }
+        .step-indicator { position: fixed; top: 10px; left: 10px; background: #dc2626; color: white; padding: 8px 15px; border-radius: 4px; font-weight: bold; z-index: 9999; }
+        .header { background: #1e293b; padding: 1.5rem 2rem; border-bottom: 1px solid #334155; display: flex; justify-content: space-between; align-items: center; }
+        .header h1 { color: #dc2626; }
+        .user-info { display: flex; align-items: center; gap: 1rem; }
+        .admin-badge { background: #dc2626; color: white; padding: 0.5rem 1rem; border-radius: 6px; font-weight: bold; }
+        .container { max-width: 1400px; margin: 0 auto; padding: 2rem; }
+        .tabs { display: flex; gap: 1rem; margin-bottom: 2rem; }
+        .tab { background: #374151; color: #f8fafc; padding: 1rem 2rem; border: none; border-radius: 8px; cursor: pointer; font-weight: 500; }
+        .tab.active { background: #dc2626; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .user-card { background: #1e293b; border-radius: 12px; border: 1px solid #334155; padding: 2rem; margin-bottom: 1.5rem; }
+        .user-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+        .user-name { color: #f8fafc; font-weight: bold; font-size: 1.1rem; }
+        .user-role { color: #94a3b8; font-size: 0.9rem; }
+        .status-badge { padding: 0.5rem 1rem; border-radius: 20px; font-weight: bold; font-size: 0.8rem; }
+        .status-pending { background: #f59e0b; color: #000; }
+        .status-approved { background: #059669; color: white; }
+        .status-rejected { background: #dc2626; color: white; }
+        .status-flagged { background: #7c3aed; color: white; }
+        .user-details { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1rem; }
+        .detail-item { background: #0f172a; padding: 1rem; border-radius: 6px; border: 1px solid #374151; }
+        .detail-label { color: #94a3b8; font-size: 0.8rem; margin-bottom: 0.25rem; }
+        .detail-value { color: #f8fafc; font-weight: 500; }
+        .documents-section { background: #0f172a; border-radius: 8px; padding: 1rem; margin-top: 1rem; }
+        .document-item { display: flex; justify-content: between; align-items: center; padding: 0.5rem 0; border-bottom: 1px solid #374151; }
+        .document-item:last-child { border-bottom: none; }
+        .btn { background: #dc2626; color: white; padding: 0.5rem 1rem; border: none; border-radius: 4px; cursor: pointer; text-decoration: none; font-weight: 500; margin: 0 0.25rem; font-size: 0.9rem; }
+        .btn:hover { background: #b91c1c; }
+        .btn.success { background: #059669; }
+        .btn.success:hover { background: #047857; }
+        .btn.warning { background: #f59e0b; color: #000; }
+        .btn.warning:hover { background: #d97706; }
+        .btn.secondary { background: #374151; }
+        .btn.secondary:hover { background: #4b5563; }
+        .ofac-alert { background: #7f1d1d; border: 1px solid #dc2626; border-radius: 8px; padding: 1rem; margin-bottom: 1rem; }
+        .navigation { display: flex; justify-content: space-between; margin-top: 2rem; }
+        .nav-btn { background: #374151; color: #f8fafc; padding: 0.5rem 1rem; border: none; border-radius: 4px; cursor: pointer; text-decoration: none; }
+        .nav-btn:hover { background: #4b5563; }
+        .demo-note { background: #451a03; border: 1px solid #92400e; border-radius: 8px; padding: 1rem; margin-bottom: 2rem; }
+        .demo-note h4 { color: #f59e0b; margin-bottom: 0.5rem; }
+        .demo-note p { color: #fbbf24; font-size: 0.9rem; }
+    </style>
+</head>
+<body>
+    <div class="demo-watermark">🎭 DEMO MODE</div>
+    <div class="step-indicator">Step 2/6: User Management</div>
+    
+    <div class="header">
+        <h1>👥 User Management & KYC</h1>
+        <div class="user-info">
+            <span>System Administrator</span>
+            <div class="admin-badge">ADMIN ACCESS</div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="demo-note">
+            <h4>🎯 Demo Step 2: User Management & KYC</h4>
+            <p>Review user registrations, approve KYC documents, and manage OFAC sanctions screening. Critical for platform compliance and security.</p>
+        </div>
+
+        <div class="tabs">
+            <button class="tab active" onclick="showTab('pending-kyc')">🔍 Pending KYC (12)</button>
+            <button class="tab" onclick="showTab('ofac-alerts')">🛡️ OFAC Alerts (2)</button>
+            <button class="tab" onclick="showTab('approved-users')">✅ Approved Users</button>
+        </div>
+
+        <!-- Pending KYC Tab -->
+        <div id="pending-kyc" class="tab-content active">
+            <!-- High Priority KYC -->
+            <div class="user-card">
+                <div class="user-header">
+                    <div>
+                        <div class="user-name">Pacific Trading Corporation</div>
+                        <div class="user-role">Trader • Registered 2 days ago</div>
+                    </div>
+                    <div class="status-badge status-pending">📋 KYC PENDING</div>
+                </div>
+
+                <div class="user-details">
+                    <div class="detail-item">
+                        <div class="detail-label">Company Type</div>
+                        <div class="detail-value">Corporation</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Registration Country</div>
+                        <div class="detail-value">United States</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Business License</div>
+                        <div class="detail-value">Valid</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">OFAC Status</div>
+                        <div class="detail-value" style="color: #059669;">✅ Clear</div>
+                    </div>
+                </div>
+
+                <div class="documents-section">
+                    <h4 style="color: #06b6d4; margin-bottom: 0.5rem;">📄 Submitted Documents</h4>
+                    <div class="document-item">
+                        <span>Certificate of Incorporation</span>
+                        <a href="#" class="btn secondary">📄 View</a>
+                    </div>
+                    <div class="document-item">
+                        <span>Business License</span>
+                        <a href="#" class="btn secondary">📄 View</a>
+                    </div>
+                    <div class="document-item">
+                        <span>Financial Statements (2023)</span>
+                        <a href="#" class="btn secondary">📄 View</a>
+                    </div>
+                    <div class="document-item">
+                        <span>Director Identification</span>
+                        <a href="#" class="btn secondary">📄 View</a>
+                    </div>
+                </div>
+
+                <div style="display: flex; gap: 1rem; margin-top: 1rem;">
+                    <button class="btn success">✅ Approve KYC</button>
+                    <button class="btn">❌ Reject</button>
+                    <button class="btn warning">⏸️ Request More Info</button>
+                </div>
+            </div>
+
+            <!-- OFAC Flagged User -->
+            <div class="user-card">
+                <div class="ofac-alert">
+                    <h4 style="color: #fca5a5; margin-bottom: 0.5rem;">🛡️ OFAC SCREENING ALERT</h4>
+                    <p style="color: #fecaca; font-size: 0.9rem;">Potential match found in sanctions database. Manual review required.</p>
+                </div>
+
+                <div class="user-header">
+                    <div>
+                        <div class="user-name">Global Commodities Ltd</div>
+                        <div class="user-role">Supplier • Registered 1 day ago</div>
+                    </div>
+                    <div class="status-badge status-flagged">🛡️ OFAC REVIEW</div>
+                </div>
+
+                <div class="user-details">
+                    <div class="detail-item">
+                        <div class="detail-label">Company Type</div>
+                        <div class="detail-value">Limited Company</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Registration Country</div>
+                        <div class="detail-value">Cyprus</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Match Confidence</div>
+                        <div class="detail-value" style="color: #f59e0b;">⚠️ 78% Similar</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">SDN List Entry</div>
+                        <div class="detail-value" style="color: #dc2626;">⚠️ Flagged</div>
+                    </div>
+                </div>
+
+                <div style="background: #0f172a; border-radius: 6px; padding: 1rem; margin-top: 1rem;">
+                    <h4 style="color: #f59e0b; margin-bottom: 0.5rem;">🔍 OFAC Match Details</h4>
+                    <p style="color: #94a3b8; margin-bottom: 0.5rem;"><strong>Matched Entity:</strong> Global Commodities Limited (SDN #12847)</p>
+                    <p style="color: #94a3b8; margin-bottom: 0.5rem;"><strong>Reason:</strong> Similar company name and registration jurisdiction</p>
+                    <p style="color: #94a3b8;"><strong>Action Required:</strong> Verify this is not the sanctioned entity</p>
+                </div>
+
+                <div style="display: flex; gap: 1rem; margin-top: 1rem;">
+                    <button class="btn success">✅ Clear - Different Entity</button>
+                    <button class="btn">🚫 Block - Confirmed Match</button>
+                    <button class="btn warning">🔍 Escalate to Compliance</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- OFAC Alerts Tab -->
+        <div id="ofac-alerts" class="tab-content">
+            <div style="background: #1e293b; border-radius: 12px; border: 1px solid #334155; padding: 2rem;">
+                <h3 style="color: #dc2626; margin-bottom: 1rem;">🛡️ OFAC Sanctions Screening</h3>
+                <p style="color: #94a3b8; margin-bottom: 2rem;">Automated screening against OFAC SDN List, EU Sanctions, and other watchlists.</p>
+                
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 2rem;">
+                    <div style="background: #0f172a; padding: 1.5rem; border-radius: 8px; text-align: center;">
+                        <div style="font-size: 2rem; font-weight: bold; color: #dc2626;">2</div>
+                        <div style="color: #94a3b8;">Active Alerts</div>
+                    </div>
+                    <div style="background: #0f172a; padding: 1.5rem; border-radius: 8px; text-align: center;">
+                        <div style="font-size: 2rem; font-weight: bold; color: #f59e0b;">47</div>
+                        <div style="color: #94a3b8;">Under Review</div>
+                    </div>
+                    <div style="background: #0f172a; padding: 1.5rem; border-radius: 8px; text-align: center;">
+                        <div style="font-size: 2rem; font-weight: bold; color: #059669;">1,785</div>
+                        <div style="color: #94a3b8;">Cleared</div>
+                    </div>
+                </div>
+
+                <div style="background: #0f172a; border-radius: 8px; padding: 1.5rem;">
+                    <h4 style="color: #06b6d4; margin-bottom: 1rem;">📊 Recent Screening Activity</h4>
+                    <div style="color: #94a3b8; margin-bottom: 0.5rem;">• Last OFAC update: 2 hours ago</div>
+                    <div style="color: #94a3b8; margin-bottom: 0.5rem;">• Total entities screened today: 23</div>
+                    <div style="color: #94a3b8; margin-bottom: 0.5rem;">• False positive rate: 2.3%</div>
+                    <div style="color: #94a3b8;">• Average resolution time: 4.2 hours</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Approved Users Tab -->
+        <div id="approved-users" class="tab-content">
+            <div class="user-card">
+                <div class="user-header">
+                    <div>
+                        <div class="user-name">Midwest Commodities LLC</div>
+                        <div class="user-role">Buyer • Approved 5 days ago</div>
+                    </div>
+                    <div class="status-badge status-approved">✅ KYC APPROVED</div>
+                </div>
+                <div style="color: #94a3b8; margin-top: 1rem;">
+                    Active contracts: 3 • Total volume: $4.2M • Compliance score: 98%
+                </div>
+            </div>
+
+            <div class="user-card">
+                <div class="user-header">
+                    <div>
+                        <div class="user-name">AgriSupply Global Inc</div>
+                        <div class="user-role">Supplier • Approved 1 week ago</div>
+                    </div>
+                    <div class="status-badge status-approved">✅ KYC APPROVED</div>
+                </div>
+                <div style="color: #94a3b8; margin-top: 1rem;">
+                    Active contracts: 7 • Total volume: $8.7M • Compliance score: 100%
+                </div>
+            </div>
+        </div>
+
+        <div class="navigation">
+            <a href="/demo/admin/step1-dashboard" class="nav-btn">← Previous: Dashboard</a>
+            <a href="/demo/admin/step3-contract-oversight" class="nav-btn">Next: Contract Oversight →</a>
+        </div>
+    </div>
+
+    <script>
+        function showTab(tabName) {
+            // Hide all tab contents
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            
+            // Remove active class from all tabs
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Show selected tab content
+            document.getElementById(tabName).classList.add('active');
+            
+            // Add active class to clicked tab
+            event.target.classList.add('active');
+        }
+    </script>
+</body>
+</html>`;
+
+    res.send(html);
+});
+
 // Admin Step 4: Auction Management
 app.get('/demo/admin/step4-auction-management', (req, res) => {
     const html = `<!DOCTYPE html>
@@ -12588,6 +12866,288 @@ app.get('/demo/admin/step4-auction-management', (req, res) => {
         
         document.addEventListener('DOMContentLoaded', updateCountdown);
     </script>
+</body>
+</html>`;
+
+    res.send(html);
+});
+
+// Admin Step 5: Platform Settings
+app.get('/demo/admin/step5-platform-settings', (req, res) => {
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Demo - Platform Settings</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: system-ui, -apple-system, sans-serif; background: #0f172a; color: #f8fafc; min-height: 100vh; }
+        .demo-watermark { position: fixed; top: 10px; right: 10px; background: #f59e0b; color: #000; padding: 5px 10px; border-radius: 4px; font-weight: bold; z-index: 9999; font-size: 12px; }
+        .step-indicator { position: fixed; top: 10px; left: 10px; background: #dc2626; color: white; padding: 8px 15px; border-radius: 4px; font-weight: bold; z-index: 9999; }
+        .header { background: #1e293b; padding: 1.5rem 2rem; border-bottom: 1px solid #334155; display: flex; justify-content: space-between; align-items: center; }
+        .header h1 { color: #dc2626; }
+        .user-info { display: flex; align-items: center; gap: 1rem; }
+        .admin-badge { background: #dc2626; color: white; padding: 0.5rem 1rem; border-radius: 6px; font-weight: bold; }
+        .container { max-width: 1400px; margin: 0 auto; padding: 2rem; }
+        .settings-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 2rem; }
+        .settings-card { background: #1e293b; border-radius: 12px; border: 1px solid #334155; padding: 2rem; }
+        .card-title { color: #f8fafc; font-size: 1.2rem; font-weight: bold; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem; }
+        .setting-item { margin-bottom: 1.5rem; }
+        .setting-label { color: #94a3b8; font-size: 0.9rem; margin-bottom: 0.5rem; }
+        .setting-value { background: #0f172a; border: 1px solid #374151; border-radius: 6px; padding: 0.75rem; color: #f8fafc; width: 100%; }
+        .setting-description { color: #64748b; font-size: 0.8rem; margin-top: 0.25rem; }
+        .btn { background: #dc2626; color: white; padding: 0.75rem 1.5rem; border: none; border-radius: 6px; cursor: pointer; text-decoration: none; font-weight: 500; margin: 0 0.5rem; }
+        .btn:hover { background: #b91c1c; }
+        .btn.success { background: #059669; }
+        .btn.success:hover { background: #047857; }
+        .btn.warning { background: #f59e0b; color: #000; }
+        .btn.warning:hover { background: #d97706; }
+        .navigation { display: flex; justify-content: space-between; margin-top: 2rem; }
+        .nav-btn { background: #374151; color: #f8fafc; padding: 0.5rem 1rem; border: none; border-radius: 4px; cursor: pointer; text-decoration: none; }
+        .nav-btn:hover { background: #4b5563; }
+        .demo-note { background: #451a03; border: 1px solid #92400e; border-radius: 8px; padding: 1rem; margin-bottom: 2rem; }
+        .demo-note h4 { color: #f59e0b; margin-bottom: 0.5rem; }
+        .demo-note p { color: #fbbf24; font-size: 0.9rem; }
+        .status-indicator { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 0.5rem; }
+        .status-active { background: #059669; }
+        .status-warning { background: #f59e0b; }
+        .status-error { background: #dc2626; }
+    </style>
+</head>
+<body>
+    <div class="demo-watermark">🎭 DEMO MODE</div>
+    <div class="step-indicator">Step 5/6: Platform Settings</div>
+    
+    <div class="header">
+        <h1>⚙️ Platform Settings</h1>
+        <div class="user-info">
+            <span>System Administrator</span>
+            <div class="admin-badge">ADMIN ACCESS</div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="demo-note">
+            <h4>🎯 Demo Step 5: Platform Settings</h4>
+            <p>Configure platform fees, interest rates, system parameters, and operational settings. These settings directly impact platform revenue and user experience.</p>
+        </div>
+
+        <div class="settings-grid">
+            <!-- Fee Management -->
+            <div class="settings-card">
+                <div class="card-title">💰 Fee Structure</div>
+                
+                <div class="setting-item">
+                    <div class="setting-label">Platform Transaction Fee</div>
+                    <input type="text" class="setting-value" value="2.5%" readonly>
+                    <div class="setting-description">Fee charged on each completed contract</div>
+                </div>
+
+                <div class="setting-item">
+                    <div class="setting-label">Auction Success Fee</div>
+                    <input type="text" class="setting-value" value="5.0%" readonly>
+                    <div class="setting-description">Additional fee for contracts completed via auction</div>
+                </div>
+
+                <div class="setting-item">
+                    <div class="setting-label">KYC Processing Fee</div>
+                    <input type="text" class="setting-value" value="$150" readonly>
+                    <div class="setting-description">One-time fee for KYC verification</div>
+                </div>
+
+                <div class="setting-item">
+                    <div class="setting-label">Monthly Revenue Target</div>
+                    <input type="text" class="setting-value" value="$850,000" readonly>
+                    <div class="setting-description">Current month: $847,000 (99.6% achieved)</div>
+                </div>
+
+                <button class="btn warning">📝 Edit Fees</button>
+            </div>
+
+            <!-- Interest Rates -->
+            <div class="settings-card">
+                <div class="card-title">📈 Interest & Financing</div>
+                
+                <div class="setting-item">
+                    <div class="setting-label">POOL Financing Rate</div>
+                    <input type="text" class="setting-value" value="8.5% APR" readonly>
+                    <div class="setting-description">Interest rate for 70% financing provided to suppliers</div>
+                </div>
+
+                <div class="setting-item">
+                    <div class="setting-label">Late Payment Penalty</div>
+                    <input type="text" class="setting-value" value="2.0% per day" readonly>
+                    <div class="setting-description">Penalty rate for overdue payments</div>
+                </div>
+
+                <div class="setting-item">
+                    <div class="setting-label">Auction Starting Discount</div>
+                    <input type="text" class="setting-value" value="5%" readonly>
+                    <div class="setting-description">Initial discount for auctioned contracts</div>
+                </div>
+
+                <div class="setting-item">
+                    <div class="setting-label">POOL Reserve Ratio</div>
+                    <input type="text" class="setting-value" value="15%" readonly>
+                    <div class="setting-description">Minimum reserve maintained in POOL</div>
+                </div>
+
+                <button class="btn warning">📊 Adjust Rates</button>
+            </div>
+
+            <!-- System Limits -->
+            <div class="settings-card">
+                <div class="card-title">🔒 Transaction Limits</div>
+                
+                <div class="setting-item">
+                    <div class="setting-label">Maximum Contract Value</div>
+                    <input type="text" class="setting-value" value="$50,000,000" readonly>
+                    <div class="setting-description">Per-contract limit for risk management</div>
+                </div>
+
+                <div class="setting-item">
+                    <div class="setting-label">Daily Trading Limit</div>
+                    <input type="text" class="setting-value" value="$100,000,000" readonly>
+                    <div class="setting-description">Total daily volume across all users</div>
+                </div>
+
+                <div class="setting-item">
+                    <div class="setting-label">KYC Requirement Threshold</div>
+                    <input type="text" class="setting-value" value="$10,000" readonly>
+                    <div class="setting-description">Contract value requiring KYC verification</div>
+                </div>
+
+                <div class="setting-item">
+                    <div class="setting-label">Payment Timeout Period</div>
+                    <input type="text" class="setting-value" value="48 hours" readonly>
+                    <div class="setting-description">Time before contract moves to auction</div>
+                </div>
+
+                <button class="btn warning">⚙️ Update Limits</button>
+            </div>
+
+            <!-- System Status -->
+            <div class="settings-card">
+                <div class="card-title">🖥️ System Status</div>
+                
+                <div class="setting-item">
+                    <div class="setting-label">Platform Status</div>
+                    <div style="display: flex; align-items: center; color: #f8fafc;">
+                        <span class="status-indicator status-active"></span>
+                        <span>Fully Operational</span>
+                    </div>
+                    <div class="setting-description">All systems running normally</div>
+                </div>
+
+                <div class="setting-item">
+                    <div class="setting-label">Blockchain Integration</div>
+                    <div style="display: flex; align-items: center; color: #f8fafc;">
+                        <span class="status-indicator status-warning"></span>
+                        <span>Simulation Mode</span>
+                    </div>
+                    <div class="setting-description">Using simulated blockchain for demo</div>
+                </div>
+
+                <div class="setting-item">
+                    <div class="setting-label">OFAC Screening</div>
+                    <div style="display: flex; align-items: center; color: #f8fafc;">
+                        <span class="status-indicator status-error"></span>
+                        <span>Service Unavailable</span>
+                    </div>
+                    <div class="setting-description">Unable to connect to OFAC database</div>
+                </div>
+
+                <div class="setting-item">
+                    <div class="setting-label">Database Performance</div>
+                    <div style="display: flex; align-items: center; color: #f8fafc;">
+                        <span class="status-indicator status-active"></span>
+                        <span>Optimal (2.3ms avg)</span>
+                    </div>
+                    <div class="setting-description">Response times within normal range</div>
+                </div>
+
+                <button class="btn success">🔄 Refresh Status</button>
+            </div>
+
+            <!-- Operational Settings -->
+            <div class="settings-card">
+                <div class="card-title">🔧 Operational Settings</div>
+                
+                <div class="setting-item">
+                    <div class="setting-label">Maintenance Mode</div>
+                    <div style="display: flex; align-items: center; gap: 1rem;">
+                        <input type="checkbox" id="maintenance" style="transform: scale(1.2);">
+                        <label for="maintenance" style="color: #f8fafc;">Enable maintenance mode</label>
+                    </div>
+                    <div class="setting-description">Temporarily disable new registrations and trading</div>
+                </div>
+
+                <div class="setting-item">
+                    <div class="setting-label">Auto-Approval Threshold</div>
+                    <input type="text" class="setting-value" value="$5,000" readonly>
+                    <div class="setting-description">Contracts below this amount auto-approve</div>
+                </div>
+
+                <div class="setting-item">
+                    <div class="setting-label">Notification Frequency</div>
+                    <select class="setting-value">
+                        <option>Real-time</option>
+                        <option>Hourly digest</option>
+                        <option>Daily summary</option>
+                    </select>
+                    <div class="setting-description">Admin notification delivery frequency</div>
+                </div>
+
+                <div class="setting-item">
+                    <div class="setting-label">Backup Schedule</div>
+                    <input type="text" class="setting-value" value="Every 6 hours" readonly>
+                    <div class="setting-description">Automated database backup frequency</div>
+                </div>
+
+                <button class="btn warning">💾 Save Changes</button>
+            </div>
+
+            <!-- Security Settings -->
+            <div class="settings-card">
+                <div class="card-title">🛡️ Security Configuration</div>
+                
+                <div class="setting-item">
+                    <div class="setting-label">Session Timeout</div>
+                    <input type="text" class="setting-value" value="4 hours" readonly>
+                    <div class="setting-description">Automatic logout after inactivity</div>
+                </div>
+
+                <div class="setting-item">
+                    <div class="setting-label">Failed Login Attempts</div>
+                    <input type="text" class="setting-value" value="5 attempts" readonly>
+                    <div class="setting-description">Account lockout threshold</div>
+                </div>
+
+                <div class="setting-item">
+                    <div class="setting-label">2FA Requirement</div>
+                    <div style="display: flex; align-items: center; gap: 1rem;">
+                        <input type="checkbox" id="twofa" checked style="transform: scale(1.2);">
+                        <label for="twofa" style="color: #f8fafc;">Require 2FA for admin accounts</label>
+                    </div>
+                    <div class="setting-description">Mandatory two-factor authentication</div>
+                </div>
+
+                <div class="setting-item">
+                    <div class="setting-label">API Rate Limiting</div>
+                    <input type="text" class="setting-value" value="1000 req/hour" readonly>
+                    <div class="setting-description">Maximum API requests per user per hour</div>
+                </div>
+
+                <button class="btn">🔐 Update Security</button>
+            </div>
+        </div>
+
+        <div class="navigation">
+            <a href="/demo/admin/step4-auction-management" class="nav-btn">← Previous: Auction Management</a>
+            <a href="/demo/admin/step6-financial-overview" class="nav-btn">Next: Financial Overview →</a>
+        </div>
+    </div>
 </body>
 </html>`;
 
