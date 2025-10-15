@@ -10723,6 +10723,10 @@ app.get('/demo/buyer/step6-dashboard-deposit', (req, res) => {
                 </div>
 
                 <button type="button" class="btn large" onclick="nextStep()">💳 Make Deposit Payment ($431,676.00)</button>
+                
+                <div style="margin-top: 1.5rem; text-align: center;">
+                    <button type="button" class="btn" style="background: #dc2626; font-size: 0.9rem;" onclick="showTimeoutScenario()">⚠️ What if I don't pay within 48 hours?</button>
+                </div>
             </div>
         </div>
 
@@ -10735,6 +10739,12 @@ app.get('/demo/buyer/step6-dashboard-deposit', (req, res) => {
     <script>
         function nextStep() {
             window.location.href = '/demo/buyer/step7-dashboard-active';
+        }
+        
+        function showTimeoutScenario() {
+            if (confirm('⚠️ PAYMENT TIMEOUT SCENARIO\\n\\nIf you don\\'t pay within 48 hours, the contract will automatically move to auction where other buyers can bid on it.\\n\\nWould you like to see the auction demo?')) {
+                window.location.href = '/demo/buyer/payment-timeout-auction';
+            }
         }
     </script>
 </body>
@@ -11091,6 +11101,179 @@ app.get('/demo/buyer/step8-dashboard-final-payment', (req, res) => {
             alert('🎉 Contract completed successfully!\\n\\nYour 70% repayment of $1,007,244.00 has been sent to Tangent POOL.\\nSupplier received full payment from POOL.\\nContract #DEMO-2024-001 is now complete.');
             window.location.href = '/demo/workflow';
         }
+    </script>
+</body>
+</html>`;
+
+    res.send(html);
+});
+
+// Buyer Payment Timeout - Auction Demo
+app.get('/demo/buyer/payment-timeout-auction', (req, res) => {
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payment Timeout - Contract Moved to Auction</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: system-ui, -apple-system, sans-serif; background: #0f172a; color: #f8fafc; min-height: 100vh; }
+        .demo-watermark { position: fixed; top: 10px; right: 10px; background: #f59e0b; color: #000; padding: 5px 10px; border-radius: 4px; font-weight: bold; z-index: 9999; font-size: 12px; }
+        .container { max-width: 1000px; margin: 0 auto; padding: 2rem; }
+        .alert-header { background: #dc2626; color: white; padding: 2rem; border-radius: 12px; text-align: center; margin-bottom: 2rem; }
+        .timeline { background: #1e293b; border-radius: 12px; padding: 2rem; margin-bottom: 2rem; }
+        .timeline-item { display: flex; align-items: center; gap: 1rem; padding: 1rem 0; border-bottom: 1px solid #374151; }
+        .timeline-item:last-child { border-bottom: none; }
+        .timeline-icon { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; }
+        .completed { background: #059669; color: white; }
+        .timeout { background: #dc2626; color: white; }
+        .auction { background: #f59e0b; color: #000; }
+        .auction-section { background: #1e293b; border-radius: 12px; padding: 2rem; margin-bottom: 2rem; }
+        .bid-item { display: flex; justify-content: space-between; align-items: center; padding: 1rem; background: #0f172a; border-radius: 6px; margin-bottom: 0.5rem; }
+        .countdown { font-size: 1.5rem; font-weight: bold; color: #f59e0b; text-align: center; margin: 1rem 0; }
+        .btn { background: #2563eb; color: white; padding: 0.75rem 1.5rem; border: none; border-radius: 6px; cursor: pointer; text-decoration: none; font-weight: 500; margin: 0.5rem; }
+        .btn.danger { background: #dc2626; }
+        .btn.success { background: #059669; }
+        .navigation { text-align: center; margin-top: 2rem; }
+    </style>
+</head>
+<body>
+    <div class="demo-watermark">🎭 DEMO MODE</div>
+    
+    <div class="container">
+        <div class="alert-header">
+            <h1>⚠️ PAYMENT TIMEOUT</h1>
+            <p>Contract #DEMO-2024-001 has been moved to auction due to non-payment</p>
+        </div>
+
+        <div class="timeline">
+            <h3 style="color: #06b6d4; margin-bottom: 1rem;">📅 Contract Timeline</h3>
+            
+            <div class="timeline-item">
+                <div class="timeline-icon completed">✓</div>
+                <div>
+                    <h4>Contract Created</h4>
+                    <p style="color: #94a3b8;">October 12, 2024 - 14:30</p>
+                </div>
+            </div>
+            
+            <div class="timeline-item">
+                <div class="timeline-icon completed">✓</div>
+                <div>
+                    <h4>Supplier Confirmed</h4>
+                    <p style="color: #94a3b8;">October 12, 2024 - 16:45</p>
+                </div>
+            </div>
+            
+            <div class="timeline-item">
+                <div class="timeline-icon timeout">⚠</div>
+                <div>
+                    <h4 style="color: #fca5a5;">Payment Deadline Missed</h4>
+                    <p style="color: #fca5a5;">October 14, 2024 - 16:45 (48 hours after confirmation)</p>
+                </div>
+            </div>
+            
+            <div class="timeline-item">
+                <div class="timeline-icon auction">🏛</div>
+                <div>
+                    <h4 style="color: #f59e0b;">Contract Moved to Auction</h4>
+                    <p style="color: #fbbf24;">October 14, 2024 - 17:00 (Automatically triggered)</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="auction-section">
+            <h3 style="color: #f59e0b; margin-bottom: 1rem;">🏛️ Live Auction - Contract #DEMO-2024-001</h3>
+            
+            <div style="background: #0f172a; border-radius: 8px; padding: 1.5rem; margin-bottom: 1.5rem;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; text-align: center;">
+                    <div>
+                        <div style="color: #94a3b8;">Original Price</div>
+                        <div style="color: #f8fafc; font-weight: bold;">$285.50/MT</div>
+                    </div>
+                    <div>
+                        <div style="color: #94a3b8;">Current High Bid</div>
+                        <div style="color: #059669; font-weight: bold;">$287.25/MT</div>
+                    </div>
+                    <div>
+                        <div style="color: #94a3b8;">Auction Ends In</div>
+                        <div class="countdown">23:47:12</div>
+                    </div>
+                </div>
+            </div>
+
+            <h4 style="color: #06b6d4; margin-bottom: 1rem;">📊 Current Bidding Activity</h4>
+            
+            <div class="bid-item">
+                <div>
+                    <strong>Midwest Commodities LLC</strong>
+                    <div style="color: #94a3b8; font-size: 0.9rem;">Verified Buyer</div>
+                </div>
+                <div>
+                    <span style="color: #059669; font-weight: bold;">$287.25/MT</span>
+                    <div style="color: #94a3b8; font-size: 0.8rem;">2 min ago</div>
+                </div>
+            </div>
+            
+            <div class="bid-item">
+                <div>
+                    <strong>Pacific Trading Corp</strong>
+                    <div style="color: #94a3b8; font-size: 0.9rem;">Verified Buyer</div>
+                </div>
+                <div>
+                    <span style="color: #f59e0b;">$286.75/MT</span>
+                    <div style="color: #94a3b8; font-size: 0.8rem;">8 min ago</div>
+                </div>
+            </div>
+            
+            <div class="bid-item">
+                <div>
+                    <strong>Global Grain Solutions</strong>
+                    <div style="color: #94a3b8; font-size: 0.9rem;">Verified Buyer</div>
+                </div>
+                <div>
+                    <span style="color: #94a3b8;">$286.00/MT</span>
+                    <div style="color: #94a3b8; font-size: 0.8rem;">15 min ago</div>
+                </div>
+            </div>
+        </div>
+
+        <div style="background: #451a03; border: 1px solid #92400e; border-radius: 8px; padding: 1.5rem; margin-bottom: 2rem;">
+            <h4 style="color: #f59e0b; margin-bottom: 0.5rem;">💡 What This Means</h4>
+            <ul style="color: #fbbf24; margin-left: 1.5rem;">
+                <li>Your original contract is no longer valid</li>
+                <li>Other buyers are now bidding on the same commodity</li>
+                <li>The supplier will fulfill the contract with the winning bidder</li>
+                <li>You can still participate by placing a bid</li>
+                <li>Auction premium may apply (typically 5% fee)</li>
+            </ul>
+        </div>
+
+        <div class="navigation">
+            <a href="/demo/buyer/step6-dashboard-deposit" class="btn">← Back to Deposit Page</a>
+            <a href="/demo/workflow" class="btn success">🎯 View Complete Demo</a>
+            <a href="/demo/admin/step4-auction-management" class="btn danger">👑 Admin Auction View</a>
+        </div>
+    </div>
+
+    <script>
+        // Simple countdown timer
+        function updateCountdown() {
+            const countdownElement = document.querySelector('.countdown');
+            if (countdownElement) {
+                let timeLeft = 23 * 3600 + 47 * 60 + 12;
+                setInterval(() => {
+                    const hours = Math.floor(timeLeft / 3600);
+                    const minutes = Math.floor((timeLeft % 3600) / 60);
+                    const seconds = timeLeft % 60;
+                    const display = hours.toString().padStart(2, '0') + ':' + minutes.toString().padStart(2, '0') + ':' + seconds.toString().padStart(2, '0');
+                    countdownElement.textContent = display;
+                    if (timeLeft > 0) timeLeft--;
+                }, 1000);
+            }
+        }
+        document.addEventListener('DOMContentLoaded', updateCountdown);
     </script>
 </body>
 </html>`;
