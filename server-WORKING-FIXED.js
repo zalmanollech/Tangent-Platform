@@ -6,6 +6,7 @@ const multer = require('multer');
 const nodemailer = require('nodemailer');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
+const session = require('express-session');
 
 console.log('🚀 Starting Tangent Complete Production Platform...');
 
@@ -60,6 +61,17 @@ app.use(cors({
 
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+
+// Session middleware for demo password protection
+app.use(session({
+    secret: process.env.SESSION_SECRET || 'tangent-demo-secret-key',
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+        secure: false, // Set to true in production with HTTPS
+        maxAge: 24 * 60 * 60 * 1000 // 24 hours
+    }
+}));
 
 // Security Headers
 app.use((req, res, next) => {
@@ -2816,8 +2828,196 @@ app.get('/landing-two', (req, res) => {
     `);
 });
 
+// ================================
+// DEMO PASSWORD PROTECTION SYSTEM
+// ================================
+
+// Demo Password Configuration
+const DEMO_PASSWORD = process.env.DEMO_PASSWORD || 'tangent2024';
+const DEMO_SESSION_KEY = 'demo_authenticated';
+
+// Demo Password Middleware
+const requireDemoPassword = (req, res, next) => {
+    // Check if user has demo session
+    if (req.session && req.session[DEMO_SESSION_KEY]) {
+        return next();
+    }
+    
+    // Check for demo password in query params or body
+    const providedPassword = req.query.password || req.body.password;
+    if (providedPassword === DEMO_PASSWORD) {
+        if (!req.session) {
+            req.session = {};
+        }
+        req.session[DEMO_SESSION_KEY] = true;
+        return next();
+    }
+    
+    // Show password form
+    res.send(`
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Tangent Platform - Demo Access</title>
+        <style>
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body { 
+                font-family: 'Arial', sans-serif; 
+                background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+                min-height: 100vh;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                padding: 2rem;
+            }
+            .container {
+                background: white;
+                padding: 3rem;
+                border-radius: 20px;
+                box-shadow: 0 25px 50px rgba(0, 0, 0, 0.3);
+                text-align: center;
+                max-width: 500px;
+                width: 100%;
+            }
+            .logo {
+                font-size: 3rem;
+                margin-bottom: 1rem;
+            }
+            h1 { 
+                color: #1e3c72; 
+                font-size: 2rem; 
+                margin-bottom: 1rem; 
+                font-weight: 700;
+            }
+            .subtitle { 
+                color: #666; 
+                font-size: 1.1rem; 
+                margin-bottom: 2rem; 
+                line-height: 1.6;
+            }
+            .form-group {
+                margin-bottom: 1.5rem;
+                text-align: left;
+            }
+            label {
+                display: block;
+                color: #333;
+                font-weight: 600;
+                margin-bottom: 0.5rem;
+            }
+            input[type="password"] {
+                width: 100%;
+                padding: 1rem;
+                border: 2px solid #e2e8f0;
+                border-radius: 8px;
+                font-size: 1rem;
+                transition: border-color 0.3s ease;
+            }
+            input[type="password"]:focus {
+                outline: none;
+                border-color: #2563eb;
+                box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+            }
+            .btn {
+                background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+                color: white;
+                padding: 1rem 2rem;
+                border: none;
+                border-radius: 8px;
+                font-size: 1rem;
+                font-weight: 600;
+                cursor: pointer;
+                transition: all 0.3s ease;
+                width: 100%;
+            }
+            .btn:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 10px 20px rgba(37, 99, 235, 0.3);
+            }
+            .error {
+                background: #fef2f2;
+                border: 1px solid #fecaca;
+                color: #dc2626;
+                padding: 1rem;
+                border-radius: 8px;
+                margin-bottom: 1rem;
+                font-size: 0.9rem;
+            }
+            .demo-info {
+                background: #f0f9ff;
+                border: 1px solid #bae6fd;
+                border-radius: 8px;
+                padding: 1rem;
+                margin-top: 2rem;
+                color: #0c4a6e;
+                font-size: 0.9rem;
+            }
+            .back-link {
+                margin-top: 2rem;
+                padding-top: 1rem;
+                border-top: 1px solid #e5e5e5;
+            }
+            .back-link a {
+                color: #666;
+                text-decoration: none;
+                font-size: 0.9rem;
+                transition: color 0.3s ease;
+            }
+            .back-link a:hover {
+                color: #1e3c72;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="logo">🎭</div>
+            <h1>Demo Access Required</h1>
+            <p class="subtitle">Enter the demo password to access the Tangent Platform demonstration</p>
+            
+            ${req.query.error ? '<div class="error">❌ Invalid password. Please try again.</div>' : ''}
+            
+            <form method="POST" action="${req.originalUrl}">
+                <div class="form-group">
+                    <label for="password">Demo Password</label>
+                    <input type="password" id="password" name="password" placeholder="Enter demo password" required>
+                </div>
+                <button type="submit" class="btn">🔓 Access Demo</button>
+            </form>
+            
+            <div class="demo-info">
+                <strong>💡 Demo Features:</strong><br>
+                • Complete platform workflows for all roles<br>
+                • Interactive contract management<br>
+                • KYC and compliance systems<br>
+                • Admin dashboard and controls
+            </div>
+            
+            <div class="back-link">
+                <a href="/">← Back to Main Platform</a>
+            </div>
+        </div>
+    </body>
+    </html>
+    `);
+};
+
+// Demo Password Login Handlers
+app.post('/demo-main', requireDemoPassword, (req, res) => {
+    res.redirect('/demo-main');
+});
+
+app.post('/demo', requireDemoPassword, (req, res) => {
+    res.redirect('/demo');
+});
+
+app.post('/demo/workflow', requireDemoPassword, (req, res) => {
+    res.redirect('/demo/workflow');
+});
+
 // Demo Main Page - Three Workflow Buttons
-app.get('/demo-main', (req, res) => {
+app.get('/demo-main', requireDemoPassword, (req, res) => {
     res.send(`
     <!DOCTYPE html>
     <html lang="en">
@@ -9245,7 +9445,7 @@ app.get('/test-demo', (req, res) => {
 });
 
 // Demo Mode Navigation Page
-app.get('/demo', (req, res) => {
+app.get('/demo', requireDemoPassword, (req, res) => {
     console.log('🎭 Demo route accessed successfully!');
     const html = `<!DOCTYPE html>
 <html lang="en">
@@ -9550,7 +9750,7 @@ app.get('/demo/kyc-preview', (req, res) => {
 // ================================
 
 // Main Workflow Demo Controller
-app.get('/demo/workflow', (req, res) => {
+app.get('/demo/workflow', requireDemoPassword, (req, res) => {
     const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
