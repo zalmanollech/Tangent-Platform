@@ -13674,6 +13674,361 @@ app.get('/demo/trader/step2-supplier-contract', (req, res) => {
     res.send(html);
 });
 
+// Trader Step 3: Buyer Contract (Sell Side)
+app.get('/demo/trader/step3-buyer-contract', (req, res) => {
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trader Demo - Buyer Contract</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: system-ui, -apple-system, sans-serif; background: #0f172a; color: #f8fafc; min-height: 100vh; }
+        .demo-watermark { position: fixed; top: 10px; right: 10px; background: #f59e0b; color: #000; padding: 5px 10px; border-radius: 4px; font-weight: bold; z-index: 9999; font-size: 12px; }
+        .step-indicator { position: fixed; top: 10px; left: 10px; background: #7c3aed; color: white; padding: 8px 15px; border-radius: 4px; font-weight: bold; z-index: 9999; }
+        .container { max-width: 1000px; margin: 0 auto; padding: 2rem; }
+        .contract-header { background: #2563eb; color: white; padding: 2rem; border-radius: 12px 12px 0 0; text-align: center; }
+        .contract-details { background: #1e293b; border-radius: 0 0 12px 12px; border: 1px solid #334155; padding: 2rem; }
+        .details-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-bottom: 2rem; }
+        .detail-section { background: #0f172a; padding: 1.5rem; border-radius: 8px; border: 1px solid #374151; }
+        .section-title { color: #06b6d4; font-size: 1.2rem; margin-bottom: 1rem; }
+        .detail-row { display: flex; justify-content: space-between; margin-bottom: 0.75rem; padding-bottom: 0.5rem; border-bottom: 1px solid #374151; }
+        .detail-row:last-child { border-bottom: none; margin-bottom: 0; }
+        .detail-label { color: #94a3b8; }
+        .detail-value { color: #f8fafc; font-weight: 500; }
+        .status-section { background: #451a03; border: 1px solid #92400e; border-radius: 8px; padding: 2rem; margin-bottom: 2rem; text-align: center; }
+        .btn { background: #2563eb; color: white; padding: 0.75rem 2rem; border: none; border-radius: 6px; cursor: pointer; font-size: 1rem; font-weight: 500; text-decoration: none; display: inline-block; }
+        .btn:hover { background: #1d4ed8; }
+        .btn.large { padding: 1rem 2rem; font-size: 1.1rem; }
+        .navigation { display: flex; justify-content: space-between; margin-top: 2rem; }
+        .nav-btn { background: #374151; color: #f8fafc; padding: 0.5rem 1rem; border: none; border-radius: 4px; cursor: pointer; text-decoration: none; }
+        .nav-btn:hover { background: #4b5563; }
+        .demo-note { background: #451a03; border: 1px solid #92400e; border-radius: 8px; padding: 1rem; margin-bottom: 2rem; }
+        .demo-note h4 { color: #f59e0b; margin-bottom: 0.5rem; }
+        .demo-note p { color: #fbbf24; font-size: 0.9rem; }
+    </style>
+</head>
+<body>
+    <div class="demo-watermark">🎭 DEMO MODE</div>
+    <div class="step-indicator">Step 3/5: Sell Side Contract</div>
+    
+    <div class="container">
+        <div class="demo-note">
+            <h4>🎯 Demo Step 3: Buyer Contract (Sell Side)</h4>
+            <p>This shows the trader's contract with the buyer where they sell the commodity. The trader is waiting for the buyer to make their deposit payment.</p>
+        </div>
+
+        <div class="contract-header">
+            <h1>🛒 SELL SIDE: Buyer Contract</h1>
+            <p style="margin-top: 0.5rem; opacity: 0.9;">Contract #TRADER-SELL-001 • Confirmed Oct 12, 2024</p>
+        </div>
+
+        <div class="contract-details">
+            <div class="details-grid">
+                <div class="detail-section">
+                    <h3 class="section-title">🛒 Buyer Information</h3>
+                    <div class="detail-row">
+                        <span class="detail-label">Company:</span>
+                        <span class="detail-value">European Grain Imports Ltd</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Contact:</span>
+                        <span class="detail-value">demo.buyer@eurograin.com</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Destination Port:</span>
+                        <span class="detail-value">Hamburg, Germany</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Status:</span>
+                        <span class="detail-value" style="color: #f59e0b;">⏳ AWAITING DEPOSIT</span>
+                    </div>
+                </div>
+
+                <div class="detail-section">
+                    <h3 class="section-title">📦 Commodity Details</h3>
+                    <div class="detail-row">
+                        <span class="detail-label">Type:</span>
+                        <span class="detail-value">Wheat - Hard Red Winter</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Quantity:</span>
+                        <span class="detail-value">5,000 MT</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Quality:</span>
+                        <span class="detail-value">Premium Grade A</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Sale Price:</span>
+                        <span class="detail-value" style="color: #2563eb;">$295.75/MT</span>
+                    </div>
+                </div>
+
+                <div class="detail-section">
+                    <h3 class="section-title">💰 Financial Summary</h3>
+                    <div class="detail-row">
+                        <span class="detail-label">Total Sale Value:</span>
+                        <span class="detail-value">$1,478,750.00</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Required Deposit (30%):</span>
+                        <span class="detail-value" style="color: #f59e0b;">$443,625.00</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Payment Status:</span>
+                        <span class="detail-value" style="color: #f59e0b;">⏳ PENDING</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Expected Profit:</span>
+                        <span class="detail-value" style="color: #059669;">$51,250.00</span>
+                    </div>
+                </div>
+
+                <div class="detail-section">
+                    <h3 class="section-title">⏰ Timeline Status</h3>
+                    <div class="detail-row">
+                        <span class="detail-label">Contract Created:</span>
+                        <span class="detail-value">Oct 12, 2024</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Buyer Confirmed:</span>
+                        <span class="detail-value">Oct 12, 2024</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Payment Deadline:</span>
+                        <span class="detail-value" style="color: #f59e0b;">Oct 14, 2024 (48h)</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Time Remaining:</span>
+                        <span class="detail-value" style="color: #dc2626;">⚠️ 6 hours left</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="status-section">
+                <h3 style="color: #f59e0b; margin-bottom: 1rem;">⏳ Waiting for Buyer Deposit</h3>
+                <p style="color: #fbbf24; margin-bottom: 1.5rem;">The buyer has confirmed the contract but hasn't made their 30% deposit payment yet. As a trader, you're at risk if they don't pay within 48 hours.</p>
+                
+                <div style="background: #0f172a; border-radius: 6px; padding: 1rem; margin-bottom: 1.5rem;">
+                    <h4 style="color: #06b6d4; margin-bottom: 0.5rem;">⚠️ Trader Risk Management:</h4>
+                    <ul style="color: #94a3b8; text-align: left; margin-left: 1.5rem;">
+                        <li>You've already paid the supplier ($1,427,500)</li>
+                        <li>You're waiting for buyer payment ($1,478,750)</li>
+                        <li>If buyer doesn't pay, contract goes to auction</li>
+                        <li>You may need to find alternative buyers</li>
+                    </ul>
+                </div>
+                
+                <div style="margin-bottom: 1.5rem;">
+                    <button type="button" class="btn" style="background: #dc2626; font-size: 0.9rem;" onclick="showTraderTimeoutScenario()">⚠️ What if buyer doesn't pay within 48 hours?</button>
+                </div>
+                
+                <a href="/demo/trader/step4-document-transfer" class="btn large">📄 Continue to Document Transfer</a>
+            </div>
+        </div>
+
+        <div class="navigation">
+            <a href="/demo/trader/step2-supplier-contract" class="nav-btn">← Previous: Supplier Contract</a>
+            <a href="/demo/trader/step4-document-transfer" class="nav-btn">Next: Document Transfer →</a>
+        </div>
+    </div>
+
+    <script>
+        function showTraderTimeoutScenario() {
+            if (confirm('⚠️ TRADER PAYMENT TIMEOUT SCENARIO\\n\\nAs a trader, if your buyer doesn\\'t pay within 48 hours:\\n\\n• Your buyer\\'s contract moves to auction\\n• You still owe the supplier payment\\n• You need to find new buyers quickly\\n• Platform may help with emergency auction\\n\\nWould you like to see the auction demo?')) {
+                window.location.href = '/demo/trader/payment-timeout-auction';
+            }
+        }
+    </script>
+</body>
+</html>`;
+
+    res.send(html);
+});
+
+// Trader Payment Timeout - Auction Demo
+app.get('/demo/trader/payment-timeout-auction', (req, res) => {
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trader Payment Timeout - Emergency Auction</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: system-ui, -apple-system, sans-serif; background: #0f172a; color: #f8fafc; min-height: 100vh; }
+        .demo-watermark { position: fixed; top: 10px; right: 10px; background: #f59e0b; color: #000; padding: 5px 10px; border-radius: 4px; font-weight: bold; z-index: 9999; font-size: 12px; }
+        .container { max-width: 1000px; margin: 0 auto; padding: 2rem; }
+        .alert-header { background: #7c3aed; color: white; padding: 2rem; border-radius: 12px; text-align: center; margin-bottom: 2rem; }
+        .trader-risk { background: #7f1d1d; border: 1px solid #dc2626; border-radius: 12px; padding: 2rem; margin-bottom: 2rem; }
+        .timeline { background: #1e293b; border-radius: 12px; padding: 2rem; margin-bottom: 2rem; }
+        .timeline-item { display: flex; align-items: center; gap: 1rem; padding: 1rem 0; border-bottom: 1px solid #374151; }
+        .timeline-item:last-child { border-bottom: none; }
+        .timeline-icon { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; }
+        .completed { background: #059669; color: white; }
+        .timeout { background: #dc2626; color: white; }
+        .auction { background: #f59e0b; color: #000; }
+        .emergency { background: #7c3aed; color: white; }
+        .auction-section { background: #1e293b; border-radius: 12px; padding: 2rem; margin-bottom: 2rem; }
+        .countdown { font-size: 1.5rem; font-weight: bold; color: #f59e0b; text-align: center; margin: 1rem 0; }
+        .btn { background: #7c3aed; color: white; padding: 0.75rem 1.5rem; border: none; border-radius: 6px; cursor: pointer; text-decoration: none; font-weight: 500; margin: 0.5rem; }
+        .btn.danger { background: #dc2626; }
+        .btn.success { background: #059669; }
+        .navigation { text-align: center; margin-top: 2rem; }
+    </style>
+</head>
+<body>
+    <div class="demo-watermark">🎭 DEMO MODE</div>
+    
+    <div class="container">
+        <div class="alert-header">
+            <h1>⚠️ TRADER EMERGENCY</h1>
+            <p>Buyer payment timeout - Contract #TRADER-SELL-001 moved to emergency auction</p>
+        </div>
+
+        <div class="trader-risk">
+            <h3 style="color: #fca5a5; margin-bottom: 1rem;">🚨 Trader Financial Exposure</h3>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
+                <div>
+                    <h4 style="color: #fbbf24; margin-bottom: 0.5rem;">💸 Money Out (Paid to Supplier)</h4>
+                    <div style="font-size: 1.5rem; font-weight: bold; color: #dc2626;">-$1,427,500</div>
+                    <p style="color: #fca5a5; font-size: 0.9rem;">Already paid, cannot recover</p>
+                </div>
+                <div>
+                    <h4 style="color: #fbbf24; margin-bottom: 0.5rem;">💰 Money In (Expected from Buyer)</h4>
+                    <div style="font-size: 1.5rem; font-weight: bold; color: #f59e0b;">$1,478,750</div>
+                    <p style="color: #fbbf24; font-size: 0.9rem;">Now at risk due to timeout</p>
+                </div>
+            </div>
+            <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #dc2626;">
+                <h4 style="color: #fca5a5;">Net Exposure: <span style="font-size: 1.2rem;">-$1,427,500</span> (if no recovery)</h4>
+            </div>
+        </div>
+
+        <div class="timeline">
+            <h3 style="color: #06b6d4; margin-bottom: 1rem;">📅 Trader Contract Timeline</h3>
+            
+            <div class="timeline-item">
+                <div class="timeline-icon completed">✓</div>
+                <div>
+                    <h4>Supplier Contract Completed</h4>
+                    <p style="color: #94a3b8;">October 12, 2024 - Paid $1,427,500 to supplier</p>
+                </div>
+            </div>
+            
+            <div class="timeline-item">
+                <div class="timeline-icon completed">✓</div>
+                <div>
+                    <h4>Buyer Contract Confirmed</h4>
+                    <p style="color: #94a3b8;">October 12, 2024 - Buyer agreed to $1,478,750</p>
+                </div>
+            </div>
+            
+            <div class="timeline-item">
+                <div class="timeline-icon timeout">⚠</div>
+                <div>
+                    <h4 style="color: #fca5a5;">Buyer Payment Deadline Missed</h4>
+                    <p style="color: #fca5a5;">October 14, 2024 - No deposit received in 48 hours</p>
+                </div>
+            </div>
+            
+            <div class="timeline-item">
+                <div class="timeline-icon emergency">🚨</div>
+                <div>
+                    <h4 style="color: #c084fc;">Emergency Auction Triggered</h4>
+                    <p style="color: #c084fc;">October 14, 2024 - Platform initiates emergency sale</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="auction-section">
+            <h3 style="color: #7c3aed; margin-bottom: 1rem;">🏛️ Emergency Auction - Trader Recovery</h3>
+            
+            <div style="background: #0f172a; border-radius: 8px; padding: 1.5rem; margin-bottom: 1.5rem;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; text-align: center;">
+                    <div>
+                        <div style="color: #94a3b8;">Trader's Cost</div>
+                        <div style="color: #dc2626; font-weight: bold;">$285.50/MT</div>
+                    </div>
+                    <div>
+                        <div style="color: #94a3b8;">Current High Bid</div>
+                        <div style="color: #059669; font-weight: bold;">$289.25/MT</div>
+                    </div>
+                    <div>
+                        <div style="color: #94a3b8;">Auction Ends In</div>
+                        <div class="countdown">11:23:45</div>
+                    </div>
+                </div>
+            </div>
+
+            <div style="background: #451a03; border: 1px solid #92400e; border-radius: 8px; padding: 1.5rem; margin-bottom: 2rem;">
+                <h4 style="color: #f59e0b; margin-bottom: 0.5rem;">💡 Trader Recovery Scenario</h4>
+                <ul style="color: #fbbf24; margin-left: 1.5rem;">
+                    <li><strong>Best Case:</strong> Auction sells at $289.25/MT = $1,446,250 (Loss: $18,750)</li>
+                    <li><strong>Break Even:</strong> Need $285.50/MT to recover supplier payment</li>
+                    <li><strong>Worst Case:</strong> Market drops, significant loss on commodity</li>
+                    <li><strong>Platform Support:</strong> Emergency auction with reduced fees</li>
+                </ul>
+            </div>
+
+            <h4 style="color: #06b6d4; margin-bottom: 1rem;">📊 Current Emergency Bidding</h4>
+            
+            <div style="background: #0f172a; border-radius: 6px; padding: 1rem; margin-bottom: 0.5rem; display: flex; justify-content: space-between;">
+                <div>
+                    <strong>Global Grain Solutions</strong>
+                    <div style="color: #94a3b8; font-size: 0.9rem;">Emergency Buyer</div>
+                </div>
+                <div>
+                    <span style="color: #059669; font-weight: bold;">$289.25/MT</span>
+                    <div style="color: #94a3b8; font-size: 0.8rem;">5 min ago</div>
+                </div>
+            </div>
+            
+            <div style="background: #0f172a; border-radius: 6px; padding: 1rem; margin-bottom: 0.5rem; display: flex; justify-content: space-between;">
+                <div>
+                    <strong>Commodity Rescue Fund</strong>
+                    <div style="color: #94a3b8; font-size: 0.9rem;">Platform Partner</div>
+                </div>
+                <div>
+                    <span style="color: #f59e0b;">$287.00/MT</span>
+                    <div style="color: #94a3b8; font-size: 0.8rem;">12 min ago</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="navigation">
+            <a href="/demo/trader/step3-buyer-contract" class="btn">← Back to Buyer Contract</a>
+            <a href="/demo/workflow" class="btn success">🎯 View Complete Demo</a>
+            <a href="/demo/admin/step4-auction-management" class="btn danger">👑 Admin Auction View</a>
+        </div>
+    </div>
+
+    <script>
+        // Simple countdown timer
+        function updateCountdown() {
+            const countdownElement = document.querySelector('.countdown');
+            if (countdownElement) {
+                let timeLeft = 11 * 3600 + 23 * 60 + 45;
+                setInterval(() => {
+                    const hours = Math.floor(timeLeft / 3600);
+                    const minutes = Math.floor((timeLeft % 3600) / 60);
+                    const seconds = timeLeft % 60;
+                    const display = hours.toString().padStart(2, '0') + ':' + minutes.toString().padStart(2, '0') + ':' + seconds.toString().padStart(2, '0');
+                    countdownElement.textContent = display;
+                    if (timeLeft > 0) timeLeft--;
+                }, 1000);
+            }
+        }
+        document.addEventListener('DOMContentLoaded', updateCountdown);
+    </script>
+</body>
+</html>`;
+
+    res.send(html);
+});
+
 // ================================
 // 404 HANDLER - MUST BE LAST
 // ================================
