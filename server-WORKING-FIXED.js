@@ -12304,6 +12304,296 @@ app.get('/demo/admin/step1-dashboard', (req, res) => {
     res.send(html);
 });
 
+// Admin Step 4: Auction Management
+app.get('/demo/admin/step4-auction-management', (req, res) => {
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Demo - Auction Management</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: system-ui, -apple-system, sans-serif; background: #0f172a; color: #f8fafc; min-height: 100vh; }
+        .demo-watermark { position: fixed; top: 10px; right: 10px; background: #f59e0b; color: #000; padding: 5px 10px; border-radius: 4px; font-weight: bold; z-index: 9999; font-size: 12px; }
+        .step-indicator { position: fixed; top: 10px; left: 10px; background: #dc2626; color: white; padding: 8px 15px; border-radius: 4px; font-weight: bold; z-index: 9999; }
+        .header { background: #1e293b; padding: 1.5rem 2rem; border-bottom: 1px solid #334155; display: flex; justify-content: space-between; align-items: center; }
+        .header h1 { color: #dc2626; }
+        .user-info { display: flex; align-items: center; gap: 1rem; }
+        .admin-badge { background: #dc2626; color: white; padding: 0.5rem 1rem; border-radius: 6px; font-weight: bold; }
+        .container { max-width: 1400px; margin: 0 auto; padding: 2rem; }
+        .auction-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
+        .stat-card { background: #1e293b; border-radius: 8px; border: 1px solid #334155; padding: 1.5rem; text-align: center; }
+        .stat-value { font-size: 1.8rem; font-weight: bold; margin-bottom: 0.5rem; }
+        .auction-item { background: #1e293b; border-radius: 12px; border: 1px solid #334155; padding: 2rem; margin-bottom: 2rem; }
+        .auction-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
+        .contract-id { color: #06b6d4; font-weight: bold; font-size: 1.1rem; }
+        .status-badge { padding: 0.5rem 1rem; border-radius: 20px; font-weight: bold; font-size: 0.9rem; }
+        .status-active { background: #dc2626; color: white; }
+        .status-ending { background: #f59e0b; color: #000; }
+        .status-completed { background: #059669; color: white; }
+        .auction-details { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.5rem; margin-bottom: 1.5rem; }
+        .detail-card { background: #0f172a; padding: 1.5rem; border-radius: 8px; border: 1px solid #374151; }
+        .detail-label { color: #94a3b8; font-size: 0.9rem; margin-bottom: 0.5rem; }
+        .detail-value { color: #f8fafc; font-weight: 500; font-size: 1.1rem; }
+        .bidding-section { background: #0f172a; border-radius: 8px; padding: 1.5rem; margin-top: 1.5rem; }
+        .bid-item { display: flex; justify-content: space-between; align-items: center; padding: 1rem; border-bottom: 1px solid #374151; }
+        .bid-item:last-child { border-bottom: none; }
+        .countdown { font-size: 1.2rem; font-weight: bold; color: #f59e0b; }
+        .btn { background: #dc2626; color: white; padding: 0.75rem 1.5rem; border: none; border-radius: 6px; cursor: pointer; text-decoration: none; font-weight: 500; margin: 0 0.5rem; }
+        .btn:hover { background: #b91c1c; }
+        .btn.success { background: #059669; }
+        .btn.success:hover { background: #047857; }
+        .btn.warning { background: #f59e0b; color: #000; }
+        .btn.warning:hover { background: #d97706; }
+        .navigation { display: flex; justify-content: space-between; margin-top: 2rem; }
+        .nav-btn { background: #374151; color: #f8fafc; padding: 0.5rem 1rem; border: none; border-radius: 4px; cursor: pointer; text-decoration: none; }
+        .nav-btn:hover { background: #4b5563; }
+        .demo-note { background: #451a03; border: 1px solid #92400e; border-radius: 8px; padding: 1rem; margin-bottom: 2rem; }
+        .demo-note h4 { color: #f59e0b; margin-bottom: 0.5rem; }
+        .demo-note p { color: #fbbf24; font-size: 0.9rem; }
+        .timeline { background: #0f172a; border-radius: 8px; padding: 1rem; margin-top: 1rem; }
+        .timeline-item { display: flex; align-items: center; gap: 1rem; padding: 0.5rem 0; }
+        .timeline-icon { width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; }
+        .timeline-completed { background: #059669; color: white; }
+        .timeline-current { background: #f59e0b; color: #000; }
+        .timeline-pending { background: #374151; color: #94a3b8; }
+    </style>
+</head>
+<body>
+    <div class="demo-watermark">🎭 DEMO MODE</div>
+    <div class="step-indicator">Step 4/6: Auction Management</div>
+    
+    <div class="header">
+        <h1>🏛️ Auction Management Dashboard</h1>
+        <div class="user-info">
+            <span>System Administrator</span>
+            <div class="admin-badge">ADMIN ACCESS</div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="demo-note">
+            <h4>🎯 Demo Step 4: Auction Management</h4>
+            <p>When buyers fail to make payments on time, contracts automatically move to auction. This dashboard shows all defaulted contracts, active auctions, and bidding activity.</p>
+        </div>
+
+        <div class="auction-stats">
+            <div class="stat-card">
+                <div class="stat-value" style="color: #dc2626;">3</div>
+                <div class="stat-label" style="color: #94a3b8;">Active Auctions</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" style="color: #f59e0b;">7</div>
+                <div class="stat-label" style="color: #94a3b8;">Total Bids</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" style="color: #059669;">$2.8M</div>
+                <div class="stat-label" style="color: #94a3b8;">Total Value</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" style="color: #06b6d4;">12</div>
+                <div class="stat-label" style="color: #94a3b8;">Completed Today</div>
+            </div>
+        </div>
+
+        <!-- Active Auction - Payment Timeout -->
+        <div class="auction-item">
+            <div class="auction-header">
+                <div>
+                    <div class="contract-id">🚨 Contract #TC-2024-156 - PAYMENT TIMEOUT</div>
+                    <div style="color: #94a3b8; margin-top: 0.25rem;">Original Buyer: Global Import Solutions Ltd</div>
+                </div>
+                <div class="status-badge status-active">🔥 ACTIVE AUCTION</div>
+            </div>
+
+            <div class="timeline">
+                <h4 style="color: #dc2626; margin-bottom: 1rem;">⏰ Default Timeline</h4>
+                <div class="timeline-item">
+                    <div class="timeline-icon timeline-completed">✓</div>
+                    <div>
+                        <span style="color: #f8fafc;">Contract Created</span>
+                        <span style="color: #94a3b8; margin-left: 1rem;">Oct 10, 2024 - 14:30</span>
+                    </div>
+                </div>
+                <div class="timeline-item">
+                    <div class="timeline-icon timeline-completed">✓</div>
+                    <div>
+                        <span style="color: #f8fafc;">Supplier Confirmed</span>
+                        <span style="color: #94a3b8; margin-left: 1rem;">Oct 10, 2024 - 16:45</span>
+                    </div>
+                </div>
+                <div class="timeline-item">
+                    <div class="timeline-icon timeline-current">⚠</div>
+                    <div>
+                        <span style="color: #f59e0b;">Payment Deadline Missed</span>
+                        <span style="color: #fbbf24; margin-left: 1rem;">Oct 12, 2024 - 16:45 (48h timeout)</span>
+                    </div>
+                </div>
+                <div class="timeline-item">
+                    <div class="timeline-icon timeline-current">🏛</div>
+                    <div>
+                        <span style="color: #dc2626;">Moved to Auction</span>
+                        <span style="color: #fca5a5; margin-left: 1rem;">Oct 12, 2024 - 17:00 (Auto-triggered)</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="auction-details">
+                <div class="detail-card">
+                    <div class="detail-label">Commodity</div>
+                    <div class="detail-value">Wheat - Hard Red Winter</div>
+                </div>
+                <div class="detail-card">
+                    <div class="detail-label">Quantity</div>
+                    <div class="detail-value">5,000 MT</div>
+                </div>
+                <div class="detail-card">
+                    <div class="detail-label">Original Price</div>
+                    <div class="detail-value">$285.50/MT</div>
+                </div>
+                <div class="detail-card">
+                    <div class="detail-label">Current High Bid</div>
+                    <div class="detail-value" style="color: #059669;">$287.25/MT</div>
+                </div>
+                <div class="detail-card">
+                    <div class="detail-label">Auction Ends</div>
+                    <div class="detail-value countdown">23:47:12</div>
+                </div>
+                <div class="detail-card">
+                    <div class="detail-label">Total Bids</div>
+                    <div class="detail-value">4 bidders</div>
+                </div>
+            </div>
+
+            <div class="bidding-section">
+                <h4 style="color: #06b6d4; margin-bottom: 1rem;">📊 Current Bidding Activity</h4>
+                
+                <div class="bid-item">
+                    <div>
+                        <span style="color: #f8fafc; font-weight: bold;">Midwest Commodities LLC</span>
+                        <span style="color: #94a3b8; margin-left: 1rem;">Verified Buyer</span>
+                    </div>
+                    <div>
+                        <span style="color: #059669; font-weight: bold; font-size: 1.1rem;">$287.25/MT</span>
+                        <span style="color: #94a3b8; margin-left: 0.5rem;">2 min ago</span>
+                    </div>
+                </div>
+                
+                <div class="bid-item">
+                    <div>
+                        <span style="color: #f8fafc; font-weight: bold;">Pacific Trading Corp</span>
+                        <span style="color: #94a3b8; margin-left: 1rem;">Verified Buyer</span>
+                    </div>
+                    <div>
+                        <span style="color: #f59e0b; font-weight: bold;">$286.75/MT</span>
+                        <span style="color: #94a3b8; margin-left: 0.5rem;">8 min ago</span>
+                    </div>
+                </div>
+                
+                <div class="bid-item">
+                    <div>
+                        <span style="color: #f8fafc; font-weight: bold;">Global Grain Solutions</span>
+                        <span style="color: #94a3b8; margin-left: 1rem;">Verified Buyer</span>
+                    </div>
+                    <div>
+                        <span style="color: #94a3b8;">$286.00/MT</span>
+                        <span style="color: #94a3b8; margin-left: 0.5rem;">15 min ago</span>
+                    </div>
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
+                <button class="btn warning">⏸️ Pause Auction</button>
+                <button class="btn">🔨 Force Close</button>
+                <button class="btn success">✅ Approve Winner</button>
+            </div>
+        </div>
+
+        <!-- Recently Completed Auction -->
+        <div class="auction-item">
+            <div class="auction-header">
+                <div>
+                    <div class="contract-id">Contract #TC-2024-134 - COMPLETED</div>
+                    <div style="color: #94a3b8; margin-top: 0.25rem;">Won by: Midwest Commodities LLC</div>
+                </div>
+                <div class="status-badge status-completed">✅ AUCTION COMPLETED</div>
+            </div>
+
+            <div class="auction-details">
+                <div class="detail-card">
+                    <div class="detail-label">Commodity</div>
+                    <div class="detail-value">Corn - Yellow #2</div>
+                </div>
+                <div class="detail-card">
+                    <div class="detail-label">Quantity</div>
+                    <div class="detail-value">10,000 MT</div>
+                </div>
+                <div class="detail-card">
+                    <div class="detail-label">Original Price</div>
+                    <div class="detail-value">$245.00/MT</div>
+                </div>
+                <div class="detail-card">
+                    <div class="detail-label">Winning Bid</div>
+                    <div class="detail-value" style="color: #059669;">$248.75/MT</div>
+                </div>
+                <div class="detail-card">
+                    <div class="detail-label">Auction Duration</div>
+                    <div class="detail-value">47 hours</div>
+                </div>
+                <div class="detail-card">
+                    <div class="detail-label">Total Bids</div>
+                    <div class="detail-value">12 bidders</div>
+                </div>
+            </div>
+
+            <div style="background: #0f172a; border-radius: 6px; padding: 1rem; margin-top: 1rem;">
+                <h4 style="color: #059669; margin-bottom: 0.5rem;">✅ Auction Results</h4>
+                <p style="color: #94a3b8;">Winner paid premium of $3.75/MT above original price. Supplier received full payment. Platform earned $37,500 in auction fees.</p>
+            </div>
+        </div>
+
+        <div class="navigation">
+            <a href="/demo/admin/step3-contract-oversight" class="nav-btn">← Previous: Contract Oversight</a>
+            <a href="/demo/admin/step5-platform-settings" class="nav-btn">Next: Platform Settings →</a>
+        </div>
+    </div>
+
+    <script>
+        // Update countdown timer
+        function updateCountdown() {
+            const countdownElement = document.querySelector('.countdown');
+            if (countdownElement) {
+                let timeLeft = 23 * 3600 + 47 * 60 + 12; // 23:47:12 in seconds
+                
+                setInterval(() => {
+                    const hours = Math.floor(timeLeft / 3600);
+                    const minutes = Math.floor((timeLeft % 3600) / 60);
+                    const seconds = timeLeft % 60;
+                    
+                    const display = hours.toString().padStart(2, '0') + ':' + 
+                                  minutes.toString().padStart(2, '0') + ':' + 
+                                  seconds.toString().padStart(2, '0');
+                    countdownElement.textContent = display;
+                    
+                    if (timeLeft > 0) {
+                        timeLeft--;
+                    } else {
+                        countdownElement.textContent = "AUCTION ENDED";
+                        countdownElement.style.color = "#dc2626";
+                    }
+                }, 1000);
+            }
+        }
+        
+        document.addEventListener('DOMContentLoaded', updateCountdown);
+    </script>
+</body>
+</html>`;
+
+    res.send(html);
+});
+
 // ================================
 // TRADER WORKFLOW DEMO STEPS
 // ================================
