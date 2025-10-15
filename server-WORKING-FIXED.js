@@ -9586,6 +9586,8 @@ app.get('/demo/workflow', (req, res) => {
         .step-btn.supplier:hover { background: #047857; }
         .step-btn.trader { background: #7c3aed; }
         .step-btn.trader:hover { background: #6d28d9; }
+        .step-btn.admin { background: #dc2626; }
+        .step-btn.admin:hover { background: #b91c1c; }
         
         .navigation-bar { background: #0f172a; padding: 1.5rem; border-radius: 8px; margin-bottom: 2rem; text-align: center; }
         .nav-btn { background: #374151; color: #f8fafc; padding: 0.75rem 1.5rem; border: none; border-radius: 6px; cursor: pointer; margin: 0 0.5rem; font-weight: 500; }
@@ -9629,6 +9631,7 @@ app.get('/demo/workflow', (req, res) => {
             <button class="role-tab active" onclick="showRole('buyer')" id="buyer-tab">🛒 Buyer Flow (8 Steps)</button>
             <button class="role-tab" onclick="showRole('supplier')" id="supplier-tab">🏭 Supplier Flow (6 Steps)</button>
             <button class="role-tab" onclick="showRole('trader')" id="trader-tab">📈 Trader Flow (5 Steps)</button>
+            <button class="role-tab" onclick="showRole('admin')" id="admin-tab">👑 Admin Flow (6 Steps)</button>
         </div>
 
         <!-- Buyer Flow -->
@@ -9774,6 +9777,52 @@ app.get('/demo/workflow', (req, res) => {
                 </div>
             </div>
         </div>
+
+        <!-- Admin Flow -->
+        <div id="admin-flow" class="workflow-section hidden">
+            <h2 class="section-title">👑 Admin Platform Management</h2>
+            <div class="progress-bar">
+                <div class="progress-fill" style="width: 0%" id="admin-progress"></div>
+            </div>
+            <div class="steps-grid">
+                <div class="step-card">
+                    <div class="step-number">1</div>
+                    <h3>Admin Dashboard Overview</h3>
+                    <p>Platform statistics, active contracts, user management</p>
+                    <a href="/demo/admin/step1-dashboard" class="step-btn admin">View Admin Dashboard</a>
+                </div>
+                <div class="step-card">
+                    <div class="step-number">2</div>
+                    <h3>User Management & KYC</h3>
+                    <p>Review user registrations, KYC approvals, OFAC screening</p>
+                    <a href="/demo/admin/step2-user-management" class="step-btn admin">Manage Users</a>
+                </div>
+                <div class="step-card">
+                    <div class="step-number">3</div>
+                    <h3>Contract Oversight</h3>
+                    <p>Monitor all platform contracts, intervene if needed</p>
+                    <a href="/demo/admin/step3-contract-oversight" class="step-btn admin">View Contracts</a>
+                </div>
+                <div class="step-card">
+                    <div class="step-number">4</div>
+                    <h3>Auction Management</h3>
+                    <p>Handle defaulted contracts, manage auction process</p>
+                    <a href="/demo/admin/step4-auction-management" class="step-btn admin">Auction Dashboard</a>
+                </div>
+                <div class="step-card">
+                    <div class="step-number">5</div>
+                    <h3>Platform Settings</h3>
+                    <p>Configure fees, interest rates, system parameters</p>
+                    <a href="/demo/admin/step5-platform-settings" class="step-btn admin">System Settings</a>
+                </div>
+                <div class="step-card">
+                    <div class="step-number">6</div>
+                    <h3>Financial Overview</h3>
+                    <p>POOL management, revenue tracking, financial reports</p>
+                    <a href="/demo/admin/step6-financial-overview" class="step-btn admin">Financial Reports</a>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -9782,6 +9831,7 @@ app.get('/demo/workflow', (req, res) => {
             document.getElementById('buyer-flow').classList.add('hidden');
             document.getElementById('supplier-flow').classList.add('hidden');
             document.getElementById('trader-flow').classList.add('hidden');
+            document.getElementById('admin-flow').classList.add('hidden');
             
             // Remove active class from all tabs
             document.querySelectorAll('.role-tab').forEach(tab => tab.classList.remove('active'));
@@ -12082,6 +12132,170 @@ app.get('/demo/supplier/step6-completed', (req, res) => {
         <div class="navigation">
             <a href="/demo/supplier/step5-upload-documents" class="nav-btn">← Previous: Upload Documents</a>
             <a href="/demo/workflow" class="nav-btn">🎯 Back to Workflow Demo</a>
+        </div>
+    </div>
+</body>
+</html>`;
+
+    res.send(html);
+});
+
+// ================================
+// ADMIN WORKFLOW DEMO STEPS
+// ================================
+
+// Admin Step 1: Dashboard Overview
+app.get('/demo/admin/step1-dashboard', (req, res) => {
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Demo - Dashboard Overview</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: system-ui, -apple-system, sans-serif; background: #0f172a; color: #f8fafc; min-height: 100vh; }
+        .demo-watermark { position: fixed; top: 10px; right: 10px; background: #f59e0b; color: #000; padding: 5px 10px; border-radius: 4px; font-weight: bold; z-index: 9999; font-size: 12px; }
+        .step-indicator { position: fixed; top: 10px; left: 10px; background: #dc2626; color: white; padding: 8px 15px; border-radius: 4px; font-weight: bold; z-index: 9999; }
+        .header { background: #1e293b; padding: 1.5rem 2rem; border-bottom: 1px solid #334155; display: flex; justify-content: space-between; align-items: center; }
+        .header h1 { color: #dc2626; }
+        .user-info { display: flex; align-items: center; gap: 1rem; }
+        .admin-badge { background: #dc2626; color: white; padding: 0.5rem 1rem; border-radius: 6px; font-weight: bold; }
+        .container { max-width: 1400px; margin: 0 auto; padding: 2rem; }
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.5rem; margin-bottom: 2rem; }
+        .stat-card { background: #1e293b; border-radius: 12px; border: 1px solid #334155; padding: 2rem; text-align: center; }
+        .stat-value { font-size: 2.5rem; font-weight: bold; margin-bottom: 0.5rem; }
+        .stat-label { color: #94a3b8; font-size: 0.9rem; }
+        .alerts-section { background: #1e293b; border-radius: 12px; border: 1px solid #334155; padding: 2rem; margin-bottom: 2rem; }
+        .alert-item { background: #451a03; border: 1px solid #92400e; border-radius: 8px; padding: 1rem; margin-bottom: 1rem; display: flex; justify-content: space-between; align-items: center; }
+        .alert-urgent { background: #7f1d1d; border-color: #dc2626; }
+        .recent-activity { background: #1e293b; border-radius: 12px; border: 1px solid #334155; padding: 2rem; }
+        .activity-item { padding: 1rem; border-bottom: 1px solid #374151; display: flex; justify-content: space-between; align-items: center; }
+        .activity-item:last-child { border-bottom: none; }
+        .btn { background: #dc2626; color: white; padding: 0.75rem 1.5rem; border: none; border-radius: 6px; cursor: pointer; text-decoration: none; font-weight: 500; }
+        .btn:hover { background: #b91c1c; }
+        .btn.secondary { background: #374151; }
+        .btn.secondary:hover { background: #4b5563; }
+        .navigation { display: flex; justify-content: space-between; margin-top: 2rem; }
+        .nav-btn { background: #374151; color: #f8fafc; padding: 0.5rem 1rem; border: none; border-radius: 4px; cursor: pointer; text-decoration: none; }
+        .nav-btn:hover { background: #4b5563; }
+        .demo-note { background: #451a03; border: 1px solid #92400e; border-radius: 8px; padding: 1rem; margin-bottom: 2rem; }
+        .demo-note h4 { color: #f59e0b; margin-bottom: 0.5rem; }
+        .demo-note p { color: #fbbf24; font-size: 0.9rem; }
+    </style>
+</head>
+<body>
+    <div class="demo-watermark">🎭 DEMO MODE</div>
+    <div class="step-indicator">Step 1/6: Admin Dashboard</div>
+    
+    <div class="header">
+        <h1>👑 Admin Dashboard</h1>
+        <div class="user-info">
+            <span>System Administrator</span>
+            <div class="admin-badge">ADMIN ACCESS</div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="demo-note">
+            <h4>🎯 Demo Step 1: Platform Overview</h4>
+            <p>This is the main admin dashboard showing platform statistics, alerts, and recent activity. Admins can monitor all platform operations from here.</p>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-value" style="color: #2563eb;">247</div>
+                <div class="stat-label">Active Contracts</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" style="color: #059669;">1,834</div>
+                <div class="stat-label">Registered Users</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" style="color: #f59e0b;">$12.4M</div>
+                <div class="stat-label">POOL Balance</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" style="color: #7c3aed;">89</div>
+                <div class="stat-label">Pending KYC</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" style="color: #dc2626;">3</div>
+                <div class="stat-label">Auction Items</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" style="color: #06b6d4;">$847K</div>
+                <div class="stat-label">Monthly Revenue</div>
+            </div>
+        </div>
+
+        <div class="alerts-section">
+            <h3 style="color: #dc2626; margin-bottom: 1.5rem;">🚨 System Alerts</h3>
+            
+            <div class="alert-item alert-urgent">
+                <div>
+                    <h4 style="color: #fca5a5;">Payment Timeout - Contract #TC-2024-156</h4>
+                    <p style="color: #fecaca; font-size: 0.9rem;">Buyer failed to make deposit within 48 hours. Contract moved to auction.</p>
+                </div>
+                <a href="/demo/admin/step4-auction-management" class="btn">View Auction</a>
+            </div>
+            
+            <div class="alert-item">
+                <div>
+                    <h4 style="color: #fbbf24;">KYC Review Required - 12 Users</h4>
+                    <p style="color: #fde68a; font-size: 0.9rem;">New user registrations awaiting KYC verification.</p>
+                </div>
+                <a href="/demo/admin/step2-user-management" class="btn">Review KYC</a>
+            </div>
+            
+            <div class="alert-item">
+                <div>
+                    <h4 style="color: #fbbf24;">OFAC Screening Alert - 2 Matches</h4>
+                    <p style="color: #fde68a; font-size: 0.9rem;">Potential sanctions list matches require admin review.</p>
+                </div>
+                <a href="/demo/admin/step2-user-management" class="btn">Review OFAC</a>
+            </div>
+        </div>
+
+        <div class="recent-activity">
+            <h3 style="color: #06b6d4; margin-bottom: 1.5rem;">📊 Recent Platform Activity</h3>
+            
+            <div class="activity-item">
+                <div>
+                    <h4 style="color: #f8fafc;">New Contract Created</h4>
+                    <p style="color: #94a3b8; font-size: 0.9rem;">Global Grain Ltd → AgriSupply Co • $2.1M Wheat Contract</p>
+                </div>
+                <span style="color: #94a3b8; font-size: 0.8rem;">2 min ago</span>
+            </div>
+            
+            <div class="activity-item">
+                <div>
+                    <h4 style="color: #f8fafc;">Payment Completed</h4>
+                    <p style="color: #94a3b8; font-size: 0.9rem;">Contract #TC-2024-143 • Final payment released</p>
+                </div>
+                <span style="color: #94a3b8; font-size: 0.8rem;">15 min ago</span>
+            </div>
+            
+            <div class="activity-item">
+                <div>
+                    <h4 style="color: #f8fafc;">User Registration</h4>
+                    <p style="color: #94a3b8; font-size: 0.9rem;">Pacific Trading Corp • Trader role • KYC pending</p>
+                </div>
+                <span style="color: #94a3b8; font-size: 0.8rem;">1 hour ago</span>
+            </div>
+            
+            <div class="activity-item">
+                <div>
+                    <h4 style="color: #f8fafc;">Auction Completed</h4>
+                    <p style="color: #94a3b8; font-size: 0.9rem;">Contract #TC-2024-134 • Won by Midwest Commodities</p>
+                </div>
+                <span style="color: #94a3b8; font-size: 0.8rem;">3 hours ago</span>
+            </div>
+        </div>
+
+        <div class="navigation">
+            <a href="/demo/workflow" class="nav-btn">← Back to Workflow</a>
+            <a href="/demo/admin/step2-user-management" class="nav-btn">Next: User Management →</a>
         </div>
     </div>
 </body>
