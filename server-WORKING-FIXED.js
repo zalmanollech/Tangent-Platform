@@ -3099,6 +3099,13 @@ app.get('/demo-main', requireDemoPassword, (req, res) => {
                 background: linear-gradient(135deg, #ede9fe 0%, #ddd6fe 100%);
                 box-shadow: 0 20px 40px rgba(124, 58, 237, 0.3);
             }
+            .workflow-card.admin {
+                border-color: #dc2626;
+            }
+            .workflow-card.admin:hover {
+                background: linear-gradient(135deg, #fef2f2 0%, #fecaca 100%);
+                box-shadow: 0 20px 40px rgba(220, 38, 38, 0.3);
+            }
             .workflow-icon {
                 font-size: 4rem;
                 margin-bottom: 1rem;
@@ -3107,6 +3114,7 @@ app.get('/demo-main', requireDemoPassword, (req, res) => {
             .workflow-card.buyer .workflow-icon { color: #2563eb; }
             .workflow-card.supplier .workflow-icon { color: #059669; }
             .workflow-card.trader .workflow-icon { color: #7c3aed; }
+            .workflow-card.admin .workflow-icon { color: #dc2626; }
             .workflow-title {
                 font-size: 1.5rem;
                 font-weight: 700;
@@ -3194,6 +3202,16 @@ app.get('/demo-main', requireDemoPassword, (req, res) => {
                         Advanced trading system managing simultaneous buy and sell contracts with document transfer.
                     </div>
                     <div class="workflow-steps">5 Steps • 10 min demo</div>
+                </div>
+                
+                <div class="workflow-card admin" onclick="window.location.href='/demo/admin/step1-dashboard'">
+                    <div class="workflow-icon">👑</div>
+                    <div class="workflow-title">Admin Dashboard</div>
+                    <div class="workflow-subtitle">Platform Management</div>
+                    <div class="workflow-description">
+                        Complete admin control center with user management, fee configuration, blockchain controls, and auction management.
+                    </div>
+                    <div class="workflow-steps">6 Steps • 12 min demo</div>
                 </div>
             </div>
             
