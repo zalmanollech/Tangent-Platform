@@ -14387,7 +14387,303 @@ app.get('/demo/trader/payment-timeout-auction', (req, res) => {
 // ================================
 // 404 HANDLER - MUST BE LAST
 // ================================
-// COMPREHENSIVE ERROR HANDLING
+// ADMIN PAGE - REAL REGISTERED USERS TABLE
+// ================================
+
+// Admin page to view real registered users
+app.get('/admin/users', authenticateToken, (req, res) => {
+    try {
+        // Check if user is admin
+        if (req.user.role !== 'admin') {
+            return res.status(403).send('Admin access required');
+        }
+
+        const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-C1FN7FSX06"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+
+      gtag('config', 'G-C1FN7FSX06');
+    </script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Registered Users - Tangent Platform</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: system-ui, -apple-system, sans-serif; background: #0f172a; color: #f8fafc; min-height: 100vh; }
+        .header { background: #1e293b; padding: 1.5rem 2rem; border-bottom: 1px solid #334155; }
+        .header h1 { color: #dc2626; margin: 0; }
+        .container { max-width: 1400px; margin: 0 auto; padding: 2rem; }
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
+        .stat-card { background: #1e293b; border-radius: 8px; padding: 1.5rem; text-align: center; border: 1px solid #334155; }
+        .stat-number { font-size: 2rem; font-weight: bold; color: #06b6d4; }
+        .stat-label { color: #94a3b8; margin-top: 0.5rem; }
+        .users-table { background: #1e293b; border-radius: 12px; border: 1px solid #334155; overflow: hidden; }
+        .table-header { background: #374151; padding: 1rem; font-weight: bold; }
+        .table-row { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 1fr 1fr; gap: 1rem; padding: 1rem; border-bottom: 1px solid #334155; align-items: center; }
+        .table-row:last-child { border-bottom: none; }
+        .table-row:hover { background: #374151; }
+        .status-badge { padding: 0.25rem 0.75rem; border-radius: 12px; font-size: 0.8rem; font-weight: bold; }
+        .status-pending { background: #f59e0b; color: #000; }
+        .status-approved { background: #059669; color: white; }
+        .status-rejected { background: #dc2626; color: white; }
+        .role-badge { padding: 0.25rem 0.75rem; border-radius: 12px; font-size: 0.8rem; font-weight: bold; }
+        .role-buyer { background: #3b82f6; color: white; }
+        .role-supplier { background: #10b981; color: white; }
+        .role-trader { background: #8b5cf6; color: white; }
+        .role-insurer { background: #f59e0b; color: #000; }
+        .role-admin { background: #dc2626; color: white; }
+        .btn { background: #dc2626; color: white; padding: 0.5rem 1rem; border: none; border-radius: 4px; cursor: pointer; text-decoration: none; font-weight: 500; margin: 0 0.25rem; }
+        .btn:hover { background: #b91c1c; }
+        .btn.secondary { background: #374151; }
+        .btn.secondary:hover { background: #4b5563; }
+        .loading { text-align: center; padding: 2rem; color: #94a3b8; }
+        .error { background: #7f1d1d; border: 1px solid #dc2626; border-radius: 8px; padding: 1rem; margin-bottom: 1rem; color: #fecaca; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>👥 Real Registered Users</h1>
+    </div>
+
+    <div class="container">
+        <div id="error" class="error" style="display: none;"></div>
+        
+        <div class="stats-grid" id="statsGrid">
+            <div class="stat-card">
+                <div class="stat-number" id="totalUsers">-</div>
+                <div class="stat-label">Total Users</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="pendingKyc">-</div>
+                <div class="stat-label">Pending KYC</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="approvedUsers">-</div>
+                <div class="stat-label">Approved</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="recentRegistrations">-</div>
+                <div class="stat-label">This Week</div>
+            </div>
+        </div>
+
+        <div class="users-table">
+            <div class="table-header">
+                <div class="table-row">
+                    <div>Email</div>
+                    <div>Role</div>
+                    <div>Company</div>
+                    <div>KYC Status</div>
+                    <div>Verified</div>
+                    <div>Registered</div>
+                </div>
+            </div>
+            <div id="usersTableBody" class="loading">
+                Loading registered users...
+            </div>
+        </div>
+
+        <div style="margin-top: 2rem; text-align: center;">
+            <a href="/dashboard/admin" class="btn secondary">← Back to Admin Dashboard</a>
+            <button onclick="refreshUsers()" class="btn">🔄 Refresh</button>
+        </div>
+    </div>
+
+    <script>
+        // Load user data on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            loadUsers();
+            loadStats();
+        });
+
+        async function loadUsers() {
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch('/api/admin/users', {
+                    headers: {
+                        'Authorization': 'Bearer ' + token
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to load users');
+                }
+
+                const data = await response.json();
+                displayUsers(data.users);
+            } catch (error) {
+                console.error('Error loading users:', error);
+                document.getElementById('error').textContent = 'Error loading users: ' + error.message;
+                document.getElementById('error').style.display = 'block';
+            }
+        }
+
+        async function loadStats() {
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch('/api/admin/user-stats', {
+                    headers: {
+                        'Authorization': 'Bearer ' + token
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to load stats');
+                }
+
+                const data = await response.json();
+                displayStats(data.stats);
+            } catch (error) {
+                console.error('Error loading stats:', error);
+            }
+        }
+
+        function displayUsers(users) {
+            const tbody = document.getElementById('usersTableBody');
+            
+            if (users.length === 0) {
+                tbody.innerHTML = '<div class="loading">No registered users found</div>';
+                return;
+            }
+
+            tbody.innerHTML = users.map(user => {
+                const roleClass = 'role-' + user.role;
+                const statusClass = 'status-' + user.kycStatus;
+                const regDate = new Date(user.createdAt).toLocaleDateString();
+                
+                return \`
+                    <div class="table-row">
+                        <div>\${user.email}</div>
+                        <div><span class="role-badge \${roleClass}">\${user.role.toUpperCase()}</span></div>
+                        <div>\${user.companyName || '-'}</div>
+                        <div><span class="status-badge \${statusClass}">\${user.kycStatus.toUpperCase()}</span></div>
+                        <div>\${user.verified ? '✅' : '❌'}</div>
+                        <div>\${regDate}</div>
+                    </div>
+                \`;
+            }).join('');
+        }
+
+        function displayStats(stats) {
+            document.getElementById('totalUsers').textContent = stats.total;
+            document.getElementById('pendingKyc').textContent = stats.byKycStatus.pending;
+            document.getElementById('approvedUsers').textContent = stats.byKycStatus.approved;
+            document.getElementById('recentRegistrations').textContent = stats.recentRegistrations;
+        }
+
+        function refreshUsers() {
+            loadUsers();
+            loadStats();
+        }
+    </script>
+</body>
+</html>`;
+
+        res.send(html);
+
+    } catch (error) {
+        console.error('Error loading admin users page:', error);
+        res.status(500).send('Error loading page');
+    }
+});
+
+// ================================
+
+// Get all registered users (Admin only)
+app.get('/api/admin/users', authenticateToken, (req, res) => {
+    try {
+        // Check if user is admin
+        if (req.user.role !== 'admin') {
+            return res.status(403).json({ error: 'Admin access required' });
+        }
+
+        // Get all users from database
+        const allUsers = Array.from(database.users.values());
+        
+        // Remove sensitive data
+        const safeUsers = allUsers.map(user => ({
+            id: user.id,
+            email: user.email,
+            role: user.role,
+            companyName: user.companyName || '',
+            companyType: user.companyType || '',
+            firstName: user.firstName || '',
+            lastName: user.lastName || '',
+            phone: user.phone || '',
+            kycStatus: user.kycStatus || 'pending',
+            verified: user.verified || false,
+            createdAt: user.createdAt || new Date().toISOString(),
+            lastLogin: user.lastLogin || null
+        }));
+
+        // Sort by registration date (newest first)
+        safeUsers.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+        res.json({
+            success: true,
+            users: safeUsers,
+            total: safeUsers.length,
+            timestamp: new Date().toISOString()
+        });
+
+    } catch (error) {
+        console.error('Error fetching users:', error);
+        res.status(500).json({ error: 'Failed to fetch users' });
+    }
+});
+
+// Get user statistics (Admin only)
+app.get('/api/admin/user-stats', authenticateToken, (req, res) => {
+    try {
+        if (req.user.role !== 'admin') {
+            return res.status(403).json({ error: 'Admin access required' });
+        }
+
+        const allUsers = Array.from(database.users.values());
+        
+        const stats = {
+            total: allUsers.length,
+            byRole: {
+                buyer: allUsers.filter(u => u.role === 'buyer').length,
+                supplier: allUsers.filter(u => u.role === 'supplier').length,
+                trader: allUsers.filter(u => u.role === 'trader').length,
+                insurer: allUsers.filter(u => u.role === 'insurer').length,
+                admin: allUsers.filter(u => u.role === 'admin').length
+            },
+            byKycStatus: {
+                pending: allUsers.filter(u => u.kycStatus === 'pending').length,
+                approved: allUsers.filter(u => u.kycStatus === 'approved').length,
+                rejected: allUsers.filter(u => u.kycStatus === 'rejected').length
+            },
+            byVerification: {
+                verified: allUsers.filter(u => u.verified).length,
+                unverified: allUsers.filter(u => !u.verified).length
+            },
+            recentRegistrations: allUsers.filter(u => {
+                const regDate = new Date(u.createdAt);
+                const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+                return regDate > weekAgo;
+            }).length
+        };
+
+        res.json({
+            success: true,
+            stats,
+            timestamp: new Date().toISOString()
+        });
+
+    } catch (error) {
+        console.error('Error fetching user stats:', error);
+        res.status(500).json({ error: 'Failed to fetch user statistics' });
+    }
+});
+
 // ================================
 
 // Global error handler middleware
