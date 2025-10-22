@@ -1401,6 +1401,7 @@ app.get('/dashboard/authenticated', (req, res) => {
             </div>
             <div style="display: flex; gap: 15px; flex-wrap: wrap;">
                 <button class="btn secondary" onclick="navigateAdmin('/admin/users')">👥 View Users</button>
+                <button class="btn secondary" onclick="navigateAdmin('/admin/early-registrations')">🚀 Early Registrations</button>
                 <button class="btn secondary" onclick="navigateAdmin('/admin/active-trades')">View All Trades</button>
                 <button class="btn secondary" onclick="navigateAdmin('/admin/auction')">Auction Board</button>
                 <button class="btn secondary" onclick="navigateAdmin('/admin/kyc-reports')">KYC Reports</button>
@@ -14388,6 +14389,205 @@ app.get('/demo/trader/payment-timeout-auction', (req, res) => {
 // ================================
 // 404 HANDLER - MUST BE LAST
 // ================================
+// ADMIN PAGE - EARLY REGISTRATIONS TABLE
+// ================================
+
+// Admin page to view early interest registrations
+app.get('/admin/early-registrations', authenticateToken, (req, res) => {
+    try {
+        // Check if user is admin
+        if (req.user.role !== 'admin') {
+            return res.status(403).send('Admin access required');
+        }
+
+        const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-C1FN7FSX06"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+
+      gtag('config', 'G-C1FN7FSX06');
+    </script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Early Registrations - Tangent Platform</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: system-ui, -apple-system, sans-serif; background: #0f172a; color: #f8fafc; min-height: 100vh; }
+        .header { background: #1e293b; padding: 1.5rem 2rem; border-bottom: 1px solid #334155; }
+        .header h1 { color: #dc2626; margin: 0; }
+        .container { max-width: 1400px; margin: 0 auto; padding: 2rem; }
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
+        .stat-card { background: #1e293b; border-radius: 8px; padding: 1.5rem; text-align: center; border: 1px solid #334155; }
+        .stat-number { font-size: 2rem; font-weight: bold; color: #06b6d4; }
+        .stat-label { color: #94a3b8; margin-top: 0.5rem; }
+        .registrations-table { background: #1e293b; border-radius: 12px; border: 1px solid #334155; overflow: hidden; }
+        .table-header { background: #374151; padding: 1rem; font-weight: bold; }
+        .table-row { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 1fr; gap: 1rem; padding: 1rem; border-bottom: 1px solid #334155; align-items: center; }
+        .table-row:last-child { border-bottom: none; }
+        .table-row:hover { background: #374151; }
+        .interest-badge { padding: 0.25rem 0.75rem; border-radius: 12px; font-size: 0.8rem; font-weight: bold; }
+        .interest-trading { background: #3b82f6; color: white; }
+        .interest-stablecoin { background: #10b981; color: white; }
+        .interest-both { background: #8b5cf6; color: white; }
+        .interest-partnership { background: #f59e0b; color: #000; }
+        .btn { background: #dc2626; color: white; padding: 0.5rem 1rem; border: none; border-radius: 4px; cursor: pointer; text-decoration: none; font-weight: 500; margin: 0 0.25rem; }
+        .btn:hover { background: #b91c1c; }
+        .btn.secondary { background: #374151; }
+        .btn.secondary:hover { background: #4b5563; }
+        .loading { text-align: center; padding: 2rem; color: #94a3b8; }
+        .error { background: #7f1d1d; border: 1px solid #dc2626; border-radius: 8px; padding: 1rem; margin-bottom: 1rem; color: #fecaca; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🚀 Early Interest Registrations</h1>
+    </div>
+
+    <div class="container">
+        <div id="error" class="error" style="display: none;"></div>
+        
+        <div class="stats-grid" id="statsGrid">
+            <div class="stat-card">
+                <div class="stat-number" id="totalRegistrations">-</div>
+                <div class="stat-label">Total Registrations</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="tradingInterest">-</div>
+                <div class="stat-label">Trading Platform</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="stablecoinInterest">-</div>
+                <div class="stat-label">TGT Stablecoin</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="recentRegistrations">-</div>
+                <div class="stat-label">This Week</div>
+            </div>
+        </div>
+
+        <div class="registrations-table">
+            <div class="table-header">
+                <div class="table-row">
+                    <div>Name</div>
+                    <div>Email</div>
+                    <div>Company</div>
+                    <div>Interest</div>
+                    <div>Registered</div>
+                </div>
+            </div>
+            <div id="registrationsTableBody" class="loading">
+                Loading early registrations...
+            </div>
+        </div>
+
+        <div style="margin-top: 2rem; text-align: center;">
+            <a href="/dashboard/admin" class="btn secondary">← Back to Admin Dashboard</a>
+            <button onclick="refreshRegistrations()" class="btn">🔄 Refresh</button>
+        </div>
+    </div>
+
+    <script>
+        // Load registration data on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            loadRegistrations();
+            loadStats();
+        });
+
+        async function loadRegistrations() {
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch('/api/admin/early-registrations', {
+                    headers: {
+                        'Authorization': 'Bearer ' + token
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to load registrations');
+                }
+
+                const data = await response.json();
+                displayRegistrations(data.registrations);
+            } catch (error) {
+                console.error('Error loading registrations:', error);
+                document.getElementById('error').textContent = 'Error loading registrations: ' + error.message;
+                document.getElementById('error').style.display = 'block';
+            }
+        }
+
+        async function loadStats() {
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch('/api/admin/early-registrations-stats', {
+                    headers: {
+                        'Authorization': 'Bearer ' + token
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to load stats');
+                }
+
+                const data = await response.json();
+                displayStats(data.stats);
+            } catch (error) {
+                console.error('Error loading stats:', error);
+            }
+        }
+
+        function displayRegistrations(registrations) {
+            const tbody = document.getElementById('registrationsTableBody');
+            
+            if (registrations.length === 0) {
+                tbody.innerHTML = '<div class="loading">No early registrations found</div>';
+                return;
+            }
+
+            tbody.innerHTML = registrations.map(reg => {
+                const interestClass = 'interest-' + reg.interest;
+                const regDate = new Date(reg.registeredAt).toLocaleDateString();
+                
+                return \`
+                    <div class="table-row">
+                        <div>\${reg.fullName}</div>
+                        <div>\${reg.email}</div>
+                        <div>\${reg.company || '-'}</div>
+                        <div><span class="interest-badge \${interestClass}">\${reg.interest.toUpperCase()}</span></div>
+                        <div>\${regDate}</div>
+                    </div>
+                \`;
+            }).join('');
+        }
+
+        function displayStats(stats) {
+            document.getElementById('totalRegistrations').textContent = stats.total;
+            document.getElementById('tradingInterest').textContent = stats.byInterest.trading;
+            document.getElementById('stablecoinInterest').textContent = stats.byInterest.stablecoin;
+            document.getElementById('recentRegistrations').textContent = stats.recentRegistrations;
+        }
+
+        function refreshRegistrations() {
+            loadRegistrations();
+            loadStats();
+        }
+    </script>
+</body>
+</html>`;
+
+        res.send(html);
+
+    } catch (error) {
+        console.error('Error loading early registrations page:', error);
+        res.status(500).send('Error loading page');
+    }
+});
+
+// ================================
 // ADMIN PAGE - REAL REGISTERED USERS TABLE
 // ================================
 
@@ -14682,6 +14882,68 @@ app.get('/api/admin/user-stats', authenticateToken, (req, res) => {
     } catch (error) {
         console.error('Error fetching user stats:', error);
         res.status(500).json({ error: 'Failed to fetch user statistics' });
+    }
+});
+
+// Get early interest registrations (Admin only)
+app.get('/api/admin/early-registrations', authenticateToken, (req, res) => {
+    try {
+        if (req.user.role !== 'admin') {
+            return res.status(403).json({ error: 'Admin access required' });
+        }
+
+        // Get all early registrations from database
+        const allRegistrations = database.registrations ? Array.from(database.registrations.values()) : [];
+        
+        // Sort by registration date (newest first)
+        allRegistrations.sort((a, b) => new Date(b.registeredAt) - new Date(a.registeredAt));
+
+        res.json({
+            success: true,
+            registrations: allRegistrations,
+            total: allRegistrations.length,
+            timestamp: new Date().toISOString()
+        });
+
+    } catch (error) {
+        console.error('Error fetching early registrations:', error);
+        res.status(500).json({ error: 'Failed to fetch early registrations' });
+    }
+});
+
+// Get early registrations statistics (Admin only)
+app.get('/api/admin/early-registrations-stats', authenticateToken, (req, res) => {
+    try {
+        if (req.user.role !== 'admin') {
+            return res.status(403).json({ error: 'Admin access required' });
+        }
+
+        const allRegistrations = database.registrations ? Array.from(database.registrations.values()) : [];
+        
+        const stats = {
+            total: allRegistrations.length,
+            byInterest: {
+                trading: allRegistrations.filter(r => r.interest === 'trading').length,
+                stablecoin: allRegistrations.filter(r => r.interest === 'stablecoin').length,
+                both: allRegistrations.filter(r => r.interest === 'both').length,
+                partnership: allRegistrations.filter(r => r.interest === 'partnership').length
+            },
+            recentRegistrations: allRegistrations.filter(r => {
+                const regDate = new Date(r.registeredAt);
+                const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+                return regDate > weekAgo;
+            }).length
+        };
+
+        res.json({
+            success: true,
+            stats,
+            timestamp: new Date().toISOString()
+        });
+
+    } catch (error) {
+        console.error('Error fetching early registrations stats:', error);
+        res.status(500).json({ error: 'Failed to fetch early registrations statistics' });
     }
 });
 
