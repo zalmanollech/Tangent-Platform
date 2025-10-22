@@ -1400,6 +1400,7 @@ app.get('/dashboard/authenticated', (req, res) => {
                 <h2 class="section-title">🛠️ Admin Tools</h2>
             </div>
             <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+                <button class="btn secondary" onclick="navigateAdmin('/admin/users')">👥 View Users</button>
                 <button class="btn secondary" onclick="navigateAdmin('/admin/active-trades')">View All Trades</button>
                 <button class="btn secondary" onclick="navigateAdmin('/admin/auction')">Auction Board</button>
                 <button class="btn secondary" onclick="navigateAdmin('/admin/kyc-reports')">KYC Reports</button>
