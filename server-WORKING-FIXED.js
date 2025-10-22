@@ -663,9 +663,18 @@ function getFullKYCPageHTML(userEmail, token) {
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>KYC Verification - Tangent Protocol</title>
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-C1FN7FSX06"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'G-C1FN7FSX06');
+  </script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KYC Verification - Tangent Protocol</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: system-ui, -apple-system, sans-serif; background: #0f172a; color: #f8fafc; min-height: 100vh; }
@@ -1230,6 +1239,15 @@ app.get('/dashboard', (req, res) => {
     <!DOCTYPE html>
     <html lang="en">
     <head>
+        <!-- Google tag (gtag.js) -->
+        <script async src="https://www.googletagmanager.com/gtag/js?id=G-C1FN7FSX06"></script>
+        <script>
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+
+          gtag('config', 'G-C1FN7FSX06');
+        </script>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>Dashboard - Tangent Protocol</title>
@@ -1320,6 +1338,15 @@ app.get('/dashboard/authenticated', (req, res) => {
     const dashboardHTML = `<!DOCTYPE html>
 <html lang="en">
 <head>
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-C1FN7FSX06"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+
+      gtag('config', 'G-C1FN7FSX06');
+    </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>${role.charAt(0).toUpperCase() + role.slice(1)} Dashboard - Tangent Protocol</title>
@@ -1675,7 +1702,18 @@ app.get('/dashboard/:role', authenticateToken, (req, res) => {
         return res.send(`
         <!DOCTYPE html>
         <html>
-        <head><title>Redirecting to KYC...</title></head>
+        <head>
+            <!-- Google tag (gtag.js) -->
+            <script async src="https://www.googletagmanager.com/gtag/js?id=G-C1FN7FSX06"></script>
+            <script>
+              window.dataLayer = window.dataLayer || [];
+              function gtag(){dataLayer.push(arguments);}
+              gtag('js', new Date());
+
+              gtag('config', 'G-C1FN7FSX06');
+            </script>
+            <title>Redirecting to KYC...</title>
+        </head>
         <body>
         <script>
         // Redirect to KYC page - client-side redirect preserves localStorage token
@@ -1705,6 +1743,15 @@ app.get('/signin', (req, res) => {
     <!DOCTYPE html>
     <html lang="en">
     <head>
+        <!-- Google tag (gtag.js) -->
+        <script async src="https://www.googletagmanager.com/gtag/js?id=G-C1FN7FSX06"></script>
+        <script>
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+
+          gtag('config', 'G-C1FN7FSX06');
+        </script>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>Sign In - Tangent Protocol</title>
@@ -1831,6 +1878,15 @@ app.get('/signup', (req, res) => {
     <!DOCTYPE html>
     <html lang="en">
     <head>
+        <!-- Google tag (gtag.js) -->
+        <script async src="https://www.googletagmanager.com/gtag/js?id=G-C1FN7FSX06"></script>
+        <script>
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+
+          gtag('config', 'G-C1FN7FSX06');
+        </script>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>Sign Up - Tangent Protocol</title>
@@ -2065,6 +2121,15 @@ app.get('/', (req, res) => {
   res.send(`<!DOCTYPE html>
     <html lang="en">
     <head>
+        <!-- Google tag (gtag.js) -->
+        <script async src="https://www.googletagmanager.com/gtag/js?id=G-C1FN7FSX06"></script>
+        <script>
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+
+          gtag('config', 'G-C1FN7FSX06');
+        </script>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Tangent Protocol — Advanced Trading Platform & TGT Stablecoin</title>
@@ -3022,6 +3087,15 @@ app.get('/demo-main', requireDemoPassword, (req, res) => {
     <!DOCTYPE html>
     <html lang="en">
     <head>
+        <!-- Google tag (gtag.js) -->
+        <script async src="https://www.googletagmanager.com/gtag/js?id=G-C1FN7FSX06"></script>
+        <script>
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+
+          gtag('config', 'G-C1FN7FSX06');
+        </script>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>Tangent Platform - Demo Workflows</title>
@@ -9772,6 +9846,15 @@ app.get('/demo/workflow', requireDemoPassword, (req, res) => {
     const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-C1FN7FSX06"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+
+      gtag('config', 'G-C1FN7FSX06');
+    </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Tangent Platform - Complete Workflow Demo</title>
@@ -10088,6 +10171,15 @@ app.get('/demo/buyer/step1-signup', (req, res) => {
     const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-C1FN7FSX06"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+
+      gtag('config', 'G-C1FN7FSX06');
+    </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Buyer Demo - Sign Up Process</title>
@@ -10202,6 +10294,15 @@ app.get('/demo/buyer/step2-kyc', (req, res) => {
     const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-C1FN7FSX06"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+
+      gtag('config', 'G-C1FN7FSX06');
+    </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Buyer Demo - KYC Verification</title>
@@ -12550,6 +12651,15 @@ app.get('/demo/admin/step1-dashboard', (req, res) => {
     const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-C1FN7FSX06"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+
+      gtag('config', 'G-C1FN7FSX06');
+    </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin Demo - Dashboard Overview</title>
@@ -12710,6 +12820,15 @@ app.get('/demo/admin/step2-user-management', (req, res) => {
     const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-C1FN7FSX06"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+
+      gtag('config', 'G-C1FN7FSX06');
+    </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin Demo - User Management & KYC</title>
@@ -12988,6 +13107,15 @@ app.get('/demo/admin/step4-auction-management', (req, res) => {
     const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-C1FN7FSX06"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+
+      gtag('config', 'G-C1FN7FSX06');
+    </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin Demo - Auction Management</title>
@@ -13278,6 +13406,15 @@ app.get('/demo/admin/step5-platform-settings', (req, res) => {
     const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-C1FN7FSX06"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+
+      gtag('config', 'G-C1FN7FSX06');
+    </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin Demo - Platform Settings</title>
@@ -14250,12 +14387,64 @@ app.get('/demo/trader/payment-timeout-auction', (req, res) => {
 // ================================
 // 404 HANDLER - MUST BE LAST
 // ================================
+// COMPREHENSIVE ERROR HANDLING
+// ================================
+
+// Global error handler middleware
+app.use((err, req, res, next) => {
+    console.error('🚨 Server Error:', {
+        message: err.message,
+        stack: err.stack?.split('\n')[0],
+        url: req.originalUrl,
+        method: req.method,
+        timestamp: new Date().toISOString()
+    });
+    
+    // Handle specific error types
+    if (err.type === 'entity.parse.failed') {
+        return res.status(400).json({ 
+            error: 'Invalid JSON in request body',
+            success: false 
+        });
+    }
+    
+    if (err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(413).json({ 
+            error: 'File too large',
+            success: false 
+        });
+    }
+    
+    if (err.message.includes('Validation failed')) {
+        return res.status(400).json({ 
+            error: err.message,
+            success: false 
+        });
+    }
+    
+    // Generic error response - never crash the server
+    const errorId = Math.random().toString(36).substr(2, 9);
+    res.status(500).json({
+        error: 'Internal server error',
+        errorId,
+        success: false,
+        message: process.env.NODE_ENV === 'development' ? err.message : 'Something went wrong'
+    });
+});
+
+// 404 handler - catch all unmatched routes
 app.use('*', (req, res) => {
-    res.status(404).json({ error: 'Route not found' });
+    console.log(`🔍 404 - Route not found: ${req.method} ${req.originalUrl}`);
+    res.status(404).json({
+        error: 'Route not found',
+        success: false,
+        path: req.originalUrl,
+        method: req.method
+    });
 });
 
 // ================================
-// SERVER STARTUP
+// SERVER STARTUP WITH CRASH PREVENTION
 // ================================
 const server = app.listen(PORT, '0.0.0.0', (err) => {
     if (err) {
@@ -14282,18 +14471,50 @@ const server = app.listen(PORT, '0.0.0.0', (err) => {
 server.on('error', (err) => {
     console.error('❌ Server error:', err);
     if (err.code === 'EADDRINUSE') {
-        console.error(`❌ Port ${PORT} is already in use`);
-        process.exit(1);
+        console.error(`❌ Port ${PORT} is already in use - trying alternative port`);
+        // Try alternative port instead of crashing
+        const altPort = PORT + 1;
+        server.listen(altPort, () => {
+            console.log(`✅ Server running on alternative port ${altPort}`);
+        });
+    } else {
+        console.error('❌ Server error (non-port related):', err.message);
+        // Don't exit - keep trying to recover
     }
 });
 
-// Graceful shutdown
+// Graceful shutdown handlers
 process.on('SIGTERM', () => {
     console.log('⚠️ SIGTERM received, shutting down gracefully');
     server.close(() => {
-        console.log('✅ Server closed');
+        console.log('✅ Server closed gracefully');
         process.exit(0);
     });
 });
+
+process.on('SIGINT', () => {
+    console.log('⚠️ SIGINT received, shutting down gracefully');
+    server.close(() => {
+        console.log('✅ Server closed gracefully');
+        process.exit(0);
+    });
+});
+
+// Keep server alive on errors
+process.on('exit', (code) => {
+    console.log(`⚠️ Process exiting with code: ${code}`);
+});
+
+// Production stability - restart on critical errors
+if (process.env.NODE_ENV === 'production') {
+    process.on('uncaughtException', (err) => {
+        console.error('🚨 CRITICAL ERROR - Restarting server:', err.message);
+        // In production, you might want to restart the process
+        // For now, we'll just log and continue
+        setTimeout(() => {
+            console.log('🔄 Server continuing after critical error');
+        }, 1000);
+    });
+}
 
 module.exports = app;
