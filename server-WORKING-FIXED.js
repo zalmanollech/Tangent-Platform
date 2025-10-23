@@ -9751,6 +9751,401 @@ app.get('/demo', requireDemoPassword, (req, res) => {
     res.send(html);
 });
 
+// Demo Admin Step-by-Step Routes
+app.get('/demo/admin/step1-dashboard', requireDemoPassword, (req, res) => {
+    res.send(`
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <!-- Google tag (gtag.js) -->
+        <script async src="https://www.googletagmanager.com/gtag/js?id=G-C1FN7FSX06"></script>
+        <script>
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+
+          gtag('config', 'G-C1FN7FSX06');
+        </script>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Admin Dashboard Demo - Tangent Protocol</title>
+        <style>
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body { font-family: system-ui, -apple-system, sans-serif; background: #0f172a; color: #f8fafc; min-height: 100vh; }
+            .header { background: #1e293b; padding: 1.5rem 2rem; border-bottom: 1px solid #334155; }
+            .header h1 { color: #dc2626; margin: 0; }
+            .container { max-width: 1400px; margin: 0 auto; padding: 2rem; }
+            .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
+            .stat-card { background: #1e293b; border-radius: 8px; padding: 1.5rem; text-align: center; border: 1px solid #334155; }
+            .stat-number { font-size: 2rem; font-weight: bold; color: #06b6d4; }
+            .stat-label { color: #94a3b8; margin-top: 0.5rem; }
+            .btn { background: #dc2626; color: white; padding: 0.5rem 1rem; border: none; border-radius: 4px; cursor: pointer; text-decoration: none; font-weight: 500; margin: 0 0.25rem; }
+            .btn:hover { background: #b91c1c; }
+            .btn.secondary { background: #374151; }
+            .btn.secondary:hover { background: #4b5563; }
+            .demo-banner { background: #f59e0b; color: #000; padding: 1rem; text-align: center; font-weight: bold; margin-bottom: 2rem; }
+        </style>
+    </head>
+    <body>
+        <div class="demo-banner">🎭 DEMO MODE - Admin Dashboard Overview</div>
+        
+        <div class="header">
+            <h1>👑 Admin Dashboard</h1>
+        </div>
+
+        <div class="container">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-number">127</div>
+                    <div class="stat-label">Total Users</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">23</div>
+                    <div class="stat-label">Active Contracts</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">8</div>
+                    <div class="stat-label">Pending KYC</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">$2.4M</div>
+                    <div class="stat-label">Platform Volume</div>
+                </div>
+            </div>
+
+            <div style="margin-top: 2rem; text-align: center;">
+                <a href="/demo/admin/step2-user-management" class="btn">Next: User Management →</a>
+                <a href="/demo" class="btn secondary">← Back to Demo Mode</a>
+            </div>
+        </div>
+    </body>
+    </html>
+    `);
+});
+
+app.get('/demo/admin/step2-user-management', requireDemoPassword, (req, res) => {
+    res.send(`
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <!-- Google tag (gtag.js) -->
+        <script async src="https://www.googletagmanager.com/gtag/js?id=G-C1FN7FSX06"></script>
+        <script>
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+
+          gtag('config', 'G-C1FN7FSX06');
+        </script>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>User Management Demo - Tangent Protocol</title>
+        <style>
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body { font-family: system-ui, -apple-system, sans-serif; background: #0f172a; color: #f8fafc; min-height: 100vh; }
+            .header { background: #1e293b; padding: 1.5rem 2rem; border-bottom: 1px solid #334155; }
+            .header h1 { color: #dc2626; margin: 0; }
+            .container { max-width: 1400px; margin: 0 auto; padding: 2rem; }
+            .users-table { background: #1e293b; border-radius: 12px; border: 1px solid #334155; overflow: hidden; }
+            .table-header { background: #374151; padding: 1rem; font-weight: bold; }
+            .table-row { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 1fr; gap: 1rem; padding: 1rem; border-bottom: 1px solid #334155; align-items: center; }
+            .table-row:last-child { border-bottom: none; }
+            .table-row:hover { background: #374151; }
+            .status-badge { padding: 0.25rem 0.75rem; border-radius: 12px; font-size: 0.8rem; font-weight: bold; }
+            .status-pending { background: #f59e0b; color: #000; }
+            .status-approved { background: #059669; color: white; }
+            .btn { background: #dc2626; color: white; padding: 0.5rem 1rem; border: none; border-radius: 4px; cursor: pointer; text-decoration: none; font-weight: 500; margin: 0 0.25rem; }
+            .btn:hover { background: #b91c1c; }
+            .btn.secondary { background: #374151; }
+            .btn.secondary:hover { background: #4b5563; }
+            .demo-banner { background: #f59e0b; color: #000; padding: 1rem; text-align: center; font-weight: bold; margin-bottom: 2rem; }
+        </style>
+    </head>
+    <body>
+        <div class="demo-banner">🎭 DEMO MODE - User Management & KYC Review</div>
+        
+        <div class="header">
+            <h1>👥 User Management</h1>
+        </div>
+
+        <div class="container">
+            <div class="users-table">
+                <div class="table-header">
+                    <div class="table-row">
+                        <div>Email</div>
+                        <div>Role</div>
+                        <div>KYC Status</div>
+                        <div>Verified</div>
+                        <div>Actions</div>
+                    </div>
+                </div>
+                <div class="table-row">
+                    <div>john@tradingcorp.com</div>
+                    <div>BUYER</div>
+                    <div><span class="status-badge status-pending">PENDING</span></div>
+                    <div>❌</div>
+                    <div><button class="btn">Review</button></div>
+                </div>
+                <div class="table-row">
+                    <div>maria@supplyco.com</div>
+                    <div>SUPPLIER</div>
+                    <div><span class="status-badge status-approved">APPROVED</span></div>
+                    <div>✅</div>
+                    <div><button class="btn">View</button></div>
+                </div>
+                <div class="table-row">
+                    <div>alex@traderpro.com</div>
+                    <div>TRADER</div>
+                    <div><span class="status-badge status-pending">PENDING</span></div>
+                    <div>❌</div>
+                    <div><button class="btn">Review</button></div>
+                </div>
+            </div>
+
+            <div style="margin-top: 2rem; text-align: center;">
+                <a href="/demo/admin/step3-contract-oversight" class="btn">Next: Contract Oversight →</a>
+                <a href="/demo/admin/step1-dashboard" class="btn secondary">← Previous: Dashboard</a>
+            </div>
+        </div>
+    </body>
+    </html>
+    `);
+});
+
+app.get('/demo/admin/step3-contract-oversight', requireDemoPassword, (req, res) => {
+    res.send(`
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <!-- Google tag (gtag.js) -->
+        <script async src="https://www.googletagmanager.com/gtag/js?id=G-C1FN7FSX06"></script>
+        <script>
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+
+          gtag('config', 'G-C1FN7FSX06');
+        </script>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Contract Oversight Demo - Tangent Protocol</title>
+        <style>
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body { font-family: system-ui, -apple-system, sans-serif; background: #0f172a; color: #f8fafc; min-height: 100vh; }
+            .header { background: #1e293b; padding: 1.5rem 2rem; border-bottom: 1px solid #334155; }
+            .header h1 { color: #dc2626; margin: 0; }
+            .container { max-width: 1400px; margin: 0 auto; padding: 2rem; }
+            .contracts-table { background: #1e293b; border-radius: 12px; border: 1px solid #334155; overflow: hidden; }
+            .table-header { background: #374151; padding: 1rem; font-weight: bold; }
+            .table-row { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr 1fr 1fr; gap: 1rem; padding: 1rem; border-bottom: 1px solid #334155; align-items: center; }
+            .table-row:last-child { border-bottom: none; }
+            .table-row:hover { background: #374151; }
+            .status-badge { padding: 0.25rem 0.75rem; border-radius: 12px; font-size: 0.8rem; font-weight: bold; }
+            .status-active { background: #059669; color: white; }
+            .status-pending { background: #f59e0b; color: #000; }
+            .status-dispute { background: #dc2626; color: white; }
+            .btn { background: #dc2626; color: white; padding: 0.5rem 1rem; border: none; border-radius: 4px; cursor: pointer; text-decoration: none; font-weight: 500; margin: 0 0.25rem; }
+            .btn:hover { background: #b91c1c; }
+            .btn.secondary { background: #374151; }
+            .btn.secondary:hover { background: #4b5563; }
+            .demo-banner { background: #f59e0b; color: #000; padding: 1rem; text-align: center; font-weight: bold; margin-bottom: 2rem; }
+        </style>
+    </head>
+    <body>
+        <div class="demo-banner">🎭 DEMO MODE - Contract Oversight & Management</div>
+        
+        <div class="header">
+            <h1>📋 Contract Oversight</h1>
+        </div>
+
+        <div class="container">
+            <div class="contracts-table">
+                <div class="table-header">
+                    <div class="table-row">
+                        <div>Contract ID</div>
+                        <div>Product</div>
+                        <div>Value</div>
+                        <div>Status</div>
+                        <div>Parties</div>
+                        <div>Actions</div>
+                    </div>
+                </div>
+                <div class="table-row">
+                    <div>CON-2024-001</div>
+                    <div>Wheat</div>
+                    <div>$125,000</div>
+                    <div><span class="status-badge status-active">ACTIVE</span></div>
+                    <div>Buyer ↔ Supplier</div>
+                    <div><button class="btn">Monitor</button></div>
+                </div>
+                <div class="table-row">
+                    <div>CON-2024-002</div>
+                    <div>Rice</div>
+                    <div>$89,500</div>
+                    <div><span class="status-badge status-pending">PENDING</span></div>
+                    <div>Buyer ↔ Supplier</div>
+                    <div><button class="btn">Review</button></div>
+                </div>
+                <div class="table-row">
+                    <div>CON-2024-003</div>
+                    <div>Coffee</div>
+                    <div>$45,200</div>
+                    <div><span class="status-badge status-dispute">DISPUTE</span></div>
+                    <div>Trader ↔ Both</div>
+                    <div><button class="btn">Resolve</button></div>
+                </div>
+            </div>
+
+            <div style="margin-top: 2rem; text-align: center;">
+                <a href="/demo/admin/step4-auction-management" class="btn">Next: Auction Management →</a>
+                <a href="/demo/admin/step2-user-management" class="btn secondary">← Previous: User Management</a>
+            </div>
+        </div>
+    </body>
+    </html>
+    `);
+});
+
+app.get('/demo/admin/step4-auction-management', requireDemoPassword, (req, res) => {
+    res.send(`
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <!-- Google tag (gtag.js) -->
+        <script async src="https://www.googletagmanager.com/gtag/js?id=G-C1FN7FSX06"></script>
+        <script>
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+
+          gtag('config', 'G-C1FN7FSX06');
+        </script>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Auction Management Demo - Tangent Protocol</title>
+        <style>
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body { font-family: system-ui, -apple-system, sans-serif; background: #0f172a; color: #f8fafc; min-height: 100vh; }
+            .header { background: #1e293b; padding: 1.5rem 2rem; border-bottom: 1px solid #334155; }
+            .header h1 { color: #dc2626; margin: 0; }
+            .container { max-width: 1400px; margin: 0 auto; padding: 2rem; }
+            .auction-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; }
+            .auction-card { background: #1e293b; border-radius: 12px; padding: 1.5rem; border: 1px solid #334155; }
+            .auction-card h3 { color: #06b6d4; margin-bottom: 1rem; }
+            .auction-card p { color: #94a3b8; margin-bottom: 1rem; }
+            .btn { background: #dc2626; color: white; padding: 0.5rem 1rem; border: none; border-radius: 4px; cursor: pointer; text-decoration: none; font-weight: 500; margin: 0 0.25rem; }
+            .btn:hover { background: #b91c1c; }
+            .btn.secondary { background: #374151; }
+            .btn.secondary:hover { background: #4b5563; }
+            .demo-banner { background: #f59e0b; color: #000; padding: 1rem; text-align: center; font-weight: bold; margin-bottom: 2rem; }
+        </style>
+    </head>
+    <body>
+        <div class="demo-banner">🎭 DEMO MODE - Auction Management & Payment Timeouts</div>
+        
+        <div class="header">
+            <h1>🏆 Auction Management</h1>
+        </div>
+
+        <div class="container">
+            <div class="auction-grid">
+                <div class="auction-card">
+                    <h3>Active Auctions</h3>
+                    <p>3 contracts currently in auction due to payment timeouts</p>
+                    <button class="btn">View Active Auctions</button>
+                </div>
+                <div class="auction-card">
+                    <h3>Payment Timeouts</h3>
+                    <p>Monitor contracts approaching payment deadlines</p>
+                    <button class="btn">Monitor Timeouts</button>
+                </div>
+                <div class="auction-card">
+                    <h3>Auction History</h3>
+                    <p>Review completed auctions and outcomes</p>
+                    <button class="btn">View History</button>
+                </div>
+            </div>
+
+            <div style="margin-top: 2rem; text-align: center;">
+                <a href="/demo/admin/step5-platform-settings" class="btn">Next: Platform Settings →</a>
+                <a href="/demo/admin/step3-contract-oversight" class="btn secondary">← Previous: Contract Oversight</a>
+            </div>
+        </div>
+    </body>
+    </html>
+    `);
+});
+
+app.get('/demo/admin/step5-platform-settings', requireDemoPassword, (req, res) => {
+    res.send(`
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <!-- Google tag (gtag.js) -->
+        <script async src="https://www.googletagmanager.com/gtag/js?id=G-C1FN7FSX06"></script>
+        <script>
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+
+          gtag('config', 'G-C1FN7FSX06');
+        </script>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Platform Settings Demo - Tangent Protocol</title>
+        <style>
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body { font-family: system-ui, -apple-system, sans-serif; background: #0f172a; color: #f8fafc; min-height: 100vh; }
+            .header { background: #1e293b; padding: 1.5rem 2rem; border-bottom: 1px solid #334155; }
+            .header h1 { color: #dc2626; margin: 0; }
+            .container { max-width: 1400px; margin: 0 auto; padding: 2rem; }
+            .settings-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; }
+            .settings-card { background: #1e293b; border-radius: 12px; padding: 1.5rem; border: 1px solid #334155; }
+            .settings-card h3 { color: #06b6d4; margin-bottom: 1rem; }
+            .settings-card p { color: #94a3b8; margin-bottom: 1rem; }
+            .btn { background: #dc2626; color: white; padding: 0.5rem 1rem; border: none; border-radius: 4px; cursor: pointer; text-decoration: none; font-weight: 500; margin: 0 0.25rem; }
+            .btn:hover { background: #b91c1c; }
+            .btn.secondary { background: #374151; }
+            .btn.secondary:hover { background: #4b5563; }
+            .demo-banner { background: #f59e0b; color: #000; padding: 1rem; text-align: center; font-weight: bold; margin-bottom: 2rem; }
+        </style>
+    </head>
+    <body>
+        <div class="demo-banner">🎭 DEMO MODE - Platform Settings & Configuration</div>
+        
+        <div class="header">
+            <h1>⚙️ Platform Settings</h1>
+        </div>
+
+        <div class="container">
+            <div class="settings-grid">
+                <div class="settings-card">
+                    <h3>Fee Management</h3>
+                    <p>Configure platform fees and transaction limits</p>
+                    <button class="btn">Manage Fees</button>
+                </div>
+                <div class="settings-card">
+                    <h3>Blockchain Settings</h3>
+                    <p>Smart contract deployment and network configuration</p>
+                    <button class="btn">Blockchain Config</button>
+                </div>
+                <div class="settings-card">
+                    <h3>System Parameters</h3>
+                    <p>Payment timeouts, voyage times, and basis points</p>
+                    <button class="btn">System Config</button>
+                </div>
+            </div>
+
+            <div style="margin-top: 2rem; text-align: center;">
+                <a href="/demo" class="btn">Complete Demo →</a>
+                <a href="/demo/admin/step4-auction-management" class="btn secondary">← Previous: Auction Management</a>
+            </div>
+        </div>
+    </body>
+    </html>
+    `);
+});
+
 // Demo Quick Login Routes (bypass authentication for demo)
 app.get('/demo/login-admin', (req, res) => {
     // Generate demo token for admin
