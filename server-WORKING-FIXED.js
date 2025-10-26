@@ -12,6 +12,10 @@ const session = require('express-session');
 let creditIntegration = null;
 let creditServiceAvailable = false;
 
+// Insurance Integration - Production Safe
+let insuranceIntegration = null;
+let insuranceServiceAvailable = false;
+
 try {
     creditIntegration = require('./credit-integration');
     console.log('✅ TANGENT-BRIDGE-v4 Credit Integration loaded successfully');
@@ -33,6 +37,29 @@ try {
     console.warn('⚠️ Credit integration not available:', error.message);
     console.log('📝 Continuing without credit risk assessment');
     creditIntegration = null;
+}
+
+// Load Insurance Integration
+try {
+    insuranceIntegration = require('./insurance-integration');
+    console.log('✅ Insurance Integration loaded successfully');
+    
+    setTimeout(async () => {
+        try {
+            const status = await insuranceIntegration.checkInsuranceServiceHealth();
+            insuranceServiceAvailable = status.status === 'healthy';
+            console.log(insuranceServiceAvailable ? 
+                '✅ Insurance service verified and available' : 
+                '⚠️ Insurance service not healthy: ' + status.message);
+        } catch (error) {
+            console.warn('⚠️ Insurance service health check failed:', error.message);
+            insuranceServiceAvailable = false;
+        }
+    }, 2500);
+} catch (error) {
+    console.warn('⚠️ Insurance integration not available:', error.message);
+    console.log('📝 Continuing without insurance quotes');
+    insuranceIntegration = null;
 }
 
 console.log('🚀 Starting Tangent Complete Production Platform...');
@@ -1427,6 +1454,7 @@ app.get('/dashboard/authenticated', (req, res) => {
                 <h2 class="section-title">🛠️ Admin Tools</h2>
             </div>
             <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+                <button class="btn secondary" onclick="window.open('/dashboard/insurer?token=' + localStorage.getItem('token'), '_blank')" style="background: #2563eb; font-weight: bold; border: 2px solid #1e40af;">🛡️ INSURANCE OPPORTUNITIES</button>
                 <button class="btn secondary" onclick="navigateAdmin('/admin/users')">👥 View Users</button>
                 <button class="btn secondary" onclick="navigateAdmin('/admin/early-registrations')">🚀 Early Registrations</button>
                 <button class="btn secondary" onclick="navigateAdmin('/admin/active-trades')">View All Trades</button>
@@ -1712,6 +1740,20 @@ app.get('/dashboard/authenticated', (req, res) => {
 </html>`;
     
     res.send(dashboardHTML);
+});
+
+// Insurer Dashboard Route - MUST BE BEFORE /dashboard/:role
+app.get('/dashboard/insurer', authenticateToken, (req, res) => {
+    // Check if user has insurer role or is admin
+    if (req.user.role !== 'insurer' && req.user.role !== 'admin') {
+        return res.status(403).send(`
+            <h1>Access Denied</h1>
+            <p>Insurer access required.</p>
+            <a href="/dashboard">← Back to Dashboard</a>
+        `);
+    }
+    
+    res.sendFile(path.join(__dirname, 'insurer-dashboard.html'));
 });
 
 app.get('/dashboard/:role', authenticateToken, (req, res) => {
@@ -2075,11 +2117,15 @@ app.get('/signup', (req, res) => {
                         localStorage.setItem('token', data.token);
                         localStorage.setItem('user', JSON.stringify(data.user));
                         
-                        showMessage('Account created successfully! Redirecting to KYC...', 'success');
+                        showMessage('Account created successfully! Redirecting...', 'success');
                         
-                        // Redirect to KYC page
+                        // Redirect based on role
                         setTimeout(() => {
-                            window.location.href = '/dashboard/authenticated?role=' + data.user.role + '&token=' + encodeURIComponent(data.token);
+                            if (data.user.role === 'insurer') {
+                                window.location.href = '/dashboard/insurer?token=' + encodeURIComponent(data.token);
+                            } else {
+                                window.location.href = '/dashboard/authenticated?role=' + data.user.role + '&token=' + encodeURIComponent(data.token);
+                            }
                         }, 1500);
                     } else {
                         showMessage('Registration failed: ' + (data.error || 'Unknown error'), 'error');
@@ -2102,6 +2148,34 @@ app.get('/signup', (req, res) => {
                         messageDiv.style.display = 'none';
                     }, 5000);
                 }
+            }
+            
+            // Update company type options based on role selection
+            const roleSelect = document.getElementById('role');
+            if (roleSelect) {
+                roleSelect.addEventListener('change', function() {
+                    const role = this.value;
+                    const companyType = document.getElementById('companyType');
+                    
+                    console.log('Role changed to:', role);
+                    console.log('CompanyType element:', companyType);
+                    
+                    if (role === 'insurer') {
+                        const newOptions = '<option value="">Select company type</option>' +
+                            '<option value="insurance_company">🛡️ Insurance Company</option>' +
+                            '<option value="reinsurance">📊 Reinsurance Company</option>' +
+                            '<option value="lloyd">⚓ Lloyd\\'s Syndicate</option>';
+                        companyType.innerHTML = newOptions;
+                        console.log('Updated to insurer options');
+                    } else {
+                        const newOptions = '<option value="">Select company type</option>' +
+                            '<option value="listed">🏢 Listed Company (Publicly traded)</option>' +
+                            '<option value="private">🏠 Private Company</option>' +
+                            '<option value="individual">👤 Individual Trader</option>';
+                        companyType.innerHTML = newOptions;
+                        console.log('Updated to regular options');
+                    }
+                });
             }
         </script>
     </body>
@@ -5074,6 +5148,99 @@ app.post('/api/admin/test-credit-integration', authenticateToken, requireRole(['
     } catch (error) {
         console.error('Credit test error:', error);
         res.status(500).json({ error: 'Failed to test credit integration' });
+    }
+});
+
+// ==================== INSURANCE API ENDPOINTS ====================
+
+// Get Insurance Quote for a Trade
+// TODO: Re-enable authenticationToken after testing
+app.post('/api/insurance/quote', async (req, res) => {
+    try {
+        if (!insuranceIntegration || !insuranceServiceAvailable) {
+            return res.status(400).json({ error: 'Insurance service not available' });
+        }
+        
+        const { tradeData, creditAssessment } = req.body;
+        
+        const quote = await insuranceIntegration.getInsuranceQuote(tradeData, creditAssessment);
+        
+        if (quote.success === false) {
+            return res.status(500).json(quote);
+        }
+        
+        res.json(quote);
+    } catch (error) {
+        console.error('Insurance quote error:', error);
+        res.status(500).json({ error: 'Failed to get insurance quote' });
+    }
+});
+
+// Get Insurance Opportunities (All trades needing insurance)
+app.get('/api/admin/insurance-opportunities', authenticateToken, requireRole(['admin', 'insurer']), async (req, res) => {
+    try {
+        // Get all contracts that could be insured
+        const contracts = Array.from(database.contracts.values())
+            .filter(contract => {
+                // Only return contracts with credit assessment completed
+                return contract.creditAssessment && contract.creditAssessment.completed;
+            })
+            .map(contract => ({
+                contract_id: contract.id,
+                trade_id: contract.creditAssessment?.tradeId,
+                amount: contract.totalValue,
+                status: contract.status,
+                credit_assessment: contract.creditAssessment
+            }));
+        
+        if (!insuranceIntegration || !insuranceServiceAvailable) {
+            return res.json({ opportunities: contracts });
+        }
+        
+        // Get insurance quotes for all contracts
+        const opportunities = [];
+        for (const contract of contracts) {
+            try {
+                const tradeData = {
+                    contract_id: contract.contract_id,
+                    trade_id: contract.trade_id,
+                    amount: contract.amount,
+                    is_exchange_traded: contract.credit_assessment?.is_exchange_traded || false,
+                    country_risk: 0.05
+                };
+                
+                const creditAssessment = {
+                    pd: contract.credit_assessment?.riskScore || 0.05,
+                    risk_band: contract.credit_assessment?.riskBand || 'C',
+                    collateral_analysis: contract.credit_assessment?.assessmentDetails?.collateralAnalysis || {}
+                };
+                
+                const quote = await insuranceIntegration.getInsuranceQuote(tradeData, creditAssessment);
+                opportunities.push(quote);
+            } catch (error) {
+                console.error('Failed to get quote for contract:', contract.contract_id, error);
+            }
+        }
+        
+        res.json({ opportunities });
+    } catch (error) {
+        console.error('Insurance opportunities error:', error);
+        res.status(500).json({ error: 'Failed to get insurance opportunities' });
+    }
+});
+
+// Get Insurance Status
+app.get('/api/admin/insurance-status', authenticateToken, requireRole(['admin']), async (req, res) => {
+    try {
+        if (!insuranceIntegration) {
+            return res.json({ status: 'disabled' });
+        }
+        
+        const healthStatus = await insuranceIntegration.checkInsuranceServiceHealth();
+        res.json(healthStatus);
+    } catch (error) {
+        console.error('Insurance status error:', error);
+        res.status(500).json({ error: 'Failed to get insurance status' });
     }
 });
 

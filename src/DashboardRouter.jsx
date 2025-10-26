@@ -188,6 +188,18 @@ function AdminDashboard() {
                                 }} onClick={() => alert('User management coming soon')}>
                                     👤 Manage Users
                                 </button>
+                                
+                                <button style={{
+                                    background: '#3b82f6',
+                                    color: 'white',
+                                    border: 'none',
+                                    padding: '12px 16px',
+                                    borderRadius: '8px',
+                                    cursor: 'pointer',
+                                    fontWeight: '600'
+                                }} onClick={() => window.location.href = '/dashboard/insurer'}>
+                                    🛡️ Insurance Opportunities
+                                </button>
                             </div>
                         </div>
                         

@@ -1,0 +1,15 @@
+REFRESH REQUIRED
+================
+
+The insurance features have been added but require a SERVER RESTART to appear.
+
+To see the changes:
+1. Stop the Tangent Platform service (Ctrl+C in its terminal window)
+2. Restart it: npm start
+3. Refresh your browser
+
+You should now see:
+- "🛡️ Insurance Opportunities" button in Admin Dashboard
+- Insurer role works in signup
+- Insurer signup redirects to insurance dashboard
+

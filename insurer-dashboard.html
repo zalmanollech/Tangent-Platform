@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Insurer Dashboard - Tangent Platform</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 30px;
+            border-radius: 15px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+        
+        .header h1 {
+            color: #667eea;
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            color: #666;
+            font-size: 1.1rem;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .stat-card {
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        
+        .stat-card .icon {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+        
+        .stat-card .label {
+            color: #666;
+            font-size: 0.9rem;
+            margin-bottom: 5px;
+        }
+        
+        .stat-card .value {
+            color: #667eea;
+            font-size: 2rem;
+            font-weight: bold;
+        }
+        
+        .filters {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 30px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        
+        .filters h3 {
+            color: #333;
+            margin-bottom: 15px;
+        }
+        
+        .filter-row {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+        
+        .filter-row select, .filter-row input {
+            padding: 10px 15px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 1rem;
+            flex: 1;
+            min-width: 150px;
+        }
+        
+        .opportunities-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+            gap: 20px;
+        }
+        
+        .opportunity-card {
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+        
+        .opportunity-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+        }
+        
+        .opportunity-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+        
+        .opportunity-header h3 {
+            color: #333;
+            font-size: 1.3rem;
+        }
+        
+        .recommendation-badge {
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            font-weight: bold;
+        }
+        
+        .recommend-approved {
+            background: #22c55e;
+            color: white;
+        }
+        
+        .recommend-decline {
+            background: #ef4444;
+            color: white;
+        }
+        
+        .recommend-review {
+            background: #f59e0b;
+            color: white;
+        }
+        
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .metric-item {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+        }
+        
+        .metric-label {
+            color: #666;
+            font-size: 0.85rem;
+            margin-bottom: 5px;
+        }
+        
+        .metric-value {
+            color: #333;
+            font-size: 1.2rem;
+            font-weight: bold;
+        }
+        
+        .risk-band {
+            display: inline-block;
+            padding: 5px 12px;
+            border-radius: 5px;
+            font-weight: bold;
+            font-size: 0.9rem;
+        }
+        
+        .band-a {
+            background: #22c55e;
+            color: white;
+        }
+        
+        .band-b {
+            background: #3b82f6;
+            color: white;
+        }
+        
+        .band-c {
+            background: #eab308;
+            color: #000;
+        }
+        
+        .band-d {
+            background: #f97316;
+            color: white;
+        }
+        
+        .band-e {
+            background: #ef4444;
+            color: white;
+        }
+        
+        .premium-highlight {
+            background: #fef3c7;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            border-left: 4px solid #eab308;
+        }
+        
+        .premium-highlight .premium-amount {
+            font-size: 2rem;
+            color: #667eea;
+            font-weight: bold;
+            margin: 5px 0;
+        }
+        
+        .premium-highlight .premium-rate {
+            color: #666;
+            font-size: 0.9rem;
+        }
+        
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+            flex: 1;
+        }
+        
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #5568d3;
+        }
+        
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+            font-size: 1.2rem;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        
+        .empty-state .icon {
+            font-size: 4rem;
+            margin-bottom: 20px;
+        }
+        
+        .empty-state h3 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+        
+        .empty-state p {
+            color: #666;
+        }
+        
+        .back-btn {
+            display: inline-block;
+            padding: 10px 20px;
+            background: #667eea;
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            transition: background 0.3s;
+        }
+        
+        .back-btn:hover {
+            background: #5568d3;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="/dashboard" class="back-btn">← Back to Dashboard</a>
+        
+        <div class="header">
+            <h1>🛡️ Insurer Dashboard</h1>
+            <p>View insurance opportunities and actuarial analysis</p>
+        </div>
+        
+        <div class="stats-grid" id="statsGrid">
+            <div class="stat-card">
+                <div class="icon">📊</div>
+                <div class="label">Total Opportunities</div>
+                <div class="value" id="totalOpportunities">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="icon">✅</div>
+                <div class="label">Recommended</div>
+                <div class="value" id="recommendedCount">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="icon">💰</div>
+                <div class="label">Total Premium Pool</div>
+                <div class="value" id="totalPremium">$0</div>
+            </div>
+            <div class="stat-card">
+                <div class="icon">📈</div>
+                <div class="label">Average Premium</div>
+                <div class="value" id="avgPremium">0%</div>
+            </div>
+        </div>
+        
+        <div class="filters">
+            <h3>🔍 Filters</h3>
+            <div class="filter-row">
+                <select id="filterRecommendation">
+                    <option value="all">All Recommendations</option>
+                    <option value="RECOMMEND">Recommended</option>
+                    <option value="REVIEW_REQUIRED">Review Required</option>
+                    <option value="DECLINE">Declined</option>
+                </select>
+                <select id="filterRiskBand">
+                    <option value="all">All Risk Bands</option>
+                    <option value="A+">A+</option>
+                    <option value="A">A</option>
+                    <option value="B">B</option>
+                    <option value="C">C</option>
+                    <option value="D">D</option>
+                    <option value="E">E</option>
+                </select>
+                <input type="number" id="filterMinAmount" placeholder="Min Amount ($)">
+                <input type="number" id="filterMaxAmount" placeholder="Max Amount ($)">
+            </div>
+        </div>
+        
+        <div id="opportunitiesContainer">
+            <div class="loading">Loading insurance opportunities...</div>
+        </div>
+    </div>
+    
+    <script>
+        const token = localStorage.getItem('token');
+        let allOpportunities = [];
+        
+        // Load opportunities
+        async function loadOpportunities() {
+            try {
+                const response = await fetch('/api/admin/insurance-opportunities', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                const data = await response.json();
+                allOpportunities = data.opportunities || [];
+                renderOpportunities(allOpportunities);
+                updateStats(allOpportunities);
+            } catch (error) {
+                console.error('Failed to load opportunities:', error);
+                document.getElementById('opportunitiesContainer').innerHTML = `
+                    <div class="empty-state">
+                        <div class="icon">❌</div>
+                        <h3>Failed to Load Opportunities</h3>
+                        <p>Please check if insurance service is running</p>
+                    </div>
+                `;
+            }
+        }
+        
+        function updateStats(opportunities) {
+            const recommended = opportunities.filter(o => o.recommendation?.decision === 'RECOMMEND').length;
+            const totalPremium = opportunities.reduce((sum, o) => sum + (o.premium_breakdown?.total_premium || 0), 0);
+            const avgPremium = opportunities.length > 0 ? (totalPremium / opportunities.reduce((sum, o) => sum + o.amount, 0) * 100) : 0;
+            
+            document.getElementById('totalOpportunities').textContent = opportunities.length;
+            document.getElementById('recommendedCount').textContent = recommended;
+            document.getElementById('totalPremium').textContent = '$' + totalPremium.toLocaleString(0);
+            document.getElementById('avgPremium').textContent = avgPremium.toFixed(2) + '%';
+        }
+        
+        function renderOpportunities(opportunities) {
+            const container = document.getElementById('opportunitiesContainer');
+            
+            if (opportunities.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="icon">📋</div>
+                        <h3>No Insurance Opportunities</h3>
+                        <p>There are currently no trades requiring insurance coverage</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            container.innerHTML = '<div class="opportunities-grid">' + 
+                opportunities.map(opp => {
+                    const rec = opp.recommendation || {};
+                    const premium = opp.premium_breakdown || {};
+                    const risk = opp.risk_factors || {};
+                    
+                    const badgeClass = rec.decision === 'RECOMMEND' ? 'recommend-approved' : 
+                                      rec.decision === 'DECLINE' ? 'recommend-decline' : 
+                                      'recommend-review';
+                    
+                    const bandClass = 'band-' + (risk.risk_band || 'e').toLowerCase();
+                    
+                    return `
+                        <div class="opportunity-card">
+                            <div class="opportunity-header">
+                                <h3>${opp.contract_id || 'Unknown'}</h3>
+                                <span class="recommendation-badge ${badgeClass}">${rec.decision || 'N/A'}</span>
+                            </div>
+                            
+                            <div class="metrics-grid">
+                                <div class="metric-item">
+                                    <div class="metric-label">Amount</div>
+                                    <div class="metric-value">$${(opp.amount || 0).toLocaleString()}</div>
+                                </div>
+                                <div class="metric-item">
+                                    <div class="metric-label">Risk Band</div>
+                                    <div class="metric-value"><span class="risk-band ${bandClass}">${risk.risk_band || 'N/A'}</span></div>
+                                </div>
+                                <div class="metric-item">
+                                    <div class="metric-label">Underwriting Score</div>
+                                    <div class="metric-value">${opp.underwriting_score || 0}</div>
+                                </div>
+                                <div class="metric-item">
+                                    <div class="metric-label">PD</div>
+                                    <div class="metric-value">${((risk.pd || 0) * 100).toFixed(1)}%</div>
+                                </div>
+                            </div>
+                            
+                            <div class="premium-highlight">
+                                <div style="font-size: 0.9rem; color: #666; margin-bottom: 5px;">Premium Quote</div>
+                                <div class="premium-amount">$${(premium.total_premium || 0).toLocaleString(0)}</div>
+                                <div class="premium-rate">Rate: ${((premium.premium_rate || 0) * 100).toFixed(2)}%</div>
+                            </div>
+                            
+                            ${rec.recommendations && rec.recommendations.length > 0 ? `
+                                <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin: 15px 0;">
+                                    <strong style="color: #333; display: block; margin-bottom: 10px;">⚠️ Recommendations:</strong>
+                                    <ul style="margin: 0; padding-left: 20px; color: #666; font-size: 0.9rem;">
+                                        ${rec.recommendations.map(r => `<li>${r}</li>`).join('')}
+                                    </ul>
+                                </div>
+                            ` : ''}
+                            
+                            <div class="action-buttons">
+                                <button class="btn btn-primary" onclick="viewDetails('${opp.contract_id}')">
+                                    📊 View Details
+                                </button>
+                                <button class="btn btn-secondary" onclick="bindInsurance('${opp.contract_id}')">
+                                    🛡️ Bind Insurance
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                }).join('') + '</div>';
+        }
+        
+        function viewDetails(contractId) {
+            const opp = allOpportunities.find(o => o.contract_id === contractId);
+            if (!opp) return;
+            
+            // Open modal or new page with full details
+            alert(JSON.stringify(opp, null, 2));
+        }
+        
+        function bindInsurance(contractId) {
+            const opp = allOpportunities.find(o => o.contract_id === contractId);
+            if (!opp) return;
+            
+            if (opp.recommendation?.decision === 'DECLINE') {
+                alert('⚠️ This trade is not recommended for insurance coverage due to high risk.');
+                return;
+            }
+            
+            if (confirm(`Bind insurance for contract ${contractId}?\n\nPremium: $${(opp.premium_breakdown?.total_premium || 0).toLocaleString()}\n\nThis will create an insurance policy.`)) {
+                alert('✅ Insurance policy created! (Feature coming soon)');
+            }
+        }
+        
+        // Add filter event listeners
+        document.getElementById('filterRecommendation')?.addEventListener('change', applyFilters);
+        document.getElementById('filterRiskBand')?.addEventListener('change', applyFilters);
+        document.getElementById('filterMinAmount')?.addEventListener('input', applyFilters);
+        document.getElementById('filterMaxAmount')?.addEventListener('input', applyFilters);
+        
+        function applyFilters() {
+            const recommendation = document.getElementById('filterRecommendation').value;
+            const riskBand = document.getElementById('filterRiskBand').value;
+            const minAmount = parseFloat(document.getElementById('filterMinAmount').value) || 0;
+            const maxAmount = parseFloat(document.getElementById('filterMaxAmount').value) || Infinity;
+            
+            const filtered = allOpportunities.filter(opp => {
+                const recMatch = recommendation === 'all' || opp.recommendation?.decision === recommendation;
+                const bandMatch = riskBand === 'all' || opp.risk_factors?.risk_band === riskBand;
+                const amountMatch = opp.amount >= minAmount && opp.amount <= maxAmount;
+                
+                return recMatch && bandMatch && amountMatch;
+            });
+            
+            renderOpportunities(filtered);
+            updateStats(filtered);
+        }
+        
+        // Load opportunities on page load
+        loadOpportunities();
+        
+        // Refresh every 30 seconds
+        setInterval(loadOpportunities, 30000);
+    </script>
+</body>
+</html>
+
