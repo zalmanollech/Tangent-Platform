@@ -1,0 +1,254 @@
+[
+  {
+    "timestamp": "2025-10-26T12:22:11.829Z",
+    "tradeId": 5,
+    "contractId": "contract_1761481315975",
+    "buyerName": "buyer@test.com",
+    "amount": 588830,
+    "decision": "DECLINED",
+    "riskBand": "E",
+    "riskScore": 0.21377400000000002,
+    "flags": [],
+    "assessmentDetails": {
+      "collateralAnalysis": {
+        "protection_layers": {
+          "inventory": {
+            "value": 471064,
+            "haircut_rate": 0.33,
+            "net_value": 315612.87999999995,
+            "protection_score": 0.5359999999999999,
+            "details": "commodity inventory, OTC grade, warehouse location"
+          },
+          "deposits": {
+            "buyer_deposit": 58883,
+            "supplier_deposit": 0,
+            "total_deposits": 58883,
+            "haircut_rate": 0.01,
+            "net_value": 58294.17,
+            "protection_score": 0.09899999999999999,
+            "details": "Cash deposits: Buyer $58,883, Supplier $0"
+          },
+          "buyer": {
+            "has_buyer": false,
+            "quality_score": 0,
+            "protection_multiplier": 1,
+            "details": "No buyer or buyer quality unknown"
+          },
+          "exchange": {
+            "is_exchange_traded": false,
+            "exchange_score": 0,
+            "liquidity_benefit": 0,
+            "details": "Not exchange traded - OTC market"
+          }
+        },
+        "combined_protection": {
+          "total_protection_value": 373907.04999999993,
+          "effective_protection_ratio": 0.6349999999999999,
+          "risk_reduction": 0.5079999999999999,
+          "lgd_adjustment": 0.22140000000000004,
+          "pd_adjustment_factor": 0.6952,
+          "breakdown": {
+            "inventory_value": 315612.87999999995,
+            "deposit_value": 58294.17,
+            "buyer_adjustment": 1,
+            "exchange_benefit": 0
+          }
+        },
+        "total_protection_value": 373907.04999999993,
+        "effective_protection_ratio": 0.6349999999999999,
+        "risk_reduction": 0.5079999999999999,
+        "lgd_adjustment": 0.22140000000000004,
+        "pd_adjustment_factor": 0.6952
+      }
+    }
+  },
+  {
+    "timestamp": "2025-10-26T12:28:48.843Z",
+    "tradeId": 6,
+    "contractId": "contract_1761481727961",
+    "buyerName": "buyer@test.com",
+    "amount": 530000,
+    "decision": "DECLINED",
+    "riskBand": "E",
+    "riskScore": 0.21377400000000002,
+    "flags": [],
+    "assessmentDetails": {
+      "collateralAnalysis": {
+        "protection_layers": {
+          "inventory": {
+            "value": 424000,
+            "haircut_rate": 0.33,
+            "net_value": 284079.99999999994,
+            "protection_score": 0.5359999999999999,
+            "details": "commodity inventory, OTC grade, warehouse location"
+          },
+          "deposits": {
+            "buyer_deposit": 53000,
+            "supplier_deposit": 0,
+            "total_deposits": 53000,
+            "haircut_rate": 0.01,
+            "net_value": 52470,
+            "protection_score": 0.099,
+            "details": "Cash deposits: Buyer $53,000, Supplier $0"
+          },
+          "buyer": {
+            "has_buyer": false,
+            "quality_score": 0,
+            "protection_multiplier": 1,
+            "details": "No buyer or buyer quality unknown"
+          },
+          "exchange": {
+            "is_exchange_traded": false,
+            "exchange_score": 0,
+            "liquidity_benefit": 0,
+            "details": "Not exchange traded - OTC market"
+          }
+        },
+        "combined_protection": {
+          "total_protection_value": 336549.99999999994,
+          "effective_protection_ratio": 0.6349999999999999,
+          "risk_reduction": 0.5079999999999999,
+          "lgd_adjustment": 0.22140000000000004,
+          "pd_adjustment_factor": 0.6952,
+          "breakdown": {
+            "inventory_value": 284079.99999999994,
+            "deposit_value": 52470,
+            "buyer_adjustment": 1,
+            "exchange_benefit": 0
+          }
+        },
+        "total_protection_value": 336549.99999999994,
+        "effective_protection_ratio": 0.6349999999999999,
+        "risk_reduction": 0.5079999999999999,
+        "lgd_adjustment": 0.22140000000000004,
+        "pd_adjustment_factor": 0.6952
+      }
+    }
+  },
+  {
+    "timestamp": "2025-10-26T12:54:23.986Z",
+    "tradeId": 7,
+    "contractId": "contract_1761483260155",
+    "buyerName": "buyer@test.com",
+    "amount": 530000,
+    "decision": "DECLINED",
+    "riskBand": "E",
+    "riskScore": 0.21377400000000002,
+    "flags": [],
+    "assessmentDetails": {
+      "collateralAnalysis": {
+        "protection_layers": {
+          "inventory": {
+            "value": 424000,
+            "haircut_rate": 0.33,
+            "net_value": 284079.99999999994,
+            "protection_score": 0.5359999999999999,
+            "details": "commodity inventory, OTC grade, warehouse location"
+          },
+          "deposits": {
+            "buyer_deposit": 53000,
+            "supplier_deposit": 0,
+            "total_deposits": 53000,
+            "haircut_rate": 0.01,
+            "net_value": 52470,
+            "protection_score": 0.099,
+            "details": "Cash deposits: Buyer $53,000, Supplier $0"
+          },
+          "buyer": {
+            "has_buyer": false,
+            "quality_score": 0,
+            "protection_multiplier": 1,
+            "details": "No buyer or buyer quality unknown"
+          },
+          "exchange": {
+            "is_exchange_traded": false,
+            "exchange_score": 0,
+            "liquidity_benefit": 0,
+            "details": "Not exchange traded - OTC market"
+          }
+        },
+        "combined_protection": {
+          "total_protection_value": 336549.99999999994,
+          "effective_protection_ratio": 0.6349999999999999,
+          "risk_reduction": 0.5079999999999999,
+          "lgd_adjustment": 0.22140000000000004,
+          "pd_adjustment_factor": 0.6952,
+          "breakdown": {
+            "inventory_value": 284079.99999999994,
+            "deposit_value": 52470,
+            "buyer_adjustment": 1,
+            "exchange_benefit": 0
+          }
+        },
+        "total_protection_value": 336549.99999999994,
+        "effective_protection_ratio": 0.6349999999999999,
+        "risk_reduction": 0.5079999999999999,
+        "lgd_adjustment": 0.22140000000000004,
+        "pd_adjustment_factor": 0.6952
+      }
+    }
+  },
+  {
+    "timestamp": "2025-10-26T13:46:28.428Z",
+    "tradeId": 1,
+    "contractId": "contract_1761486371723",
+    "buyerName": "buyer@test.com",
+    "amount": 530000,
+    "decision": "DECLINED",
+    "riskBand": "E",
+    "riskScore": 0.21377400000000002,
+    "flags": [],
+    "assessmentDetails": {
+      "collateralAnalysis": {
+        "protection_layers": {
+          "inventory": {
+            "value": 424000,
+            "haircut_rate": 0.33,
+            "net_value": 284079.99999999994,
+            "protection_score": 0.5359999999999999,
+            "details": "commodity inventory, OTC grade, warehouse location"
+          },
+          "deposits": {
+            "buyer_deposit": 53000,
+            "supplier_deposit": 0,
+            "total_deposits": 53000,
+            "haircut_rate": 0.01,
+            "net_value": 52470,
+            "protection_score": 0.099,
+            "details": "Cash deposits: Buyer $53,000, Supplier $0"
+          },
+          "buyer": {
+            "has_buyer": false,
+            "quality_score": 0,
+            "protection_multiplier": 1,
+            "details": "No buyer or buyer quality unknown"
+          },
+          "exchange": {
+            "is_exchange_traded": false,
+            "exchange_score": 0,
+            "liquidity_benefit": 0,
+            "details": "Not exchange traded - OTC market"
+          }
+        },
+        "combined_protection": {
+          "total_protection_value": 336549.99999999994,
+          "effective_protection_ratio": 0.6349999999999999,
+          "risk_reduction": 0.5079999999999999,
+          "lgd_adjustment": 0.22140000000000004,
+          "pd_adjustment_factor": 0.6952,
+          "breakdown": {
+            "inventory_value": 284079.99999999994,
+            "deposit_value": 52470,
+            "buyer_adjustment": 1,
+            "exchange_benefit": 0
+          }
+        },
+        "total_protection_value": 336549.99999999994,
+        "effective_protection_ratio": 0.6349999999999999,
+        "risk_reduction": 0.5079999999999999,
+        "lgd_adjustment": 0.22140000000000004,
+        "pd_adjustment_factor": 0.6952
+      }
+    }
+  }
+]

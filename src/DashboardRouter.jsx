@@ -5,6 +5,7 @@ const { useState, useEffect } = React;
 // Individual Dashboard Components
 function AdminDashboard() {
     const [stats, setStats] = useState(null);
+    const [creditReports, setCreditReports] = useState([]);
     const [loading, setLoading] = useState(true);
     
     useEffect(() => {
@@ -22,6 +23,20 @@ function AdminDashboard() {
         .catch(err => {
             console.error('Failed to load admin data:', err);
             setLoading(false);
+        });
+        
+        // Load credit assessment reports
+        fetch('/api/admin/credit-reports', {
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+            }
+        })
+        .then(res => res.json())
+        .then(data => {
+            setCreditReports(data.reports || []);
+        })
+        .catch(err => {
+            console.error('Failed to load credit reports:', err);
         });
     }, []);
     
@@ -178,7 +193,7 @@ function AdminDashboard() {
                         
                         {/* Recent Activity */}
                         {stats.recentActivity && stats.recentActivity.length > 0 && (
-                            <div>
+                            <div style={{ marginTop: '2rem' }}>
                                 <h3 style={{ color: '#333', marginBottom: '1rem' }}>📈 Recent Activity</h3>
                                 <div style={{
                                     background: '#f8f9fa',
@@ -214,6 +229,114 @@ function AdminDashboard() {
                                 </div>
                             </div>
                         )}
+                        
+                        {/* Credit Assessment Reports */}
+                        <div style={{ marginTop: '2rem' }}>
+                            <h3 style={{ color: '#333', marginBottom: '1rem' }}>🔍 Credit Risk Assessments</h3>
+                            {creditReports.length === 0 ? (
+                                <div style={{
+                                    background: '#f8f9fa',
+                                    borderRadius: '12px',
+                                    padding: '2rem',
+                                    textAlign: 'center',
+                                    color: '#666'
+                                }}>
+                                    No credit assessments available yet
+                                </div>
+                            ) : (
+                                <div style={{
+                                    background: '#f8f9fa',
+                                    borderRadius: '12px',
+                                    overflow: 'hidden'
+                                }}>
+                                    {creditReports.map((report, index) => (
+                                        <div key={index} style={{
+                                            padding: '1.5rem',
+                                            borderBottom: index < creditReports.length - 1 ? '1px solid #e5e5e5' : 'none',
+                                            background: 'white'
+                                        }}>
+                                            <div style={{
+                                                display: 'flex',
+                                                justifyContent: 'space-between',
+                                                alignItems: 'center',
+                                                marginBottom: '1rem'
+                                            }}>
+                                                <div>
+                                                    <h4 style={{ margin: '0 0 0.5rem', color: '#333' }}>
+                                                        {report.buyerName || 'Unknown Buyer'}
+                                                    </h4>
+                                                    <div style={{ fontSize: '0.9rem', color: '#666' }}>
+                                                        Contract: {report.contractId}
+                                                    </div>
+                                                </div>
+                                                <div style={{
+                                                    background: report.decision === 'APPROVED' ? '#22c55e' : '#ef4444',
+                                                    color: 'white',
+                                                    padding: '6px 12px',
+                                                    borderRadius: '8px',
+                                                    fontWeight: '600'
+                                                }}>
+                                                    {report.decision}
+                                                </div>
+                                            </div>
+                                            <div style={{
+                                                display: 'grid',
+                                                gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                                                gap: '1rem'
+                                            }}>
+                                                <div>
+                                                    <div style={{ color: '#666', fontSize: '0.9rem' }}>Amount</div>
+                                                    <div style={{ fontWeight: '600' }}>${report.amount?.toLocaleString() || 'N/A'}</div>
+                                                </div>
+                                                <div>
+                                                    <div style={{ color: '#666', fontSize: '0.9rem' }}>Risk Score</div>
+                                                    <div style={{ fontWeight: '600' }}>
+                                                        {(report.riskScore * 100).toFixed(2)}%
+                                                    </div>
+                                                </div>
+                                                <div>
+                                                    <div style={{ color: '#666', fontSize: '0.9rem' }}>Risk Band</div>
+                                                    <div style={{ fontWeight: '600' }}>{report.riskBand || 'N/A'}</div>
+                                                </div>
+                                                <div>
+                                                    <div style={{ color: '#666', fontSize: '0.9rem' }}>Protection Ratio</div>
+                                                    <div style={{ fontWeight: '600' }}>
+                                                        {report.assessmentDetails?.collateralAnalysis?.effective_protection_ratio 
+                                                            ? (report.assessmentDetails.collateralAnalysis.effective_protection_ratio * 100).toFixed(1) + '%'
+                                                            : 'N/A'}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            {report.assessmentDetails?.collateralAnalysis && (
+                                                <details style={{ marginTop: '1rem' }}>
+                                                    <summary style={{ cursor: 'pointer', color: '#667eea', fontWeight: '600' }}>
+                                                        View Detailed Analysis
+                                                    </summary>
+                                                    <div style={{
+                                                        marginTop: '1rem',
+                                                        padding: '1rem',
+                                                        background: '#f8f9fa',
+                                                        borderRadius: '8px',
+                                                        fontSize: '0.9rem'
+                                                    }}>
+                                                        <div style={{ marginBottom: '0.5rem' }}>
+                                                            <strong>Inventory:</strong> ${report.assessmentDetails.collateralAnalysis.total_protection_value?.toFixed(2)} 
+                                                            ({(report.assessmentDetails.collateralAnalysis.effective_protection_ratio * 100).toFixed(1)}% coverage)
+                                                        </div>
+                                                        <div style={{ marginBottom: '0.5rem' }}>
+                                                            <strong>Risk Reduction:</strong> {(report.assessmentDetails.collateralAnalysis.risk_reduction * 100).toFixed(1)}%
+                                                        </div>
+                                                        <div>
+                                                            <strong>LGD Adjustment:</strong> {(report.assessmentDetails.collateralAnalysis.lgd_adjustment * 100).toFixed(1)}%
+                                                        </div>
+                                                    </div>
+                                                </details>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
                     </div>
                 )}
             </div>
