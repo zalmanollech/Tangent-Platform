@@ -4570,7 +4570,7 @@ app.post('/api/admin/ofac/update', authenticateToken, requireRole(['admin']), as
 });
 
 // Test OFAC screening
-app.post('/api/admin/ofac/test', authenticateToken, requireRole(['admin']), (req, res) => {
+app.post('/api/admin/ofac/test', authenticateToken, requireRole(['admin']), async (req, res) => {
     try {
         const { firstName, lastName, companyName } = req.body;
         
