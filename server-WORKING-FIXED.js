@@ -4211,7 +4211,7 @@ app.post('/api/kyc/submit', authenticateToken, upload.fields([
     { name: 'incorporation', maxCount: 1 },
     { name: 'financials', maxCount: 1 },
     { name: 'bylaws', maxCount: 1 }
-]), (req, res) => {
+]), async (req, res) => {
     try {
         const { 
             companyName, companyType, stockSymbol, exchange, contactName, 
