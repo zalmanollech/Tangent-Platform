@@ -109,7 +109,14 @@ try {
 // MIDDLEWARE & SECURITY
 // ================================
 app.use(cors({
-    origin: ['http://localhost:3000', 'http://localhost:4000', 'https://tangent-platform.up.railway.app'],
+    origin: [
+        'http://localhost:3000', 
+        'http://localhost:4000', 
+        'https://tangent-platform.up.railway.app',
+        'https://tangent-protocol.com',
+        'https://www.tangent-protocol.com',
+        ...(process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : [])
+    ],
     credentials: true
 }));
 
@@ -1647,7 +1654,42 @@ app.get('/dashboard/authenticated', (req, res) => {
             window.location.href = '/create-contract?token=' + encodeURIComponent(token);
         }
         
-        async function payDeposit(id) {
+        async function payDeposit(id, amount) {
+            // Check if MetaMask is available for blockchain payment
+            if (typeof window.ethereum !== 'undefined') {
+                try {
+                    // Ask user if they want to use MetaMask
+                    const useMetaMask = confirm('🦊 MetaMask Detected!\n\nPay deposit using blockchain with MetaMask?\n\nClick OK for blockchain payment, Cancel for simulation.');
+                    
+                    if (useMetaMask) {
+                        // Connect to MetaMask
+                        const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+                        if (!accounts || accounts.length === 0) {
+                            alert('Please connect MetaMask to continue');
+                            return;
+                        }
+                        
+                        // Check network
+                        const chainId = await window.ethereum.request({ method: 'eth_chainId' });
+                        const sepoliaChainId = '0xaa36a7';
+                        
+                        if (chainId !== sepoliaChainId) {
+                            alert('⚠️ Please switch to Sepolia testnet in MetaMask');
+                            await window.ethereum.request({
+                                method: 'wallet_switchEthereumChain',
+                                params: [{ chainId: sepoliaChainId }]
+                            });
+                        }
+                        
+                        alert('✅ MetaMask connected! Blockchain integration ready.\n\nFor now, using simulated payment.\nMetaMask transaction flow will be added next step.');
+                    }
+                } catch (error) {
+                    console.error('MetaMask error:', error);
+                    alert('MetaMask error: ' + error.message + '\n\nUsing simulation mode instead.');
+                }
+            }
+            
+            // Execute deposit
             try {
                 const response = await fetch('/api/contracts/' + id + '/deposit', {
                     method: 'POST',

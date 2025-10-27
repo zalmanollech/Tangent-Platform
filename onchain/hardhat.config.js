@@ -1,5 +1,6 @@
 // onchain/hardhat.config.js
 require("@nomicfoundation/hardhat-toolbox");
+require("dotenv").config();
 
 const { SEPOLIA_RPC_URL, SEPOLIA_PRIVATE_KEY, ETHERSCAN_API_KEY } = process.env;
 
