@@ -3338,6 +3338,13 @@ app.get('/demo-main', requireDemoPassword, (req, res) => {
                 background: linear-gradient(135deg, #fef2f2 0%, #fecaca 100%);
                 box-shadow: 0 20px 40px rgba(220, 38, 38, 0.3);
             }
+            .workflow-card.insurer {
+                border-color: #f59e0b;
+            }
+            .workflow-card.insurer:hover {
+                background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+                box-shadow: 0 20px 40px rgba(245, 158, 11, 0.3);
+            }
             .workflow-icon {
                 font-size: 4rem;
                 margin-bottom: 1rem;
@@ -3347,6 +3354,7 @@ app.get('/demo-main', requireDemoPassword, (req, res) => {
             .workflow-card.supplier .workflow-icon { color: #059669; }
             .workflow-card.trader .workflow-icon { color: #7c3aed; }
             .workflow-card.admin .workflow-icon { color: #dc2626; }
+            .workflow-card.insurer .workflow-icon { color: #f59e0b; }
             .workflow-title {
                 font-size: 1.5rem;
                 font-weight: 700;
@@ -3444,6 +3452,16 @@ app.get('/demo-main', requireDemoPassword, (req, res) => {
                         Complete admin control center with user management, fee configuration, blockchain controls, and auction management.
                     </div>
                     <div class="workflow-steps">6 Steps • 12 min demo</div>
+                </div>
+                
+                <div class="workflow-card insurer" onclick="window.location.href='/demo/workflow?role=insurer'">
+                    <div class="workflow-icon">🛡️</div>
+                    <div class="workflow-title">Insurer Journey</div>
+                    <div class="workflow-subtitle">Insurance & Risk Management</div>
+                    <div class="workflow-description">
+                        Complete insurer workflow from viewing opportunities to quote generation, policy issuance, and claims monitoring.
+                    </div>
+                    <div class="workflow-steps">5 Steps • 10 min demo</div>
                 </div>
             </div>
             
@@ -10899,6 +10917,7 @@ app.get('/demo/workflow', requireDemoPassword, (req, res) => {
             <button class="role-tab" onclick="showRole('supplier')" id="supplier-tab">🏭 Supplier Flow (6 Steps)</button>
             <button class="role-tab" onclick="showRole('trader')" id="trader-tab">📈 Trader Flow (5 Steps)</button>
             <button class="role-tab" onclick="showRole('admin')" id="admin-tab">👑 Admin Flow (6 Steps)</button>
+            <button class="role-tab" onclick="showRole('insurer')" id="insurer-tab">🛡️ Insurer Flow (5 Steps)</button>
         </div>
 
         <!-- Buyer Flow -->
@@ -11090,6 +11109,46 @@ app.get('/demo/workflow', requireDemoPassword, (req, res) => {
                 </div>
             </div>
         </div>
+        
+        <!-- Insurer Flow -->
+        <div id="insurer-flow" class="workflow-section hidden">
+            <h2 class="section-title">🛡️ Insurer Journey</h2>
+            <div class="progress-bar">
+                <div class="progress-fill" style="width: 0%" id="insurer-progress"></div>
+            </div>
+            <div class="steps-grid">
+                <div class="step-card">
+                    <div class="step-number">1</div>
+                    <h3>Insurer Dashboard</h3>
+                    <p>Overview of available insurance opportunities and active policies</p>
+                    <a href="/dashboard/insurer" class="step-btn" style="background: #f59e0b;">View Insurer Dashboard</a>
+                </div>
+                <div class="step-card">
+                    <div class="step-number">2</div>
+                    <h3>Insurance Opportunities</h3>
+                    <p>Review high-value contracts requiring insurance coverage</p>
+                    <a href="/api/admin/insurance-opportunities" class="step-btn" style="background: #f59e0b;">View Opportunities</a>
+                </div>
+                <div class="step-card">
+                    <div class="step-number">3</div>
+                    <h3>Quote Generation</h3>
+                    <p>Generate insurance quotes using actuarial model</p>
+                    <a href="/api/insurance/quote?contract_id=demo&value=500000" class="step-btn" style="background: #f59e0b;">Generate Quote</a>
+                </div>
+                <div class="step-card">
+                    <div class="step-number">4</div>
+                    <h3>Policy Issuance</h3>
+                    <p>Issue insurance policies for approved contracts</p>
+                    <a href="/dashboard/insurer" class="step-btn" style="background: #f59e0b;">Issue Policy</a>
+                </div>
+                <div class="step-card">
+                    <div class="step-number">5</div>
+                    <h3>Claims & Monitoring</h3>
+                    <p>Monitor active policies and process claims when needed</p>
+                    <a href="/dashboard/insurer" class="step-btn" style="background: #f59e0b;">Monitor Policies</a>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -11099,6 +11158,7 @@ app.get('/demo/workflow', requireDemoPassword, (req, res) => {
             document.getElementById('supplier-flow').classList.add('hidden');
             document.getElementById('trader-flow').classList.add('hidden');
             document.getElementById('admin-flow').classList.add('hidden');
+            document.getElementById('insurer-flow').classList.add('hidden');
             
             // Remove active class from all tabs
             document.querySelectorAll('.role-tab').forEach(tab => tab.classList.remove('active'));
