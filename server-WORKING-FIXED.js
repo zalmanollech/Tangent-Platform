@@ -4221,7 +4221,7 @@ app.post('/api/kyc/submit', authenticateToken, upload.fields([
         
         console.log('📋 KYC Submission:', { companyType, companyName, email: req.user.email });
         
-        // STEP 1: Validate Documents
+        // STEP 1: Validate Documents (basic - file format, size)
         const documentValidation = validateDocuments(files, companyType);
         
         // If document validation fails, return error immediately
@@ -4234,6 +4234,49 @@ app.post('/api/kyc/submit', authenticateToken, upload.fields([
                 missingDocuments: documentValidation.missingDocuments,
                 invalidDocuments: documentValidation.invalidDocuments
             });
+        }
+        
+        // STEP 1.5: Enhanced Content Verification (checks document actually matches type)
+        let enhancedValidation = { isValid: true, warnings: [], verifiedDocuments: [], unverifiedDocuments: [] };
+        try {
+            const docVerification = require('./lib/document-verification');
+            enhancedValidation = await docVerification.enhancedDocumentValidation(files, companyType);
+            
+            console.log('🔍 Enhanced Document Verification:', {
+                verified: enhancedValidation.verifiedDocuments.length,
+                unverified: enhancedValidation.unverifiedDocuments.length,
+                warnings: enhancedValidation.warnings.length
+            });
+            
+            // Add warnings to the response
+            if (enhancedValidation.warnings.length > 0) {
+                documentValidation.warnings = documentValidation.warnings.concat(enhancedValidation.warnings);
+            }
+            
+            // Block if critical documents are not verified
+            if (enhancedValidation.unverifiedDocuments.length > 0) {
+                const criticalUnverified = enhancedValidation.unverifiedDocuments.filter(doc => 
+                    ['passport', 'incorporation'].includes(doc.type)
+                );
+                
+                if (criticalUnverified.length > 0) {
+                    console.log('⚠️ Critical documents failed verification:', criticalUnverified);
+                    return res.status(400).json({
+                        success: false,
+                        error: 'Document verification failed: Documents do not match expected type',
+                        validationErrors: [
+                            `The uploaded documents do not appear to be the correct document types. ` +
+                            `Please ensure you upload the actual documents requested (passport, incorporation documents, etc.)`
+                        ],
+                        unverifiedDocuments: criticalUnverified.map(d => d.filename),
+                        warnings: enhancedValidation.warnings
+                    });
+                }
+            }
+            
+        } catch (error) {
+            console.warn('⚠️ Enhanced document verification failed:', error.message);
+            // Don't block submission if verification module fails
         }
         
         // STEP 2: Process uploaded files by category
