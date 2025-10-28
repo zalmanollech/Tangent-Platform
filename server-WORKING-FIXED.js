@@ -1530,11 +1530,11 @@ app.get('/dashboard/authenticated', (req, res) => {
                 const statusClass = 'status-' + (contract.status || 'pending').replace(/_/g, '-');
                 const flags = [];
                 
-                if (contract.buyerFlag) flags.push('🔵 Buyer Flag');
-                if (contract.supplierFlag) flags.push('🟢 Supplier Flag');
-                if (contract.status === 'pending_deposit') flags.push('💰 Pending Deposit');
-                if (contract.status === 'pending_supplier_confirmation') flags.push('✅ Awaiting Supplier');
-                if (contract.status === 'pending_buyer_confirmation') flags.push('✅ Awaiting Buyer');
+                if (contract.buyerFlag) flags.push('Buyer Flag');
+                if (contract.supplierFlag) flags.push('Supplier Flag');
+                if (contract.status === 'pending_deposit') flags.push('Pending Deposit');
+                if (contract.status === 'pending_supplier_confirmation') flags.push('Awaiting Supplier');
+                if (contract.status === 'pending_buyer_confirmation') flags.push('Awaiting Buyer');
                 
                 // Get user's role in this specific contract
                 const userRole = getUserRole(contract, user.email);
@@ -1609,7 +1609,7 @@ app.get('/dashboard/authenticated', (req, res) => {
                 // Traders can act as both buyer and supplier
                 // Supplier actions
                 if (contract.status === 'pending_supplier_confirmation') {
-                    buttons += '<button class="btn secondary small" onclick="confirmContract('+JSON.stringify(contract.id)+')">✅ Confirm as Supplier</button>';
+                    buttons += '<button class="btn secondary small" onclick="confirmContract('+JSON.stringify(contract.id)+')">Confirm as Supplier</button>';
                 }
                 if (contract.status === 'active' && contract.depositPaid && !contract.documentsUploaded) {
                     buttons += '<button class="btn secondary small" onclick="uploadDocuments('+JSON.stringify(contract.id)+')">Upload Shipping Docs</button>';
