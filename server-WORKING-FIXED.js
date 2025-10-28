@@ -1388,11 +1388,13 @@ app.get('/dashboard/authenticated', (req, res) => {
         return res.redirect('/landing-two');
     }
     
-    // Force no caching
+    // Force no caching - aggressive headers
     res.set({
-        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Cache-Control': 'no-cache, no-store, must-revalidate, max-age=0',
         'Pragma': 'no-cache',
-        'Expires': '0'
+        'Expires': '0',
+        'Last-Modified': new Date().toUTCString(),
+        'ETag': '"' + Date.now() + '"'
     });
     
     // Enhanced My Contracts dashboard
