@@ -1550,15 +1550,17 @@ app.get('/dashboard/authenticated', (req, res) => {
                     // Show counterparty based on user's role
                     const userRole = getUserRole(contract, user.email);
                     let counterparty = 'N/A';
-                    if (userRole === 'Buyer' && contract.supplierEmail) {
+                    if (userRole === 'buyer' && contract.supplierEmail) {
                         counterparty = contract.supplierEmail;
-                    } else if (userRole === 'Supplier' && contract.buyerEmail) {
+                    } else if (userRole === 'supplier' && contract.buyerEmail) {
                         counterparty = contract.buyerEmail;
-                    } else if (userRole === 'Trader') {
+                    } else if (userRole === 'trader') {
                         counterparty = contract.buyerEmail + ' / ' + contract.supplierEmail;
                     }
+                    // Display role with proper capitalization
+                    const displayRole = userRole.charAt(0).toUpperCase() + userRole.slice(1);
                     tableHTML += '<td>' + counterparty + '</td>';
-                    tableHTML += '<td>' + userRole + '</td>';
+                    tableHTML += '<td>' + displayRole + '</td>';
                 }
                 tableHTML += '<td>' + (flags.join('<br>') || 'None') + '</td>';
                 tableHTML += '<td>' + new Date(contract.createdAt).toLocaleDateString() + '</td>';
@@ -1629,9 +1631,9 @@ app.get('/dashboard/authenticated', (req, res) => {
         }
         
         function getUserRole(contract, userEmail) {
-            if (contract.buyerEmail === userEmail) return 'BUYER';
-            if (contract.supplierEmail === userEmail) return 'SUPPLIER';
-            return 'TRADER';
+            if (contract.buyerEmail === userEmail) return 'buyer';
+            if (contract.supplierEmail === userEmail) return 'supplier';
+            return 'trader';
         }
 
         function navigateAdmin(path) {
