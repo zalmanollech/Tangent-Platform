@@ -1658,6 +1658,7 @@ app.get('/dashboard/authenticated', (req, res) => {
         }
         
         async function payDeposit(id, amount) {
+            console.log('💰 payDeposit called with id:', id, 'amount:', amount);
             // Check if MetaMask is available for blockchain payment
             if (typeof window.ethereum !== 'undefined') {
                 try {
@@ -1714,11 +1715,11 @@ app.get('/dashboard/authenticated', (req, res) => {
                     } else if (result.action === 'create_wallet') {
                         alert('Wallet error: ' + result.error + '. Please contact support.');
                     } else {
-                        alert('❌ Error: ' + result.error);
+                        alert('Error: ' + result.error);
                     }
                 }
             } catch (error) {
-                alert('❌ Network error paying deposit: ' + error.message);
+                alert('Network error paying deposit: ' + error.message);
             }
         }
         
