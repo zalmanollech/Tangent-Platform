@@ -1438,7 +1438,7 @@ app.get('/dashboard/authenticated', (req, res) => {
 <body>
     <div class="container">
         <div class="header">
-            <h1>🏛️ My Contracts Dashboard</h1>
+            <h1>My Contracts Dashboard</h1>
             <div>
                 <span class="role-badge">${role.toUpperCase()}</span>
                 <button class="logout-btn" onclick="logout()">Logout</button>
@@ -1447,7 +1447,7 @@ app.get('/dashboard/authenticated', (req, res) => {
         
         <div class="contracts-section">
             <div class="section-header">
-                <h2 class="section-title">📋 My Contracts</h2>
+                <h2 class="section-title">My Contracts</h2>
                 <button class="btn" onclick="createContract()">Create New Contract</button>
             </div>
             <div id="contractsContainer">
@@ -1458,18 +1458,18 @@ app.get('/dashboard/authenticated', (req, res) => {
         ${role === 'admin' ? `
         <div class="contracts-section">
             <div class="section-header">
-                <h2 class="section-title">🛠️ Admin Tools</h2>
+                <h2 class="section-title">Admin Tools</h2>
             </div>
             <div style="display: flex; gap: 15px; flex-wrap: wrap;">
-                <button class="btn secondary" onclick="window.open('/dashboard/insurer?token=' + localStorage.getItem('token'), '_blank')" style="background: #2563eb; font-weight: bold; border: 2px solid #1e40af;">🛡️ INSURANCE OPPORTUNITIES</button>
-                <button class="btn secondary" onclick="navigateAdmin('/admin/users')">👥 View Users</button>
-                <button class="btn secondary" onclick="navigateAdmin('/admin/early-registrations')">🚀 Early Registrations</button>
+                <button class="btn secondary" onclick="window.open('/dashboard/insurer?token=' + localStorage.getItem('token'), '_blank')" style="background: #2563eb; font-weight: bold; border: 2px solid #1e40af;">INSURANCE OPPORTUNITIES</button>
+                <button class="btn secondary" onclick="navigateAdmin('/admin/users')">View Users</button>
+                <button class="btn secondary" onclick="navigateAdmin('/admin/early-registrations')">Early Registrations</button>
                 <button class="btn secondary" onclick="navigateAdmin('/admin/active-trades')">View All Trades</button>
                 <button class="btn secondary" onclick="navigateAdmin('/admin/auction')">Auction Board</button>
                 <button class="btn secondary" onclick="navigateAdmin('/admin/kyc-reports')">KYC Reports</button>
-                <button class="btn secondary" onclick="navigateAdmin('/admin/credit-assessments')">🔍 Credit Risk Assessments</button>
-                <button class="btn secondary" onclick="navigateAdmin('/admin/ofac-management')">🛡️ OFAC Screening</button>
-                <button class="btn secondary" onclick="navigateAdmin('/admin/blockchain')">🔗 Blockchain</button>
+                <button class="btn secondary" onclick="navigateAdmin('/admin/credit-assessments')">Credit Risk Assessments</button>
+                <button class="btn secondary" onclick="navigateAdmin('/admin/ofac-management')">OFAC Screening</button>
+                <button class="btn secondary" onclick="navigateAdmin('/admin/blockchain')">Blockchain</button>
                 <button class="btn secondary" onclick="navigateAdmin('/admin/fees')">Manage Fees</button>
                 <button class="btn secondary" onclick="navigateAdmin('/admin/voyage-times')">Voyage Times</button>
             </div>
