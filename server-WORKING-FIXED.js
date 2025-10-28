@@ -1662,7 +1662,7 @@ app.get('/dashboard/authenticated', (req, res) => {
             if (typeof window.ethereum !== 'undefined') {
                 try {
                     // Ask user if they want to use MetaMask
-                    const useMetaMask = confirm('🦊 MetaMask Detected!\n\nPay deposit using blockchain with MetaMask?\n\nClick OK for blockchain payment, Cancel for simulation.');
+                    const useMetaMask = confirm('🦊 MetaMask Detected! Pay deposit using blockchain with MetaMask?');
                     
                     if (useMetaMask) {
                         // Connect to MetaMask
@@ -12127,7 +12127,7 @@ app.get('/demo/buyer/step6-dashboard-deposit', (req, res) => {
         }
         
         function showTimeoutScenario() {
-            if (confirm('⚠️ PAYMENT TIMEOUT SCENARIO\\n\\nIf you don\\'t pay within 48 hours, the contract will automatically move to auction where other buyers can bid on it.\\n\\nWould you like to see the auction demo?')) {
+            if (confirm('Payment timeout scenario: Your contract will move to auction if payment is not made within 48 hours. Show demo?')) {
                 window.location.href = '/demo/buyer/payment-timeout-auction';
             }
         }
@@ -15258,7 +15258,7 @@ app.get('/demo/trader/step3-buyer-contract', (req, res) => {
 
     <script>
         function showTraderTimeoutScenario() {
-            if (confirm('⚠️ TRADER PAYMENT TIMEOUT SCENARIO\\n\\nAs a trader, if your buyer doesn\\'t pay within 48 hours:\\n\\n• Your buyer\\'s contract moves to auction\\n• You still owe the supplier payment\\n• You need to find new buyers quickly\\n• Platform may help with emergency auction\\n\\nWould you like to see the auction demo?')) {
+            if (confirm('Trader payment timeout scenario: If buyer does not pay, contract moves to auction. Show demo?')) {
                 window.location.href = '/demo/trader/payment-timeout-auction';
             }
         }
