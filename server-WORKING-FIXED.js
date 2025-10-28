@@ -5648,13 +5648,9 @@ app.get('/api/contracts', authenticateToken, (req, res) => {
         for (let contract of database.contracts.values()) {
             if (contract.buyerEmail === req.user.email || 
                 contract.supplierEmail === req.user.email) {
+                // Return complete contract data for dashboard and management page
                 userContracts.push({
-                    id: contract.id,
-                    productDetails: contract.productDetails,
-                    totalValue: contract.totalValue,
-                    status: contract.status,
-                    createdAt: contract.createdAt,
-                    deliveryDate: contract.deliveryDate,
+                    ...contract,
                     userRole: contract.buyerEmail === req.user.email ? 'buyer' : 'supplier'
                 });
             }
@@ -5722,14 +5718,9 @@ app.get('/api/contracts', authenticateToken, (req, res) => {
                 database.contracts.set(contract.id, contract);
             });
             
-            // Return them in the API response format
+            // Return complete contract data for dashboard and management page
             const demoContracts = demoContractData.map(contract => ({
-                id: contract.id,
-                productDetails: contract.productDetails,
-                totalValue: contract.totalValue,
-                status: contract.status,
-                createdAt: contract.createdAt,
-                deliveryDate: contract.deliveryDate,
+                ...contract,
                 userRole: contract.buyerEmail === req.user.email ? 'buyer' : 'supplier'
             }));
             
