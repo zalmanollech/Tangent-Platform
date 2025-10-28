@@ -1536,7 +1536,9 @@ app.get('/dashboard/authenticated', (req, res) => {
                 if (contract.status === 'pending_supplier_confirmation') flags.push('✅ Awaiting Supplier');
                 if (contract.status === 'pending_buyer_confirmation') flags.push('✅ Awaiting Buyer');
                 
-                const actionButtons = getActionButtons(contract, user.role);
+                // Get user's role in this specific contract
+                const userRole = getUserRole(contract, user.email);
+                const actionButtons = getActionButtons(contract, userRole);
                 
                 tableHTML += '<tr>';
                 tableHTML += '<td>' + (contract.id || 'N/A') + '</td>';
@@ -1547,8 +1549,7 @@ app.get('/dashboard/authenticated', (req, res) => {
                     tableHTML += '<td>' + (contract.buyerEmail || 'N/A') + '</td>';
                     tableHTML += '<td>' + (contract.supplierEmail || 'N/A') + '</td>';
                 } else {
-                    // Show counterparty based on user's role
-                    const userRole = getUserRole(contract, user.email);
+                    // Show counterparty based on user's role (userRole already calculated above)
                     let counterparty = 'N/A';
                     if (userRole === 'buyer' && contract.supplierEmail) {
                         counterparty = contract.supplierEmail;
@@ -5645,11 +5646,15 @@ app.post('/api/contracts/create', authenticateToken, async (req, res) => {
 // Get User Contracts
 app.get('/api/contracts', authenticateToken, (req, res) => {
     try {
+        console.log('📋 GET /api/contracts - User:', req.user.email);
+        console.log('📋 Total contracts in database:', database.contracts.size);
+        
         const userContracts = [];
         
         for (let contract of database.contracts.values()) {
             if (contract.buyerEmail === req.user.email || 
                 contract.supplierEmail === req.user.email) {
+                console.log('✅ Found contract for user:', contract.id, contract.productDetails);
                 // Return complete contract data for dashboard and management page
                 userContracts.push({
                     ...contract,
@@ -5657,6 +5662,8 @@ app.get('/api/contracts', authenticateToken, (req, res) => {
                 });
             }
         }
+        
+        console.log('📋 User contracts found:', userContracts.length);
         
         // If new user has no contracts, create and store demo contracts for them
         if (userContracts.length === 0) {
