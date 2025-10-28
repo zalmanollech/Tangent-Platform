@@ -1684,11 +1684,11 @@ app.get('/dashboard/authenticated', (req, res) => {
                             });
                         }
                         
-                        alert('✅ MetaMask connected! Blockchain integration ready.\n\nFor now, using simulated payment.\nMetaMask transaction flow will be added next step.');
+                        alert('MetaMask connected! Using simulated payment for now.');
                     }
                 } catch (error) {
                     console.error('MetaMask error:', error);
-                    alert('MetaMask error: ' + error.message + '\n\nUsing simulation mode instead.');
+                    alert('MetaMask error: ' + error.message + ' Using simulation mode instead.');
                 }
             }
             
