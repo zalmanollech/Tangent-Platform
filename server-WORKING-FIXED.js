@@ -1590,7 +1590,7 @@ app.get('/dashboard/authenticated', (req, res) => {
                 }
                 // Show waiting status
                 if (contract.status === 'active' && contract.depositPaid && !contract.documentsUploaded) {
-                    buttons += '<span class="btn small" style="background: #6b7280; cursor: default;">⏳ Awaiting Shipping Docs</span>';
+                    buttons += '<span class="btn small" style="background: #6b7280; cursor: default;">Awaiting Shipping Docs</span>';
                 }
             } else if (userRole === 'supplier') {
                 // Step 2: Confirm Contract
@@ -1603,7 +1603,7 @@ app.get('/dashboard/authenticated', (req, res) => {
                 }
                 // Show waiting for deposit
                 if (contract.status === 'pending_deposit') {
-                    buttons += '<span class="btn small" style="background: #6b7280; cursor: default;">⏳ Awaiting Buyer Deposit</span>';
+                    buttons += '<span class="btn small" style="background: #6b7280; cursor: default;">Awaiting Buyer Deposit</span>';
                 }
             } else if (userRole === 'trader') {
                 // Traders can act as both buyer and supplier
@@ -1658,12 +1658,12 @@ app.get('/dashboard/authenticated', (req, res) => {
         }
         
         async function payDeposit(id, amount) {
-            console.log('💰 payDeposit called with id:', id, 'amount:', amount);
+            console.log('payDeposit called with id:', id, 'amount:', amount);
             // Check if MetaMask is available for blockchain payment
             if (typeof window.ethereum !== 'undefined') {
                 try {
                     // Ask user if they want to use MetaMask
-                    const useMetaMask = confirm('🦊 MetaMask Detected! Pay deposit using blockchain with MetaMask?');
+                    const useMetaMask = confirm('MetaMask Detected! Pay deposit using blockchain with MetaMask?');
                     
                     if (useMetaMask) {
                         // Connect to MetaMask
@@ -1678,7 +1678,7 @@ app.get('/dashboard/authenticated', (req, res) => {
                         const sepoliaChainId = '0xaa36a7';
                         
                         if (chainId !== sepoliaChainId) {
-                            alert('⚠️ Please switch to Sepolia testnet in MetaMask');
+                            alert('Please switch to Sepolia testnet in MetaMask');
                             await window.ethereum.request({
                                 method: 'wallet_switchEthereumChain',
                                 params: [{ chainId: sepoliaChainId }]
@@ -1705,7 +1705,7 @@ app.get('/dashboard/authenticated', (req, res) => {
                 
                 const result = await response.json();
                 if (result.success) {
-                    alert('💰 Deposit paid successfully! Contract is now active.');
+                    alert('Deposit paid successfully! Contract is now active.');
                     location.reload();
                 } else {
                     // Enhanced error handling
