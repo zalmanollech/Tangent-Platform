@@ -1581,12 +1581,12 @@ app.get('/dashboard/authenticated', (req, res) => {
                 // Step 1: Pay Deposit (10-30% of total value)
                 if (contract.status === 'pending_deposit' || contract.status === 'pending_buyer_confirmation') {
                     const depositAmount = Math.round(contract.totalValue * 0.20); // 20% deposit
-                    buttons += '<button class="btn secondary small" onclick="payDeposit(\\''+contract.id+'\\', '+depositAmount+')" style="background: #f59e0b;">💰 Pay Deposit ($'+depositAmount.toLocaleString()+')</button>';
+                    buttons += '<button class="btn secondary small" onclick="payDeposit(\''+contract.id+'\', '+depositAmount+')" style="background: #f59e0b;">💰 Pay Deposit ($'+depositAmount.toLocaleString()+')</button>';
                 }
                 // Step 4: Release Remaining Payment (Against Documents)
                 if (contract.status === 'active' && contract.depositPaid && contract.documentsUploaded) {
                     const remainingAmount = contract.totalValue - (contract.depositAmount || Math.round(contract.totalValue * 0.20));
-                    buttons += '<button class="btn secondary small" onclick="releasePayment(\\''+contract.id+'\\', '+remainingAmount+')" style="background: #10b981;">📄 Release Payment ($'+remainingAmount.toLocaleString()+')</button>';
+                    buttons += '<button class="btn secondary small" onclick="releasePayment(\''+contract.id+'\', '+remainingAmount+')" style="background: #10b981;">📄 Release Payment ($'+remainingAmount.toLocaleString()+')</button>';
                 }
                 // Show waiting status
                 if (contract.status === 'active' && contract.depositPaid && !contract.documentsUploaded) {
@@ -1595,11 +1595,11 @@ app.get('/dashboard/authenticated', (req, res) => {
             } else if (userRole === 'supplier') {
                 // Step 2: Confirm Contract
                 if (contract.status === 'pending_supplier_confirmation') {
-                    buttons += '<button class="btn secondary small" onclick="confirmContract(\\''+contract.id+'\\')">✅ Confirm Contract</button>';
+                    buttons += '<button class="btn secondary small" onclick="confirmContract(\''+contract.id+'\')">✅ Confirm Contract</button>';
                 }
                 // Step 3: Upload Shipping Documents (after deposit received)
                 if (contract.status === 'active' && contract.depositPaid && !contract.documentsUploaded) {
-                    buttons += '<button class="btn secondary small" onclick="uploadDocuments(\\''+contract.id+'\\')">🚢 Upload Shipping Docs</button>';
+                    buttons += '<button class="btn secondary small" onclick="uploadDocuments(\''+contract.id+'\')">🚢 Upload Shipping Docs</button>';
                 }
                 // Show waiting for deposit
                 if (contract.status === 'pending_deposit') {
@@ -1609,23 +1609,23 @@ app.get('/dashboard/authenticated', (req, res) => {
                 // Traders can act as both buyer and supplier
                 // Supplier actions
                 if (contract.status === 'pending_supplier_confirmation') {
-                    buttons += '<button class="btn secondary small" onclick="confirmContract(\\''+contract.id+'\\')">✅ Confirm as Supplier</button>';
+                    buttons += '<button class="btn secondary small" onclick="confirmContract(\''+contract.id+'\')">✅ Confirm as Supplier</button>';
                 }
                 if (contract.status === 'active' && contract.depositPaid && !contract.documentsUploaded) {
-                    buttons += '<button class="btn secondary small" onclick="uploadDocuments(\\''+contract.id+'\\')">🚢 Upload Shipping Docs</button>';
+                    buttons += '<button class="btn secondary small" onclick="uploadDocuments(\''+contract.id+'\')">🚢 Upload Shipping Docs</button>';
                 }
                 
                 // Buyer actions
                 if (contract.status === 'pending_deposit' || contract.status === 'pending_buyer_confirmation') {
                     const depositAmount = Math.round(contract.totalValue * 0.20);
-                    buttons += '<button class="btn secondary small" onclick="payDeposit(\\''+contract.id+'\\', '+depositAmount+')" style="background: #f59e0b;">💰 Pay Deposit ($'+depositAmount.toLocaleString()+')</button>';
+                    buttons += '<button class="btn secondary small" onclick="payDeposit(\''+contract.id+'\', '+depositAmount+')" style="background: #f59e0b;">💰 Pay Deposit ($'+depositAmount.toLocaleString()+')</button>';
                 }
                 if (contract.status === 'active' && contract.depositPaid && contract.documentsUploaded) {
                     const remainingAmount = contract.totalValue - (contract.depositAmount || Math.round(contract.totalValue * 0.20));
-                    buttons += '<button class="btn secondary small" onclick="releasePayment(\\''+contract.id+'\\', '+remainingAmount+')" style="background: #10b981;">📄 Release Payment ($'+remainingAmount.toLocaleString()+')</button>';
+                    buttons += '<button class="btn secondary small" onclick="releasePayment(\''+contract.id+'\', '+remainingAmount+')" style="background: #10b981;">📄 Release Payment ($'+remainingAmount.toLocaleString()+')</button>';
                 }
                 
-                buttons += '<button class="btn secondary small" onclick="manageTraderContract(\\''+contract.id+'\\')">🔄 Dual Contract</button>';
+                buttons += '<button class="btn secondary small" onclick="manageTraderContract(\''+contract.id+'\')">🔄 Dual Contract</button>';
             }
             
             return buttons;
