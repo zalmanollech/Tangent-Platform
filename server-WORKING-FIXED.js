@@ -7,19 +7,87 @@ const nodemailer = require('nodemailer');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const session = require('express-session');
+const { spawn } = require('child_process');
 
 // TANGENT-BRIDGE-v4 Credit Risk Integration - Production Safe
 let creditIntegration = null;
 let creditServiceAvailable = false;
+let creditServiceProcess = null; // For auto-start functionality
 
 // Insurance Integration - Production Safe
 let insuranceIntegration = null;
 let insuranceServiceAvailable = false;
 let insuranceServiceProcess = null; // For auto-start functionality
 
+// Function to auto-start credit service
+function startCreditService() {
+    // Always attempt to auto-start credit service (required for automatic credit assessments)
+    // In production, this ensures credit assessments run automatically for all trades
+    
+    try {
+        const creditServicePath = path.join(__dirname, 'credit-service', 'main.py');
+        const isWindows = process.platform === 'win32';
+        
+        console.log('[INFO] Auto-starting Credit Service...');
+        
+        if (isWindows) {
+            creditServiceProcess = spawn('python', ['main.py'], {
+                cwd: path.join(__dirname, 'credit-service'),
+                shell: true,
+                stdio: 'pipe'
+            });
+        } else {
+            creditServiceProcess = spawn('python3', ['main.py'], {
+                cwd: path.join(__dirname, 'credit-service'),
+                shell: true,
+                stdio: 'pipe'
+            });
+        }
+        
+        creditServiceProcess.stdout.on('data', (data) => {
+            const output = data.toString().trim();
+            if (output) {
+                console.log(`[INFO] Credit Service: ${output}`);
+            }
+        });
+        
+        creditServiceProcess.stderr.on('data', (data) => {
+            const error = data.toString().trim();
+            if (error && !error.includes('INFO:') && !error.includes('Application startup') && !error.includes('only one usage')) {
+                console.warn(`[WARN] Credit Service: ${error}`);
+            }
+        });
+        
+        creditServiceProcess.on('error', (error) => {
+            if (error.code === 'ENOENT') {
+                console.warn('[WARN] Python not found. Credit service must be started manually: cd credit-service && python main.py');
+            } else {
+                console.warn('[WARN] Failed to start credit service:', error.message);
+            }
+            creditServiceProcess = null;
+        });
+        
+        creditServiceProcess.on('exit', (code) => {
+            if (code !== 0 && code !== null && code !== 1) {
+                console.warn(`[WARN] Credit service exited with code ${code}`);
+            }
+            creditServiceProcess = null;
+        });
+        
+        console.log('[INFO] Credit service startup initiated');
+        
+    } catch (error) {
+        console.warn('[WARN] Could not auto-start credit service:', error.message);
+        console.log('   To start manually: cd credit-service && python main.py');
+    }
+}
+
 try {
     creditIntegration = require('./credit-integration');
-    console.log('✅ TANGENT-BRIDGE-v4 Credit Integration loaded successfully');
+    console.log('[INFO] Credit Integration loaded successfully');
+    
+    // Auto-start the Python credit service
+    startCreditService();
     
     // Verify credit service is reachable (don't block startup)
     setTimeout(async () => {
@@ -27,40 +95,34 @@ try {
             const status = await creditIntegration.checkCreditServiceHealth();
             creditServiceAvailable = status.status === 'healthy' || status.status === 'disabled';
             if (creditServiceAvailable) {
-                console.log('✅ Credit service verified and available');
+                console.log('[INFO] Credit service verified and available');
             } else {
-                console.log('ℹ️ Credit service not running (optional - credit assessments will be skipped)');
+                console.log('[INFO] Credit service not running (optional - credit assessments will be skipped)');
                 console.log('   To enable credit assessments, start: cd credit-service && python main.py');
                 creditServiceAvailable = false;
             }
         } catch (error) {
-            console.log('ℹ️ Credit service not running (optional - credit assessments will be skipped)');
+            console.log('[INFO] Credit service not running (optional - credit assessments will be skipped)');
             console.log('   To enable credit assessments, start: cd credit-service && python main.py');
             creditServiceAvailable = false;
         }
-    }, 2000); // Check after 2 seconds
+    }, 3000); // Wait 3 seconds for service to start
 } catch (error) {
-    console.warn('⚠️ Credit integration not available:', error.message);
-    console.log('📝 Continuing without credit risk assessment');
+    console.warn('[WARN] Credit integration not available:', error.message);
+    console.log('[INFO] Continuing without credit risk assessment');
     creditIntegration = null;
 }
 
 // Auto-start insurance service
-const { spawn } = require('child_process');
-
 function startInsuranceService() {
-    // Only auto-start in development/local environments
-    // In production (Railway, etc.), services should run as separate services
-    if (process.env.NODE_ENV === 'production' || process.env.RAILWAY_ENVIRONMENT) {
-        console.log('ℹ️ Insurance service auto-start skipped in production (use separate service)');
-        return;
-    }
+    // Always attempt to auto-start insurance service (required for insurance quotes)
+    // In production, this ensures insurance quotes are available automatically
     
     try {
         const insuranceServicePath = path.join(__dirname, 'insurance-service', 'main.py');
         const isWindows = process.platform === 'win32';
         
-        console.log('🚀 Auto-starting Insurance Service...');
+        console.log('[INFO] Auto-starting Insurance Service...');
         
         if (isWindows) {
             // Windows: use python command
@@ -81,37 +143,37 @@ function startInsuranceService() {
         insuranceServiceProcess.stdout.on('data', (data) => {
             const output = data.toString().trim();
             if (output) {
-                console.log(`📊 Insurance Service: ${output}`);
+                console.log(`[INFO] Insurance Service: ${output}`);
             }
         });
         
         insuranceServiceProcess.stderr.on('data', (data) => {
             const error = data.toString().trim();
-            if (error && !error.includes('INFO:') && !error.includes('Application startup')) {
-                console.warn(`⚠️ Insurance Service: ${error}`);
+            if (error && !error.includes('INFO:') && !error.includes('Application startup') && !error.includes('only one usage')) {
+                console.warn(`[WARN] Insurance Service: ${error}`);
             }
         });
         
         insuranceServiceProcess.on('error', (error) => {
             if (error.code === 'ENOENT') {
-                console.warn('⚠️ Python not found. Insurance service must be started manually: cd insurance-service && python main.py');
+                console.warn('[WARN] Python not found. Insurance service must be started manually: cd insurance-service && python main.py');
             } else {
-                console.warn('⚠️ Failed to start insurance service:', error.message);
+                console.warn('[WARN] Failed to start insurance service:', error.message);
             }
             insuranceServiceProcess = null;
         });
         
         insuranceServiceProcess.on('exit', (code) => {
-            if (code !== 0 && code !== null) {
-                console.warn(`⚠️ Insurance service exited with code ${code}`);
+            if (code !== 0 && code !== null && code !== 1) {
+                console.warn(`[WARN] Insurance service exited with code ${code}`);
             }
             insuranceServiceProcess = null;
         });
         
-        console.log('✅ Insurance service startup initiated');
+        console.log('[INFO] Insurance service startup initiated');
         
     } catch (error) {
-        console.warn('⚠️ Could not auto-start insurance service:', error.message);
+        console.warn('[WARN] Could not auto-start insurance service:', error.message);
         console.log('   To start manually: cd insurance-service && python main.py');
     }
 }
@@ -119,7 +181,7 @@ function startInsuranceService() {
 // Load Insurance Integration
 try {
     insuranceIntegration = require('./insurance-integration');
-    console.log('✅ Insurance Integration loaded successfully');
+    console.log('[INFO] Insurance Integration loaded successfully');
     
     // Auto-start the Python service
     startInsuranceService();
@@ -130,21 +192,21 @@ try {
             const status = await insuranceIntegration.checkInsuranceServiceHealth();
             insuranceServiceAvailable = status.status === 'healthy';
             console.log(insuranceServiceAvailable ? 
-                '✅ Insurance service verified and available' : 
-                '⚠️ Insurance service not healthy: ' + status.message);
-        } catch (error) {
-            console.warn('⚠️ Insurance service health check failed:', error.message);
-            console.log('   The service may still be starting. It will be available shortly.');
-            insuranceServiceAvailable = false;
-        }
-    }, 5000); // Increased to 5 seconds to allow Python service to fully start
-} catch (error) {
-    console.warn('⚠️ Insurance integration not available:', error.message);
-    console.log('📝 Continuing without insurance quotes');
-    insuranceIntegration = null;
-}
+                '[INFO] Insurance service verified and available' : 
+                '[WARN] Insurance service not healthy: ' + status.message);
+            } catch (error) {
+                console.warn('[WARN] Insurance service health check failed:', error.message);
+                console.log('[INFO] The service may still be starting. It will be available shortly.');
+                insuranceServiceAvailable = false;
+            }
+        }, 5000); // Increased to 5 seconds to allow Python service to fully start
+    } catch (error) {
+        console.warn('[WARN] Insurance integration not available:', error.message);
+        console.log('[INFO] Continuing without insurance quotes');
+        insuranceIntegration = null;
+    }
 
-console.log('🚀 Starting Tangent Complete Production Platform...');
+console.log('[INFO] Starting Tradeaify Complete Production Platform...');
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -159,23 +221,23 @@ try {
     
     // Initialize blockchain if enabled and service is available
     if (process.env.BLOCKCHAIN_ENABLED === 'true' && blockchainService) {
-        console.log('🔗 Initializing blockchain integration...');
+        console.log('[INFO] Initializing blockchain integration...');
         blockchainService.initialize().then((service) => {
             blockchain = service;
             if (service.isInitialized) {
-                console.log('✅ Blockchain service initialized successfully');
+                console.log('[INFO] Blockchain service initialized successfully');
             } else {
-                console.log('⚠️ Blockchain service failed to initialize, using simulation mode');
+                console.log('[INFO] Blockchain service failed to initialize, using simulation mode');
             }
         }).catch(error => {
-            console.error('❌ Blockchain initialization error:', error.message);
-            console.log('⚠️ Continuing with simulated blockchain operations');
+            console.error('[ERROR] Blockchain initialization error:', error.message);
+            console.log('[INFO] Continuing with simulated blockchain operations');
         });
     } else {
-        console.log('📝 Blockchain disabled in configuration, using simulation mode');
+        console.log('[INFO] Blockchain disabled in configuration, using simulation mode');
     }
 } catch (error) {
-    console.warn('⚠️ Blockchain service not available, using simulation mode:', error.message);
+    console.warn('[INFO] Blockchain service not available, using simulation mode:', error.message);
     blockchain = null;
     blockchainService = null;
 }
@@ -309,7 +371,7 @@ function initializePoolWallet() {
             }]
         };
         database.wallets.set('pool-wallet', poolWallet);
-        console.log('🏦 Pool Wallet initialized: $5,000,000 TGT balance');
+        console.log('[INFO] Pool Wallet initialized: $5,000,000 TGT balance');
     }
     
     if (!database.wallets.has('fee-wallet')) {
@@ -322,7 +384,7 @@ function initializePoolWallet() {
             transactions: []
         };
         database.wallets.set('fee-wallet', feeWallet);
-        console.log('🏦 Fee Collection Wallet initialized');
+        console.log('[INFO] Fee Collection Wallet initialized');
     }
 }
 
@@ -810,47 +872,47 @@ function getFullKYCPageHTML(userEmail, token) {
   </script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>KYC Verification - Tangent Protocol</title>
+  <title>KYC Verification - Tradeaify</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: system-ui, -apple-system, sans-serif; background: #0f172a; color: #f8fafc; min-height: 100vh; }
-        .header { background: #1e293b; padding: 2rem; border-bottom: 1px solid #334155; }
+        body { font-family: system-ui, -apple-system, sans-serif; background: #000000; color: #ffffff; min-height: 100vh; }
+        .header { background: #1a1a1a; padding: 2rem; border-bottom: 1px solid #333333; }
         .header-content { max-width: 1200px; margin: 0 auto; text-align: center; }
-        .header h1 { color: #2563eb; font-size: 2.5rem; margin-bottom: 1rem; }
+        .header h1 { color: #ffffff; font-size: 2.5rem; margin-bottom: 1rem; }
         .main-content { max-width: 900px; margin: 0 auto; padding: 2rem; }
-        .step { background: #1e293b; padding: 40px; border-radius: 12px; border: 1px solid #334155; margin-bottom: 20px; display: none; }
+        .step { background: #1a1a1a; padding: 40px; border-radius: 12px; border: 1px solid #333333; margin-bottom: 20px; display: none; }
         .step.active { display: block; }
-        .step h2 { color: #06b6d4; margin-bottom: 30px; text-align: center; }
+        .step h2 { color: #ffffff; margin-bottom: 30px; text-align: center; }
         .company-type-selector { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-bottom: 30px; }
-        .company-card { background: #0f172a; border: 2px solid #334155; border-radius: 12px; padding: 30px; text-align: center; cursor: pointer; transition: all 0.3s; }
-        .company-card:hover { border-color: #2563eb; transform: translateY(-5px); }
-        .company-card.selected { border-color: #10b981; background: #064e3b; }
-        .company-card h3 { color: #f59e0b; margin-bottom: 15px; font-size: 1.5rem; }
-        .company-card p { color: #94a3b8; line-height: 1.6; }
+        .company-card { background: #0a0a0a; border: 2px solid #333333; border-radius: 12px; padding: 30px; text-align: center; cursor: pointer; transition: all 0.3s; }
+        .company-card:hover { border-color: #ffffff; transform: translateY(-5px); }
+        .company-card.selected { border-color: #ffffff; background: #1a1a1a; }
+        .company-card h3 { color: #ffffff; margin-bottom: 15px; font-size: 1.5rem; }
+        .company-card p { color: #888888; line-height: 1.6; }
         .form-group { margin-bottom: 20px; }
-        .form-group label { display: block; color: #f59e0b; font-weight: 600; margin-bottom: 8px; }
-        .form-group input, .form-group select { width: 100%; padding: 12px; background: #0f172a; border: 1px solid #334155; border-radius: 8px; color: #f8fafc; }
-        .form-group input:focus, .form-group select:focus { border-color: #2563eb; outline: none; }
+        .form-group label { display: block; color: #ffffff; font-weight: 600; margin-bottom: 8px; }
+        .form-group input, .form-group select { width: 100%; padding: 12px; background: #0a0a0a; border: 1px solid #333333; border-radius: 8px; color: #ffffff; }
+        .form-group input:focus, .form-group select:focus { border-color: #ffffff; outline: none; }
         .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-        .file-upload { border: 2px dashed #334155; padding: 40px; text-align: center; border-radius: 8px; background: #0f172a; margin-bottom: 20px; }
-        .file-upload.dragover { border-color: #2563eb; background: #1e293b; }
+        .file-upload { border: 2px dashed #333333; padding: 40px; text-align: center; border-radius: 8px; background: #0a0a0a; margin-bottom: 20px; }
+        .file-upload.dragover { border-color: #ffffff; background: #1a1a1a; }
         .file-upload input[type="file"] { display: none; }
-        .upload-btn { background: #2563eb; color: white; padding: 12px 24px; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; }
-        .upload-btn:hover { background: #1d4ed8; }
+        .upload-btn { background: #ffffff; color: #000000; padding: 12px 24px; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; }
+        .upload-btn:hover { background: #cccccc; }
         .file-list { margin-top: 15px; }
-        .file-item { background: #1e293b; padding: 10px; border-radius: 6px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
-        .remove-file { background: #ef4444; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 0.8rem; }
-        .btn { display: inline-block; padding: 15px 30px; background: #10b981; color: white; text-decoration: none; border-radius: 8px; font-weight: 600; margin: 10px 10px 0 0; cursor: pointer; border: none; font-size: 1.1rem; }
-        .btn:hover { background: #059669; }
-        .btn-secondary { background: #64748b; }
-        .btn-secondary:hover { background: #475569; }
-        .logout-btn { background: #ef4444; color: white; padding: 0.5rem 1rem; border-radius: 6px; text-decoration: none; position: absolute; top: 2rem; right: 2rem; }
+        .file-item { background: #1a1a1a; padding: 10px; border-radius: 6px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
+        .remove-file { background: #666666; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 0.8rem; }
+        .btn { display: inline-block; padding: 15px 30px; background: #ffffff; color: #000000; text-decoration: none; border-radius: 8px; font-weight: 600; margin: 10px 10px 0 0; cursor: pointer; border: none; font-size: 1.1rem; }
+        .btn:hover { background: #cccccc; }
+        .btn-secondary { background: #666666; color: #ffffff; }
+        .btn-secondary:hover { background: #555555; }
+        .logout-btn { background: #666666; color: white; padding: 0.5rem 1rem; border-radius: 6px; text-decoration: none; position: absolute; top: 2rem; right: 2rem; }
         .progress-indicator { display: flex; justify-content: center; margin-bottom: 30px; }
-        .progress-step { padding: 10px 20px; background: #334155; color: #94a3b8; border-radius: 6px; margin: 0 5px; }
-        .progress-step.active { background: #2563eb; color: white; }
-        .progress-step.completed { background: #10b981; color: white; }
+        .progress-step { padding: 10px 20px; background: #333333; color: #888888; border-radius: 6px; margin: 0 5px; }
+        .progress-step.active { background: #ffffff; color: #000000; }
+        .progress-step.completed { background: #666666; color: #ffffff; }
         .checking-status { text-align: center; padding: 40px; }
-        .spinner { border: 3px solid #334155; border-top: 3px solid #2563eb; border-radius: 50%; width: 50px; height: 50px; animation: spin 1s linear infinite; margin: 0 auto 20px; }
+        .spinner { border: 3px solid #333333; border-top: 3px solid #ffffff; border-radius: 50%; width: 50px; height: 50px; animation: spin 1s linear infinite; margin: 0 auto 20px; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         .hidden { display: none; }
     </style>
@@ -860,7 +922,7 @@ function getFullKYCPageHTML(userEmail, token) {
     
     <div class="header">
         <div class="header-content">
-            <h1>🔍 KYC Verification</h1>
+            <h1>KYC Verification</h1>
             <p>Complete your Know Your Customer verification to access the trading platform</p>
         </div>
     </div>
@@ -1386,7 +1448,7 @@ app.get('/dashboard', (req, res) => {
         </script>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Dashboard - Tangent Protocol</title>
+        <title>Dashboard - Tradeaify</title>
     </head>
     <body>
         <div id="loadingMessage">Loading dashboard...</div>
@@ -1491,29 +1553,29 @@ app.get('/dashboard/authenticated', (req, res) => {
     </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>${safeRole.charAt(0).toUpperCase() + safeRole.slice(1)} Dashboard - Tangent Protocol</title>
+    <title>${safeRole.charAt(0).toUpperCase() + safeRole.slice(1)} Dashboard - Tradeaify</title>
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0f172a; color: #f8fafc; margin: 0; padding: 20px; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #000000; color: #ffffff; margin: 0; padding: 20px; }
         .container { max-width: 1200px; margin: 0 auto; }
-        .header { background: #1e293b; padding: 20px; border-radius: 12px; margin-bottom: 30px; border: 1px solid #334155; display: flex; justify-content: space-between; align-items: center; }
-        .header h1 { color: #2563eb; margin: 0; font-size: 2rem; }
-        .role-badge { background: #06b6d4; color: white; padding: 8px 16px; border-radius: 20px; font-size: 0.9rem; font-weight: 600; }
-        .contracts-section { background: #1e293b; padding: 30px; border-radius: 12px; border: 1px solid #334155; margin-bottom: 30px; }
+        .header { background: #1a1a1a; padding: 20px; border-radius: 12px; margin-bottom: 30px; border: 1px solid #333333; display: flex; justify-content: space-between; align-items: center; }
+        .header h1 { color: #ffffff; margin: 0; font-size: 2rem; }
+        .role-badge { background: #666666; color: white; padding: 8px 16px; border-radius: 20px; font-size: 0.9rem; font-weight: 600; }
+        .contracts-section { background: #1a1a1a; padding: 30px; border-radius: 12px; border: 1px solid #333333; margin-bottom: 30px; }
         .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-        .section-title { color: #06b6d4; font-size: 1.5rem; margin: 0; }
-        .btn { background: #2563eb; color: white; padding: 12px 24px; border: none; border-radius: 8px; cursor: pointer; text-decoration: none; font-size: 1rem; font-weight: 600; transition: all 0.3s ease; display: inline-block; }
-        .btn:hover { background: #1d4ed8; transform: translateY(-2px); }
-        .btn.secondary { background: #10b981; }
-        .btn.secondary:hover { background: #059669; }
+        .section-title { color: #ffffff; font-size: 1.5rem; margin: 0; }
+        .btn { background: #ffffff; color: #000000; padding: 12px 24px; border: none; border-radius: 8px; cursor: pointer; text-decoration: none; font-size: 1rem; font-weight: 600; transition: all 0.3s ease; display: inline-block; }
+        .btn:hover { background: #cccccc; transform: translateY(-2px); }
+        .btn.secondary { background: #666666; color: #ffffff; }
+        .btn.secondary:hover { background: #555555; }
         .btn.small { font-size: 0.8rem; padding: 6px 12px; margin-right: 5px; }
         .contracts-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        .contracts-table th, .contracts-table td { padding: 12px; text-align: left; border-bottom: 1px solid #334155; }
-        .contracts-table th { background: #0f172a; color: #06b6d4; font-weight: 600; }
-        .status-pending, .status-pending-deposit, .status-pending-supplier-confirmation, .status-pending-buyer-confirmation { background: #f59e0b; color: #000; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; }
-        .status-active { background: #10b981; color: #000; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; }
-        .status-completed { background: #06b6d4; color: #000; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; }
-        .empty-state { text-align: center; padding: 40px; color: #94a3b8; }
-        .logout-btn { background: #ef4444; color: white; padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer; text-decoration: none; font-size: 0.9rem; }
+        .contracts-table th, .contracts-table td { padding: 12px; text-align: left; border-bottom: 1px solid #333333; }
+        .contracts-table th { background: #0a0a0a; color: #ffffff; font-weight: 600; }
+        .status-pending, .status-pending-deposit, .status-pending-supplier-confirmation, .status-pending-buyer-confirmation { background: #666666; color: #ffffff; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; }
+        .status-active { background: #888888; color: #000000; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; }
+        .status-completed { background: #666666; color: #ffffff; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; }
+        .empty-state { text-align: center; padding: 40px; color: #888888; }
+        .logout-btn { background: #666666; color: white; padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer; text-decoration: none; font-size: 0.9rem; }
     </style>
 </head>
 <body>
@@ -2000,7 +2062,7 @@ app.get('/signin', (req, res) => {
         </script>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Sign In - Tangent Protocol</title>
+        <title>Sign In - Tradeaify</title>
         <style>
             * { margin: 0; padding: 0; box-sizing: border-box; }
             body { 
@@ -2135,7 +2197,7 @@ app.get('/signup', (req, res) => {
         </script>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Sign Up - Tangent Protocol</title>
+        <title>Sign Up - Tradeaify</title>
         <style>
             * { margin: 0; padding: 0; box-sizing: border-box; }
             body { 
@@ -2410,12 +2472,12 @@ app.get('/', (req, res) => {
         </script>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Tangent Protocol — Advanced Trading Platform & TGT Stablecoin</title>
+  <title>Tradeaify — Advanced Trading Platform & TGT Stablecoin</title>
         <style>
             body { 
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
-      background: #0f172a; 
-      color: #f8fafc; 
+      background: #000000; 
+      color: #ffffff; 
       margin: 0; 
       padding: 0; 
             }
@@ -2432,14 +2494,11 @@ app.get('/', (req, res) => {
       font-size: 4rem; 
                 font-weight: 700;
       margin-bottom: 20px; 
-      background: linear-gradient(135deg, #2563eb, #06b6d4); 
-      -webkit-background-clip: text; 
-      -webkit-text-fill-color: transparent; 
-      background-clip: text; 
+      color: #ffffff; 
             }
             .subtitle {
       font-size: 1.5rem; 
-      color: #94a3b8; 
+      color: #888888; 
       margin-bottom: 40px; 
     }
     .main-content { 
@@ -2449,25 +2508,20 @@ app.get('/', (req, res) => {
       margin: 80px 0; 
     }
     .platform-section, .tgt-section { 
-      background: #1e293b; 
+      background: #1a1a1a; 
       padding: 50px; 
       border-radius: 20px; 
-      border: 1px solid #334155; 
+      border: 1px solid #333333; 
       text-align: center; 
     }
     .platform-section h2, .tgt-section h2 { 
       font-size: 2.5rem; 
       margin-bottom: 30px; 
-    }
-    .platform-section h2 { 
-      color: #2563eb; 
-    }
-    .tgt-section h2 { 
-      color: #06b6d4; 
+      color: #ffffff; 
     }
     .section-description { 
                 font-size: 1.2rem;
-      color: #94a3b8; 
+      color: #888888; 
       margin-bottom: 40px; 
                 line-height: 1.6;
             }
@@ -2481,16 +2535,16 @@ app.get('/', (req, res) => {
     }
     .features-list li { 
       padding: 12px 0; 
-      color: #cbd5e1; 
+      color: #cccccc; 
                 font-size: 1.1rem;
-      border-bottom: 1px solid #334155; 
+      border-bottom: 1px solid #333333; 
     }
     .features-list li:last-child { 
       border-bottom: none; 
     }
     .features-list li::before { 
-      content: "✓ "; 
-      color: #10b981; 
+      content: "- "; 
+      color: #888888; 
       font-weight: bold; 
       margin-right: 10px; 
     }
@@ -2498,25 +2552,25 @@ app.get('/', (req, res) => {
       margin-top: 80px; 
       text-align: center; 
       padding: 50px; 
-      background: #1e293b; 
+      background: #1a1a1a; 
       border-radius: 16px; 
-      border: 1px solid #334155; 
+      border: 1px solid #333333; 
     }
     .registration-section h3 { 
-      color: #2563eb; 
+      color: #ffffff; 
       margin-bottom: 20px; 
       font-size: 2rem; 
     }
     .registration-section p { 
-      color: #94a3b8; 
+      color: #888888; 
       margin-bottom: 30px; 
       font-size: 1.2rem; 
             }
             .btn {
       display: inline-block; 
       padding: 15px 30px; 
-      background: #2563eb; 
-      color: white; 
+      background: #ffffff; 
+      color: #000000; 
       text-decoration: none; 
       border-radius: 12px; 
       margin: 10px; 
@@ -2525,18 +2579,19 @@ app.get('/', (req, res) => {
       font-size: 16px; 
       font-weight: 600; 
                 transition: all 0.3s ease;
-      box-shadow: 0 4px 15px rgba(37, 99, 235, 0.3); 
+      box-shadow: 0 4px 15px rgba(255, 255, 255, 0.1); 
     }
     .btn:hover { 
-      background: #1d4ed8; 
+      background: #cccccc; 
                 transform: translateY(-2px);
-      box-shadow: 0 6px 20px rgba(37, 99, 235, 0.4); 
+      box-shadow: 0 6px 20px rgba(255, 255, 255, 0.2); 
     }
     .btn.secondary { 
-      background: #06b6d4; 
+      background: #666666; 
+      color: #ffffff; 
     }
     .btn.secondary:hover { 
-      background: #0891b2; 
+      background: #555555; 
     }
     @media (max-width: 768px) { 
       h1 { font-size: 2.5rem; } 
@@ -2549,14 +2604,14 @@ app.get('/', (req, res) => {
     <body>
         <div class="container">
     <div class="header">
-      <h1>Tangent Protocol</h1>
+      <h1>Tradeaify</h1>
       <p class="subtitle">Advanced Trading Platform & TGT Stablecoin</p>
             </div>
             
     <div class="main-content">
       <!-- Platform Section -->
       <div class="platform-section">
-        <h2>🚀 Trading Platform</h2>
+        <h2>Trading Platform</h2>
         <p class="section-description">
           Experience next-generation trading with institutional-grade tools, real-time analytics, and seamless execution.
         </p>
@@ -2574,7 +2629,7 @@ app.get('/', (req, res) => {
       
       <!-- TGT Stablecoin Section -->
       <div class="tgt-section">
-        <h2>💎 TGT Stablecoin</h2>
+        <h2>TGT Stablecoin</h2>
         <p class="section-description">
           Discover the benefits of our innovative TGT stablecoin - designed for stability, transparency, and seamless integration.
         </p>
@@ -2593,7 +2648,7 @@ app.get('/', (req, res) => {
     
     <!-- Registration Section -->
     <div class="registration-section">
-      <h3>Get Started with Tangent Protocol</h3>
+      <h3>Get Started with Tradeaify</h3>
       <p>Join the future of trading and discover the power of TGT stablecoin</p>
       <div style="margin: 30px 0;">
         <button class="btn" onclick="window.location.href='/register'">Register Interest (Early Access)</button>
@@ -2602,9 +2657,9 @@ app.get('/', (req, res) => {
             </div>
             
     <!-- Team Access Section -->
-    <div style="text-align: center; margin-top: 40px; padding: 30px; border-top: 1px solid #334155; background: rgba(6, 182, 212, 0.05);">
-      <p style="color: #94a3b8; font-size: 1rem; margin-bottom: 15px;">👥 Team members & new users</p>
-      <a href="/landing-two" style="color: #06b6d4; text-decoration: none; font-size: 1rem; padding: 12px 24px; border: 2px solid #06b6d4; border-radius: 8px; transition: all 0.3s; font-weight: 500;" onmouseover="this.style.background='#06b6d4'; this.style.color='white'; this.style.transform='translateY(-2px)'" onmouseout="this.style.background='transparent'; this.style.color='#06b6d4'; this.style.transform='translateY(0)'">Team Portal</a>
+    <div style="text-align: center; margin-top: 40px; padding: 30px; border-top: 1px solid #333333; background: rgba(255, 255, 255, 0.05);">
+      <p style="color: #888888; font-size: 1rem; margin-bottom: 15px;">Team members & new users</p>
+      <a href="/landing-two" style="color: #ffffff; text-decoration: none; font-size: 1rem; padding: 12px 24px; border: 2px solid #ffffff; border-radius: 8px; transition: all 0.3s; font-weight: 500;" onmouseover="this.style.background='#ffffff'; this.style.color='#000000'; this.style.transform='translateY(-2px)'" onmouseout="this.style.background='transparent'; this.style.color='#ffffff'; this.style.transform='translateY(0)'">Team Portal</a>
             </div>
         </div>
     </body>
@@ -2622,7 +2677,7 @@ app.get('/wallet-setup', authenticateToken, (req, res) => {
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Wallet Setup - Tangent Protocol</title>
+        <title>Wallet Setup - Tradeaify</title>
         <style>
             * { margin: 0; padding: 0; box-sizing: border-box; }
             body { 
@@ -3050,7 +3105,7 @@ app.get('/landing-two', (req, res) => {
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Tangent Protocol - Access Portal</title>
+        <title>Tradeaify - Access Portal</title>
         <style>
             * { margin: 0; padding: 0; box-sizing: border-box; }
             body { 
@@ -3154,7 +3209,7 @@ app.get('/landing-two', (req, res) => {
     </head>
     <body>
         <div class="container">
-            <h1>🎯 Welcome to Tangent</h1>
+            <h1>Welcome to Tradeaify</h1>
             <p class="subtitle">Access Your Trading Platform</p>
             
             <div class="welcome-message">
@@ -3730,8 +3785,8 @@ app.get('/register', (req, res) => {
             </div>
             
             <div id="registrationForm">
-                <h1>🚀 Register Interest</h1>
-                <p class="subtitle">Join the waiting list for early access to Tangent Protocol</p>
+                <h1>Register Interest</h1>
+                <p class="subtitle">Join the waiting list for early access to Tradeaify</p>
                 
                 <form id="interestForm">
                     <div class="form-group">
@@ -4014,7 +4069,7 @@ let freeSanctionsAPI = null;
 // Try to load the free sanctions API module
 try {
     freeSanctionsAPI = require('./lib/free-sanctions-api');
-    console.log('✅ Free sanctions API module loaded');
+    console.log('[INFO] Free sanctions API module loaded');
     
     // Initialize OFAC system after module is loaded
     initializeOFAC().then(() => {
@@ -4225,12 +4280,12 @@ function calculateNameSimilarity(str1, str2) {
 // Initialize OFAC data on server startup
 async function initializeOFAC() {
     try {
-        console.log('🔄 Initializing OFAC Sanctions Screening...');
+        console.log('[INFO] Initializing OFAC Sanctions Screening...');
         await downloadOFACData();
-        console.log('✅ OFAC System Ready');
+        console.log('[INFO] OFAC System Ready');
     } catch (error) {
-        console.error('❌ OFAC initialization failed:', error.message);
-        console.log('⚠️ OFAC screening will be disabled');
+        console.error('[ERROR] OFAC initialization failed:', error.message);
+        console.log('[INFO] OFAC screening will be disabled');
     }
 }
 
@@ -5849,91 +5904,130 @@ app.post('/api/contracts/:id/confirm', authenticateToken, (req, res) => {
                 contract.status = 'pending_deposit';
                 
                 // TANGENT-BRIDGE-v4 Credit Risk Assessment Integration
-                // Trigger credit assessment AFTER both parties confirm and payment terms are established
-                if (creditIntegration && creditServiceAvailable && !contract.creditAssessment) {
-                    console.log('🔗 Starting credit risk assessment for confirmed contract:', id);
-                    console.log('📋 Contract terms established - both parties confirmed, payment terms: ' + contract.paymentTerms);
+                // REQUIRED: Trigger credit assessment AFTER both parties confirm and payment terms are established
+                // Credit assessment is MANDATORY for all trades - will wait/retry if service is starting
+                if (creditIntegration && !contract.creditAssessment) {
+                    console.log('[INFO] Starting credit risk assessment for confirmed contract:', id);
+                    console.log('[INFO] Contract terms established - both parties confirmed, payment terms: ' + contract.paymentTerms);
                     
-                    try {
-                        // Get buyer user data for credit assessment
-                        const buyerUser = database.users.get(contract.buyerEmail);
-                        
-                        if (buyerUser) {
-                            // Prepare data for credit assessment
-                            const creditAssessmentData = {
-                                contract: {
-                                    id: id,
-                                    amount: contract.totalValue,
-                                    tenor_days: contract.deliveryDate ? 
-                                        Math.ceil((new Date(contract.deliveryDate) - new Date()) / (1000 * 60 * 60 * 24)) : 30,
-                                    inventory_value: contract.totalValue * 0.8, // Assume 80% inventory coverage
-                                    inventory_type: 'commodity',
-                                    inventory_location: contract.specifications?.destination || 'warehouse',
-                                    buyer_deposit: contract.depositAmount,
-                                    is_exchange_traded: false,
-                                    exchange_name: null,
-                                    exchange_grade: null
-                                },
-                                user: {
-                                    name: buyerUser.name || buyerUser.email,
-                                    company: buyerUser.company || buyerUser.email,
-                                    email: buyerUser.email,
-                                    phone: buyerUser.phone || '',
-                                    country: buyerUser.country || 'Unknown'
-                                }
-                            };
-                            
-                            // Perform credit assessment asynchronously (non-blocking)
-                            creditIntegration.integrateCreditAssessment(
-                                creditAssessmentData.contract, 
-                                creditAssessmentData.user
-                            ).then(result => {
-                                if (result.success) {
-                                    console.log('✅ Credit assessment completed:', {
-                                        contractId: id,
-                                        decision: result.decision,
-                                        riskBand: result.riskBand,
-                                        riskScore: (result.riskScore * 100).toFixed(2) + '%'
-                                    });
-                                    
-                                    // Get updated contract
-                                    const updatedContract = database.contracts.get(id);
-                                    if (updatedContract) {
-                                        updatedContract.creditAssessment = {
-                                            completed: true,
-                                            timestamp: new Date().toISOString(),
-                                            decision: result.decision,
-                                            riskBand: result.riskBand,
-                                            riskScore: result.riskScore,
-                                            entityId: result.entityId,
-                                            tradeId: result.tradeId,
-                                            assessmentDetails: result.assessment || {}
-                                        };
-                                        
-                                        // Update contract in database
-                                        database.contracts.set(id, updatedContract);
-                                    }
-                                    
-                                } else {
-                                    console.warn('⚠️ Credit assessment failed:', result.error || result.reason);
-                                    
-                                    // Add failed assessment to contract metadata
-                                    const updatedContract = database.contracts.get(id);
-                                    if (updatedContract) {
-                                        updatedContract.creditAssessment = {
-                                            completed: false,
-                                            timestamp: new Date().toISOString(),
-                                            error: result.error || result.reason,
-                                            skipped: result.skipped || false
-                                        };
-                                        
-                                        database.contracts.set(id, updatedContract);
-                                    }
-                                }
-                            }).catch(error => {
-                                console.error('❌ Credit assessment error:', error.message);
+                    // Function to attempt credit assessment with retries
+                    const attemptCreditAssessment = async (retries = 5, delay = 3000) => {
+                        for (let i = 0; i < retries; i++) {
+                            try {
+                                // Check if service is available
+                                const status = await creditIntegration.checkCreditServiceHealth();
+                                const serviceReady = status.status === 'healthy' || status.status === 'disabled';
                                 
-                                // Add error to contract metadata
+                                if (serviceReady || !creditServiceAvailable) {
+                                    // Service is ready or we'll try anyway
+                                    creditServiceAvailable = serviceReady;
+                                    
+                                    // Get buyer user data for credit assessment
+                                    const buyerUser = database.users.get(contract.buyerEmail);
+                                    
+                                    if (buyerUser) {
+                                        // Prepare data for credit assessment
+                                        const creditAssessmentData = {
+                                            contract: {
+                                                id: id,
+                                                amount: contract.totalValue,
+                                                tenor_days: contract.deliveryDate ? 
+                                                    Math.ceil((new Date(contract.deliveryDate) - new Date()) / (1000 * 60 * 60 * 24)) : 30,
+                                                inventory_value: contract.totalValue * 0.8, // Assume 80% inventory coverage
+                                                inventory_type: 'commodity',
+                                                inventory_location: contract.specifications?.destination || 'warehouse',
+                                                buyer_deposit: contract.depositAmount,
+                                                is_exchange_traded: false,
+                                                exchange_name: null,
+                                                exchange_grade: null
+                                            },
+                                            user: {
+                                                name: buyerUser.name || buyerUser.email,
+                                                company: buyerUser.company || buyerUser.email,
+                                                email: buyerUser.email,
+                                                phone: buyerUser.phone || '',
+                                                country: buyerUser.country || 'Unknown'
+                                            }
+                                        };
+                                        
+                                        // Perform credit assessment asynchronously (non-blocking)
+                                        const result = await creditIntegration.integrateCreditAssessment(
+                                            creditAssessmentData.contract, 
+                                            creditAssessmentData.user
+                                        );
+                                        
+                                        if (result.success) {
+                                            console.log('[INFO] Credit assessment completed:', {
+                                                contractId: id,
+                                                decision: result.decision,
+                                                riskBand: result.riskBand,
+                                                riskScore: (result.riskScore * 100).toFixed(2) + '%'
+                                            });
+                                            
+                                            // Get updated contract
+                                            const updatedContract = database.contracts.get(id);
+                                            if (updatedContract) {
+                                                updatedContract.creditAssessment = {
+                                                    completed: true,
+                                                    timestamp: new Date().toISOString(),
+                                                    decision: result.decision,
+                                                    riskBand: result.riskBand,
+                                                    riskScore: result.riskScore,
+                                                    entityId: result.entityId,
+                                                    tradeId: result.tradeId,
+                                                    assessmentDetails: result.assessment || {}
+                                                };
+                                                
+                                                // Update contract in database
+                                                database.contracts.set(id, updatedContract);
+                                            }
+                                            
+                                            return; // Success - exit retry loop
+                                        } else {
+                                            console.warn('[WARN] Credit assessment failed:', result.error || result.reason);
+                                            
+                                            // If this is not the last retry, continue
+                                            if (i < retries - 1) {
+                                                console.log(`[INFO] Retrying credit assessment in ${delay/1000}s... (attempt ${i+1}/${retries})`);
+                                                await new Promise(resolve => setTimeout(resolve, delay));
+                                                continue;
+                                            }
+                                            
+                                            // Last retry failed - mark as failed
+                                            const updatedContract = database.contracts.get(id);
+                                            if (updatedContract) {
+                                                updatedContract.creditAssessment = {
+                                                    completed: false,
+                                                    timestamp: new Date().toISOString(),
+                                                    error: result.error || result.reason,
+                                                    skipped: result.skipped || false
+                                                };
+                                                
+                                                database.contracts.set(id, updatedContract);
+                                            }
+                                        }
+                                    } else {
+                                        console.log('[WARN] Buyer user not found for credit assessment:', contract.buyerEmail);
+                                        return; // Exit retry loop
+                                    }
+                                } else {
+                                    // Service not ready - wait and retry
+                                    if (i < retries - 1) {
+                                        console.log(`[INFO] Credit service not ready yet, waiting ${delay/1000}s before retry... (attempt ${i+1}/${retries})`);
+                                        await new Promise(resolve => setTimeout(resolve, delay));
+                                    }
+                                }
+                            } catch (error) {
+                                console.error(`[ERROR] Credit assessment attempt ${i+1} failed:`, error.message);
+                                
+                                // If this is not the last retry, continue
+                                if (i < retries - 1) {
+                                    console.log(`[INFO] Retrying credit assessment in ${delay/1000}s... (attempt ${i+1}/${retries})`);
+                                    await new Promise(resolve => setTimeout(resolve, delay));
+                                    continue;
+                                }
+                                
+                                // Last retry failed - mark as error
                                 const updatedContract = database.contracts.get(id);
                                 if (updatedContract) {
                                     updatedContract.creditAssessment = {
@@ -5944,33 +6038,48 @@ app.post('/api/contracts/:id/confirm', authenticateToken, (req, res) => {
                                     
                                     database.contracts.set(id, updatedContract);
                                 }
-                            });
-                        } else {
-                            console.log('⚠️ Buyer user not found for credit assessment:', contract.buyerEmail);
+                            }
                         }
-                    } catch (integrationError) {
-                        console.error('❌ Credit integration failed unexpectedly:', integrationError.message);
-                        // Contract confirmation still succeeds
-                    }
-                } else if (!creditIntegration || !creditServiceAvailable) {
-                    console.log('📝 Credit assessment skipped - integration not available');
-                } else if (contract.creditAssessment) {
-                    console.log('📝 Credit assessment already completed for contract:', id);
+                        
+                        // If we exhausted all retries and no assessment completed
+                        if (!database.contracts.get(id)?.creditAssessment?.completed) {
+                            console.warn('[WARN] Credit assessment failed after all retries for contract:', id);
+                            const finalContract = database.contracts.get(id);
+                            if (finalContract && !finalContract.creditAssessment) {
+                                finalContract.creditAssessment = {
+                                    completed: false,
+                                    timestamp: new Date().toISOString(),
+                                    error: 'Service unavailable after retries'
+                                };
+                                database.contracts.set(id, finalContract);
+                            }
+                        }
+                    };
+                    
+                    // Start credit assessment with retries (non-blocking)
+                    attemptCreditAssessment().catch(error => {
+                        console.error('[ERROR] Credit assessment retry loop failed:', error.message);
+                    });
+                } else {
+                    console.log('[INFO] Credit assessment already completed for contract:', id);
                 }
-            } else if (contract.supplierConfirmed && !contract.buyerConfirmed) {
+            }
+            
+            if (contract.supplierConfirmed && !contract.buyerConfirmed) {
                 contract.status = 'pending_buyer_confirmation';
-            } else if (!contract.supplierConfirmed && contract.buyerConfirmed) {
+            } 
+            if (!contract.supplierConfirmed && contract.buyerConfirmed) {
                 contract.status = 'pending_supplier_confirmation';
             }
             
-        contract.timeline.push({
+            contract.timeline.push({
                 event: isSupplier ? 'supplier_confirmed' : 'buyer_confirmed',
-            timestamp: new Date().toISOString(),
-            actor: req.user.email,
+                timestamp: new Date().toISOString(),
+                actor: req.user.email,
                 role: isSupplier ? 'supplier' : 'buyer',
-            notes: notes
-        });
-            
+                notes: notes
+            });
+                
             // Add flag for counterparty dashboard
             const flagKey = isSupplier ? 'buyerFlag' : 'supplierFlag';
             contract[flagKey] = {
@@ -7333,49 +7442,49 @@ app.get('/create-contract', authenticateToken, (req, res) => {
   <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Create Contract - Tangent Protocol</title>
+        <title>Create Contract - Tradeaify</title>
     <style>
       * { margin: 0; padding: 0; box-sizing: border-box; }
-      body { font-family: system-ui, -apple-system, sans-serif; background: #0f172a; color: #f8fafc; }
-      .header { background: #1e293b; padding: 2rem; border-bottom: 1px solid #334155; }
+      body { font-family: system-ui, -apple-system, sans-serif; background: #000000; color: #ffffff; }
+      .header { background: #1a1a1a; padding: 2rem; border-bottom: 1px solid #333333; }
       .header-content { max-width: 800px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; }
       .main-content { max-width: 800px; margin: 0 auto; padding: 2rem; }
-      .contract-section { background: #1e293b; border-radius: 12px; padding: 2rem; margin-bottom: 2rem; border: 1px solid #334155; }
+      .contract-section { background: #1a1a1a; border-radius: 12px; padding: 2rem; margin-bottom: 2rem; border: 1px solid #333333; }
       .form-group { margin-bottom: 1.5rem; }
       .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
-      label { display: block; margin-bottom: 0.5rem; color: #f8fafc; font-weight: 600; }
-      input, select, textarea { width: 100%; padding: 12px; background: #0f172a; border: 1px solid #334155; border-radius: 8px; color: #f8fafc; font-size: 1rem; }
-      input:focus, select:focus, textarea:focus { outline: none; border-color: #2563eb; }
-      .btn { display: inline-block; padding: 0.75rem 1.5rem; background: #2563eb; color: white; text-decoration: none; border-radius: 8px; font-weight: 500; border: none; cursor: pointer; margin-right: 1rem; }
-      .btn:hover { background: #1d4ed8; }
-      .btn-secondary { background: #6b7280; }
-      .role-selector { background: #1e293b; padding: 2rem; border-radius: 12px; margin-bottom: 2rem; border: 2px solid #2563eb; box-shadow: 0 8px 16px rgba(37, 99, 235, 0.3); position: relative; }
-      .back-btn { background: #6b7280; }
+      label { display: block; margin-bottom: 0.5rem; color: #ffffff; font-weight: 600; }
+      input, select, textarea { width: 100%; padding: 12px; background: #0a0a0a; border: 1px solid #333333; border-radius: 8px; color: #ffffff; font-size: 1rem; }
+      input:focus, select:focus, textarea:focus { outline: none; border-color: #ffffff; }
+      .btn { display: inline-block; padding: 0.75rem 1.5rem; background: #ffffff; color: #000000; text-decoration: none; border-radius: 8px; font-weight: 500; border: none; cursor: pointer; margin-right: 1rem; }
+      .btn:hover { background: #cccccc; }
+      .btn-secondary { background: #666666; color: #ffffff; }
+      .role-selector { background: #1a1a1a; padding: 2rem; border-radius: 12px; margin-bottom: 2rem; border: 2px solid #ffffff; box-shadow: 0 8px 16px rgba(255, 255, 255, 0.1); position: relative; }
+      .back-btn { background: #666666; color: #ffffff; }
     </style>
   </head>
   <body>
     <div class="header">
       <div class="header-content">
-        <h1 style="color: #2563eb;">📋 Create New Contract</h1>
-        <a href="javascript:history.back()" class="btn back-btn">← Back to Dashboard</a>
+        <h1 style="color: #ffffff;">Create New Contract</h1>
+        <a href="javascript:history.back()" class="btn back-btn">Back to Dashboard</a>
       </div>
     </div>
 
     <div class="main-content">
-      <div class="role-selector" style="background: #1e293b; padding: 2rem; border-radius: 12px; margin-bottom: 2rem; border: 2px solid #2563eb; box-shadow: 0 8px 16px rgba(37, 99, 235, 0.3);">
-        <h2 style="color: #2563eb; margin-bottom: 1rem; text-align: center;">⚡ STEP 1: Select Your Role</h2>
-        <label for="contractRole" style="color: #f8fafc; font-weight: 600; font-size: 1.1rem; display: block; margin-bottom: 0.5rem;">Your Role in this Contract *</label>
-        <select id="contractRole" onchange="updateFormFields()" style="width: 100%; padding: 15px; font-size: 1.1rem; background: #0f172a; border: 2px solid #2563eb; border-radius: 8px; color: #f8fafc;">
-          <option value="">🔽 Select your role to continue</option>
-          <option value="supplier">🏭 Supplier (I'm selling products/commodities)</option>
-          <option value="buyer">🛒 Buyer (I'm purchasing products/commodities)</option>
-          <option value="trader">📈 Trader (I'm facilitating trade between buyer & supplier)</option>
+      <div class="role-selector" style="background: #1a1a1a; padding: 2rem; border-radius: 12px; margin-bottom: 2rem; border: 2px solid #ffffff; box-shadow: 0 8px 16px rgba(255, 255, 255, 0.1);">
+        <h2 style="color: #ffffff; margin-bottom: 1rem; text-align: center;">STEP 1: Select Your Role</h2>
+        <label for="contractRole" style="color: #ffffff; font-weight: 600; font-size: 1.1rem; display: block; margin-bottom: 0.5rem;">Your Role in this Contract *</label>
+        <select id="contractRole" onchange="updateFormFields()" style="width: 100%; padding: 15px; font-size: 1.1rem; background: #0a0a0a; border: 2px solid #ffffff; border-radius: 8px; color: #ffffff;">
+          <option value="">Select your role to continue</option>
+          <option value="supplier">Supplier (I'm selling products/commodities)</option>
+          <option value="buyer">Buyer (I'm purchasing products/commodities)</option>
+          <option value="trader">Trader (I'm facilitating trade between buyer & supplier)</option>
         </select>
-        <p style="color: #94a3b8; font-size: 0.9rem; margin-top: 0.5rem; text-align: center;">⚠️ You must select your role before the counterparty email fields will appear</p>
+        <p style="color: #888888; font-size: 0.9rem; margin-top: 0.5rem; text-align: center;">You must select your role before the counterparty email fields will appear</p>
       </div>
 
       <div class="contract-section">
-        <h2 style="color: #06b6d4; margin-bottom: 2rem;">Contract Details</h2>
+        <h2 style="color: #ffffff; margin-bottom: 2rem;">Contract Details</h2>
         <form id="contractForm">
           <div class="form-group">
             <label for="productDetails">Product Details</label>
@@ -7483,11 +7592,11 @@ app.get('/create-contract', authenticateToken, (req, res) => {
           </div>
           
           <!-- Counterparty Information Section -->
-          <div id="counterpartySection" style="display: none; background: #1e293b; padding: 1.5rem; border-radius: 8px; border: 2px solid #06b6d4; margin: 1rem 0; box-shadow: 0 4px 6px rgba(6, 182, 212, 0.1); animation: slideIn 0.3s ease-in-out;">
-            <h3 style="color: #06b6d4; margin-bottom: 1rem;">⚡ STEP 2: Counterparty Information</h3>
+          <div id="counterpartySection" style="display: none; background: #1a1a1a; padding: 1.5rem; border-radius: 8px; border: 2px solid #ffffff; margin: 1rem 0; box-shadow: 0 4px 6px rgba(255, 255, 255, 0.1); animation: slideIn 0.3s ease-in-out;">
+            <h3 style="color: #ffffff; margin-bottom: 1rem;">STEP 2: Counterparty Information</h3>
             <div class="form-group">
-              <label id="counterpartyLabel" style="color: #f8fafc; font-weight: 600; font-size: 1.1rem;">Counterparty Email</label>
-              <input type="email" id="counterpartyEmail" placeholder="Enter email address" style="width: 100%; padding: 15px; background: #0f172a; border: 2px solid #06b6d4; border-radius: 8px; color: #f8fafc; font-size: 1rem;">
+              <label id="counterpartyLabel" style="color: #ffffff; font-weight: 600; font-size: 1.1rem;">Counterparty Email</label>
+              <input type="email" id="counterpartyEmail" placeholder="Enter email address" style="width: 100%; padding: 15px; background: #0a0a0a; border: 2px solid #ffffff; border-radius: 8px; color: #ffffff; font-size: 1rem;">
             </div>
           </div>
           
@@ -8084,7 +8193,7 @@ app.get('/manage-contract/:contractId', authenticateToken, (req, res) => {
   <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Manage Contract - Tangent Protocol</title>
+    <title>Manage Contract - Tradeaify</title>
     <style>
       * { margin: 0; padding: 0; box-sizing: border-box; }
       body { font-family: system-ui, -apple-system, sans-serif; background: #0f172a; color: #f8fafc; }
@@ -11788,7 +11897,7 @@ app.get('/demo/buyer/step3-dashboard-empty', (req, res) => {
         </div>
 
         <div class="welcome-section">
-            <h2>Welcome to Tangent Platform!</h2>
+            <h2>Welcome to Tradeaify!</h2>
             <p>Your account is fully verified and ready for trading. Start by creating your first contract.</p>
         </div>
 
@@ -16278,24 +16387,24 @@ app.use('*', (req, res) => {
 // ================================
 const server = app.listen(PORT, '0.0.0.0', (err) => {
     if (err) {
-        console.error('❌ Failed to start server:', err);
+        console.error('[ERROR] Failed to start server:', err);
         process.exit(1);
     }
-    console.log('✅ TANGENT COMPLETE PRODUCTION PLATFORM RUNNING ON PORT', PORT);
-    console.log('🌐 Landing Page:', `http://localhost:${PORT}/`);
-    console.log('👥 Team Portal:', `http://localhost:${PORT}/landing-two`);
-    console.log('🔍 Health Check:', `http://localhost:${PORT}/health`);
-    console.log('🧪 System Test:', `http://localhost:${PORT}/test`);
+    console.log('[INFO] Tradeaify Complete Production Platform running on port', PORT);
+    console.log('[INFO] Landing Page:', `http://localhost:${PORT}/`);
+    console.log('[INFO] Team Portal:', `http://localhost:${PORT}/landing-two`);
+    console.log('[INFO] Health Check:', `http://localhost:${PORT}/health`);
+    console.log('[INFO] System Test:', `http://localhost:${PORT}/test`);
     console.log('');
-    console.log('🎯 DASHBOARD ROUTES:');
-    console.log('   👑 Admin:', `http://localhost:${PORT}/dashboard/admin`);
-    console.log('   🛒 Buyer:', `http://localhost:${PORT}/dashboard/buyer`);
-    console.log('   🏭 Supplier:', `http://localhost:${PORT}/dashboard/supplier`);
-    console.log('   📈 Trader:', `http://localhost:${PORT}/dashboard/trader`);
-    console.log('   🛡️ Insurer:', `http://localhost:${PORT}/dashboard/insurer`);
+    console.log('[INFO] DASHBOARD ROUTES:');
+    console.log('   [Admin]', `http://localhost:${PORT}/dashboard/admin`);
+    console.log('   [Buyer]', `http://localhost:${PORT}/dashboard/buyer`);
+    console.log('   [Supplier]', `http://localhost:${PORT}/dashboard/supplier`);
+    console.log('   [Trader]', `http://localhost:${PORT}/dashboard/trader`);
+    console.log('   [Insurer]', `http://localhost:${PORT}/dashboard/insurer`);
     console.log('');
-    console.log('🚀 ALL 15 FUNCTIONALITIES IMPLEMENTED');
-    console.log('✅ PRODUCTION READY - NO PLACEHOLDERS');
+    console.log('[INFO] All 15 functionalities implemented');
+    console.log('[INFO] Production ready - no placeholders');
 });
 
 server.on('error', (err) => {
@@ -16315,36 +16424,62 @@ server.on('error', (err) => {
 
 // Graceful shutdown handlers
 process.on('SIGTERM', () => {
-    console.log('⚠️ SIGTERM received, shutting down gracefully');
+    console.log('[INFO] SIGTERM received, shutting down gracefully');
+    
+    // Kill credit service process if running
+    if (creditServiceProcess) {
+        console.log('[INFO] Stopping credit service...');
+        creditServiceProcess.kill();
+        creditServiceProcess = null;
+    }
     
     // Kill insurance service process if running
     if (insuranceServiceProcess) {
-        console.log('🛑 Stopping insurance service...');
+        console.log('[INFO] Stopping insurance service...');
         insuranceServiceProcess.kill();
         insuranceServiceProcess = null;
     }
     
     server.close(() => {
-        console.log('✅ Server closed gracefully');
+        console.log('[INFO] Server closed gracefully');
         process.exit(0);
     });
 });
 
 process.on('SIGINT', () => {
-    console.log('⚠️ SIGINT received, shutting down gracefully');
+    console.log('[INFO] SIGINT received, shutting down gracefully');
+    
+    // Kill credit service process if running
+    if (creditServiceProcess) {
+        console.log('[INFO] Stopping credit service...');
+        creditServiceProcess.kill();
+        creditServiceProcess = null;
+    }
+    
+    // Kill insurance service process if running
+    if (insuranceServiceProcess) {
+        console.log('[INFO] Stopping insurance service...');
+        insuranceServiceProcess.kill();
+        insuranceServiceProcess = null;
+    }
+    
     server.close(() => {
-        console.log('✅ Server closed gracefully');
+        console.log('[INFO] Server closed gracefully');
         process.exit(0);
     });
 });
 
 // Keep server alive on errors
 process.on('exit', (code) => {
+    // Kill credit service process if running
+    if (creditServiceProcess) {
+        creditServiceProcess.kill();
+    }
     // Kill insurance service process if running
     if (insuranceServiceProcess) {
         insuranceServiceProcess.kill();
     }
-    console.log(`⚠️ Process exiting with code: ${code}`);
+    console.log(`[INFO] Process exiting with code: ${code}`);
 });
 
 // Production stability - restart on critical errors
