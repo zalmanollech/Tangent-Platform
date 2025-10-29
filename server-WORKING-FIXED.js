@@ -1352,7 +1352,9 @@ app.post('/api/auth/verify', authenticateToken, (req, res) => {
 // Authenticated dashboard route
 app.get('/dashboard/authenticated', (req, res) => {
     const role = req.query.role || 'unified';
-    console.log('🎯 DASHBOARD AUTHENTICATED ROUTE HIT - Role:', role);
+    // Sanitize role to prevent XSS and JavaScript injection
+    const safeRole = (role || 'unified').replace(/[^a-zA-Z0-9_]/g, '') || 'unified';
+    console.log('🎯 DASHBOARD AUTHENTICATED ROUTE HIT - Role:', safeRole);
     
     // Get token from Authorization header or query parameter
     const token = req.headers.authorization?.replace('Bearer ', '') || req.query.token;
@@ -1414,7 +1416,7 @@ app.get('/dashboard/authenticated', (req, res) => {
     </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>${role.charAt(0).toUpperCase() + role.slice(1)} Dashboard - Tangent Protocol</title>
+    <title>${safeRole.charAt(0).toUpperCase() + safeRole.slice(1)} Dashboard - Tangent Protocol</title>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0f172a; color: #f8fafc; margin: 0; padding: 20px; }
         .container { max-width: 1200px; margin: 0 auto; }
@@ -1444,7 +1446,7 @@ app.get('/dashboard/authenticated', (req, res) => {
         <div class="header">
             <h1>My Contracts Dashboard</h1>
             <div>
-                <span class="role-badge">${role.toUpperCase()}</span>
+                <span class="role-badge">${safeRole.toUpperCase()}</span>
                 <button class="logout-btn" onclick="logout()">Logout</button>
             </div>
         </div>
@@ -1459,7 +1461,7 @@ app.get('/dashboard/authenticated', (req, res) => {
             </div>
         </div>
         
-        ${role === 'admin' ? `
+        ${safeRole === 'admin' ? `
         <div class="contracts-section">
             <div class="section-header">
                 <h2 class="section-title">Admin Tools</h2>
@@ -6946,7 +6948,7 @@ function createDashboard(role, user) {
   </div>
 
   <div class="main-content">
-    ${role === 'admin' ? createAdminSections() : `
+    ${safeRole === 'admin' ? createAdminSections() : `
     <!-- My Contracts Section -->
     <div class="dashboard-section">
       <div class="section-header">
@@ -6975,7 +6977,7 @@ function createDashboard(role, user) {
 
     // Load contracts on page load (skip for admin)
     document.addEventListener('DOMContentLoaded', () => {
-      const isAdmin = '${role}' === 'admin';
+      const isAdmin = ${JSON.stringify(safeRole)} === 'admin';
       if (!isAdmin) {
         loadContracts();
       }
@@ -7011,7 +7013,7 @@ function createDashboard(role, user) {
         return;
       }
 
-            const isAdmin = '${role}' === 'admin';
+            const isAdmin = ${JSON.stringify(safeRole)} === 'admin';
             const tableHTML = \`
         <table class="contracts-table">
           <thead>
