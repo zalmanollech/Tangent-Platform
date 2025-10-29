@@ -1482,12 +1482,16 @@ app.get('/dashboard/authenticated', (req, res) => {
     </div>
     
     <script>
+        console.log('Dashboard script loading...');
         const token = localStorage.getItem('token');
         const user = JSON.parse(localStorage.getItem('user') || '{}');
         
         if (!token || !user.email) {
             window.location.href = '/landing-two';
         }
+        
+        console.log('Token found:', !!token);
+        console.log('User found:', !!user.email);
         
         loadContracts();
         
