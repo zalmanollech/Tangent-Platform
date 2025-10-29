@@ -8039,7 +8039,7 @@ app.get('/manage-contract/:contractId', authenticateToken, (req, res) => {
         if (contract.buyerEmail === currentUser.email) {
           // Buyer actions
           if (contract.status === 'pending_deposit' || contract.status === 'pending_buyer_deposit') {
-            actionsHTML += '<button class="btn btn-success" onclick="payDeposit()">Pay Deposit ($' + contract.depositAmount + ')</button>';
+            actionsHTML += '<button class="btn btn-success" onclick="payDepositFromManagePage()">Pay Deposit ($' + contract.depositAmount + ')</button>';
           }
           if (contract.status === 'active' && contract.depositPaid) {
             actionsHTML += '<button class="btn btn-warning" onclick="releasePayment()">Release Payment</button>';
@@ -8087,7 +8087,7 @@ app.get('/manage-contract/:contractId', authenticateToken, (req, res) => {
           '<div style="text-align: center; padding: 2rem; color: #6b7280;">No timeline events yet</div>';
       }
 
-      async function payDeposit() {
+      async function payDepositFromManagePage() {
         if (!confirm('Pay deposit of $' + contractData.depositAmount + '?')) return;
         
         try {
