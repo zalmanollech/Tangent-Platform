@@ -7962,7 +7962,7 @@ app.get('/manage-contract/:contractId', authenticateToken, (req, res) => {
     </div>
 
     <script>
-      const contractId = '${contractId}';
+      const contractId = ${JSON.stringify(contractId)};
       const token = localStorage.getItem('token');
       const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
       let contractData = null;
