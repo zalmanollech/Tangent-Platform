@@ -7942,6 +7942,20 @@ app.get('/create-contract', authenticateToken, (req, res) => {
       
       document.getElementById('contractForm').addEventListener('submit', async (e) => {
         e.preventDefault();
+        console.log('Form submission started');
+        
+        // Validate required fields
+        const contractRole = document.getElementById('contractRole').value;
+        if (!contractRole) {
+          alert('Please select your role (Supplier, Buyer, or Trader)');
+          return;
+        }
+        
+        const counterpartyEmail = document.getElementById('counterpartyEmail').value;
+        if (!counterpartyEmail || !counterpartyEmail.includes('@')) {
+          alert('Please enter a valid counterparty email address');
+          return;
+        }
         
         // Handle custom product name for "other" commodities
         let productDetails = document.getElementById('productDetails').value;
@@ -7952,6 +7966,15 @@ app.get('/create-contract', authenticateToken, (req, res) => {
             return;
           }
           productDetails = customProductName.trim();
+        }
+        
+        // Validate trader-specific fields
+        if (contractRole === 'trader') {
+          const supplierEmail = document.getElementById('supplierEmail')?.value;
+          if (!supplierEmail || !supplierEmail.includes('@')) {
+            alert('Please enter a valid supplier email address for trader contracts');
+            return;
+          }
         }
         
         const formData = {
@@ -7965,14 +7988,20 @@ app.get('/create-contract', authenticateToken, (req, res) => {
           origin: document.getElementById('origin').value,
           destination: document.getElementById('destination').value,
           specifications: document.getElementById('specifications').value,
-          contractRole: document.getElementById('contractRole').value,
+          contractRole: contractRole,
           supplierEmail: '',
           buyerEmail: '',
-          counterpartyEmail: document.getElementById('counterpartyEmail').value
+          counterpartyEmail: counterpartyEmail
         };
         
         // Set emails based on role
         const user = JSON.parse(localStorage.getItem('user') || '{}');
+        if (!user.email) {
+          alert('User session expired. Please login again.');
+          window.location.href = '/landing-two';
+          return;
+        }
+        
         if (formData.contractRole === 'supplier') {
           formData.supplierEmail = user.email;
           formData.buyerEmail = formData.counterpartyEmail;
@@ -7986,8 +8015,16 @@ app.get('/create-contract', authenticateToken, (req, res) => {
           formData.traderEmail = user.email;
         }
         
+        console.log('Submitting contract data:', { ...formData, token: '***' });
+        
         try {
           const token = localStorage.getItem('token');
+          if (!token) {
+            alert('Authentication token missing. Please login again.');
+            window.location.href = '/landing-two';
+            return;
+          }
+          
           const response = await fetch('/api/contracts/create', {
             method: 'POST',
             headers: { 
@@ -7997,9 +8034,21 @@ app.get('/create-contract', authenticateToken, (req, res) => {
             body: JSON.stringify(formData)
           });
           
-          const data = await response.json();
+          console.log('Response status:', response.status, response.statusText);
+          
+          let data;
+          try {
+            const responseText = await response.text();
+            console.log('Response text:', responseText);
+            data = responseText ? JSON.parse(responseText) : {};
+          } catch (parseError) {
+            console.error('Failed to parse response:', parseError);
+            alert('Server returned an invalid response. Please check the console for details.');
+            return;
+          }
           
           if (response.ok) {
+            console.log('Contract created successfully:', data);
             alert('Contract created successfully!');
             // Get the token and user info for redirect
             const token = localStorage.getItem('token');
@@ -8007,12 +8056,16 @@ app.get('/create-contract', authenticateToken, (req, res) => {
             const userRole = user.role || 'buyer';
             
             // Redirect back to contracts dashboard
+            console.log('Redirecting to dashboard with role:', userRole);
             window.location.href = '/dashboard/authenticated?role=' + userRole + '&token=' + encodeURIComponent(token);
           } else {
-            alert('Error: ' + (data.error || 'Contract creation failed'));
+            console.error('Contract creation failed:', data);
+            const errorMessage = data.error || data.message || 'Contract creation failed';
+            alert('Error: ' + errorMessage);
           }
         } catch (error) {
-          alert('Network error. Please try again.');
+          console.error('Network error:', error);
+          alert('Network error: ' + error.message + '. Please check your connection and try again.');
         }
       });
     </script>
