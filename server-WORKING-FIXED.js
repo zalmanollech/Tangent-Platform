@@ -1591,7 +1591,8 @@ app.get('/dashboard/authenticated', (req, res) => {
                 // Step 1: Pay Deposit (10-30% of total value)
                 if (contract.status === 'pending_deposit' || contract.status === 'pending_buyer_confirmation') {
                     const depositAmount = Math.round(contract.totalValue * 0.20); // 20% deposit
-                    buttons += '<button class="btn secondary small" onclick="payDeposit('+JSON.stringify(contract.id)+', '+depositAmount+')" style="background: #f59e0b;">Pay Deposit ($'+depositAmount.toLocaleString()+')</button>';
+                    const contractIdStr = JSON.stringify(contract.id);
+                    buttons += '<button class="btn secondary small" onclick="payDeposit(' + contractIdStr + ', ' + depositAmount + ')" style="background: #f59e0b;">Pay Deposit ($' + depositAmount.toLocaleString() + ')</button>';
                 }
                 // Step 4: Release Remaining Payment (Against Documents)
                 if (contract.status === 'active' && contract.depositPaid && contract.documentsUploaded) {
