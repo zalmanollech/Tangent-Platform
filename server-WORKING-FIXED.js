@@ -1333,7 +1333,7 @@ app.get('/dashboard', (req, res) => {
                 console.log('✅ Token and user found, redirecting to dashboard...');
                 
                 // Direct redirect without server verification (token will be verified by server-side middleware)
-                window.location.href = '/dashboard/authenticated?role=' + user.role + '&token=' + encodeURIComponent(token);
+                window.location.href = '/dashboard/authenticated?role=' + user.role + '&token=' + encodeURIComponent(token) + '&v=' + Date.now();
             }
         </script>
     </body>
@@ -1394,7 +1394,9 @@ app.get('/dashboard/authenticated', (req, res) => {
         'Pragma': 'no-cache',
         'Expires': '0',
         'Last-Modified': new Date().toUTCString(),
-        'ETag': '"' + Date.now() + '"'
+        'ETag': '"' + Date.now() + '"',
+        'X-Content-Type-Options': 'nosniff',
+        'X-Frame-Options': 'DENY'
     });
     
     // Enhanced My Contracts dashboard
