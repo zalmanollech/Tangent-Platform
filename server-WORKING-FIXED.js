@@ -15,6 +15,7 @@ let creditServiceAvailable = false;
 // Insurance Integration - Production Safe
 let insuranceIntegration = null;
 let insuranceServiceAvailable = false;
+let insuranceServiceProcess = null; // For auto-start functionality
 
 try {
     creditIntegration = require('./credit-integration');
@@ -25,11 +26,16 @@ try {
         try {
             const status = await creditIntegration.checkCreditServiceHealth();
             creditServiceAvailable = status.status === 'healthy' || status.status === 'disabled';
-            console.log(creditServiceAvailable ? 
-                '✅ Credit service verified and available' : 
-                '⚠️ Credit service not healthy: ' + status.message);
+            if (creditServiceAvailable) {
+                console.log('✅ Credit service verified and available');
+            } else {
+                console.log('ℹ️ Credit service not running (optional - credit assessments will be skipped)');
+                console.log('   To enable credit assessments, start: cd credit-service && python main.py');
+                creditServiceAvailable = false;
+            }
         } catch (error) {
-            console.warn('⚠️ Credit service health check failed:', error.message);
+            console.log('ℹ️ Credit service not running (optional - credit assessments will be skipped)');
+            console.log('   To enable credit assessments, start: cd credit-service && python main.py');
             creditServiceAvailable = false;
         }
     }, 2000); // Check after 2 seconds
@@ -39,11 +45,86 @@ try {
     creditIntegration = null;
 }
 
+// Auto-start insurance service
+const { spawn } = require('child_process');
+
+function startInsuranceService() {
+    // Only auto-start in development/local environments
+    // In production (Railway, etc.), services should run as separate services
+    if (process.env.NODE_ENV === 'production' || process.env.RAILWAY_ENVIRONMENT) {
+        console.log('ℹ️ Insurance service auto-start skipped in production (use separate service)');
+        return;
+    }
+    
+    try {
+        const insuranceServicePath = path.join(__dirname, 'insurance-service', 'main.py');
+        const isWindows = process.platform === 'win32';
+        
+        console.log('🚀 Auto-starting Insurance Service...');
+        
+        if (isWindows) {
+            // Windows: use python command
+            insuranceServiceProcess = spawn('python', ['main.py'], {
+                cwd: path.join(__dirname, 'insurance-service'),
+                shell: true,
+                stdio: 'pipe'
+            });
+        } else {
+            // Unix/Linux: use python3
+            insuranceServiceProcess = spawn('python3', ['main.py'], {
+                cwd: path.join(__dirname, 'insurance-service'),
+                shell: true,
+                stdio: 'pipe'
+            });
+        }
+        
+        insuranceServiceProcess.stdout.on('data', (data) => {
+            const output = data.toString().trim();
+            if (output) {
+                console.log(`📊 Insurance Service: ${output}`);
+            }
+        });
+        
+        insuranceServiceProcess.stderr.on('data', (data) => {
+            const error = data.toString().trim();
+            if (error && !error.includes('INFO:') && !error.includes('Application startup')) {
+                console.warn(`⚠️ Insurance Service: ${error}`);
+            }
+        });
+        
+        insuranceServiceProcess.on('error', (error) => {
+            if (error.code === 'ENOENT') {
+                console.warn('⚠️ Python not found. Insurance service must be started manually: cd insurance-service && python main.py');
+            } else {
+                console.warn('⚠️ Failed to start insurance service:', error.message);
+            }
+            insuranceServiceProcess = null;
+        });
+        
+        insuranceServiceProcess.on('exit', (code) => {
+            if (code !== 0 && code !== null) {
+                console.warn(`⚠️ Insurance service exited with code ${code}`);
+            }
+            insuranceServiceProcess = null;
+        });
+        
+        console.log('✅ Insurance service startup initiated');
+        
+    } catch (error) {
+        console.warn('⚠️ Could not auto-start insurance service:', error.message);
+        console.log('   To start manually: cd insurance-service && python main.py');
+    }
+}
+
 // Load Insurance Integration
 try {
     insuranceIntegration = require('./insurance-integration');
     console.log('✅ Insurance Integration loaded successfully');
     
+    // Auto-start the Python service
+    startInsuranceService();
+    
+    // Wait a bit longer for service to start, then check health
     setTimeout(async () => {
         try {
             const status = await insuranceIntegration.checkInsuranceServiceHealth();
@@ -53,9 +134,10 @@ try {
                 '⚠️ Insurance service not healthy: ' + status.message);
         } catch (error) {
             console.warn('⚠️ Insurance service health check failed:', error.message);
+            console.log('   The service may still be starting. It will be available shortly.');
             insuranceServiceAvailable = false;
         }
-    }, 2500);
+    }, 5000); // Increased to 5 seconds to allow Python service to fully start
 } catch (error) {
     console.warn('⚠️ Insurance integration not available:', error.message);
     console.log('📝 Continuing without insurance quotes');
@@ -66,13 +148,6 @@ console.log('🚀 Starting Tangent Complete Production Platform...');
 
 const app = express();
 const PORT = process.env.PORT || 4000;
-
-// Initialize OFAC system on startup
-initializeOFAC().then(() => {
-    scheduleOFACUpdates();
-}).catch(error => {
-    console.error('OFAC initialization failed, continuing without OFAC screening');
-});
 
 // Initialize blockchain service with error handling
 let blockchain = null;
@@ -1495,6 +1570,9 @@ app.get('/dashboard/authenticated', (req, res) => {
         console.log('Token found:', !!token);
         console.log('User found:', !!user.email);
         
+        // Verify payDeposit function is defined
+        console.log('payDeposit function defined:', typeof payDeposit !== 'undefined');
+        
         loadContracts();
         
         async function loadContracts() {
@@ -1591,8 +1669,7 @@ app.get('/dashboard/authenticated', (req, res) => {
                 // Step 1: Pay Deposit (10-30% of total value)
                 if (contract.status === 'pending_deposit' || contract.status === 'pending_buyer_confirmation') {
                     const depositAmount = Math.round(contract.totalValue * 0.20); // 20% deposit
-                    const contractIdStr = JSON.stringify(contract.id);
-                    buttons += '<button class="btn secondary small" onclick="payDeposit(' + contractIdStr + ', ' + depositAmount + ')" style="background: #f59e0b;">Pay Deposit ($' + depositAmount.toLocaleString() + ')</button>';
+                    buttons += '<button class="btn secondary small" onclick="payDeposit('+JSON.stringify(contract.id)+', '+depositAmount+')" style="background: #f59e0b;">Pay Deposit ($'+depositAmount.toLocaleString()+')</button>';
                 }
                 // Step 4: Release Remaining Payment (Against Documents)
                 if (contract.status === 'active' && contract.depositPaid && contract.documentsUploaded) {
@@ -1670,66 +1747,105 @@ app.get('/dashboard/authenticated', (req, res) => {
         
         async function payDeposit(id, amount) {
             console.log('payDeposit called with id:', id, 'amount:', amount);
-            // Check if MetaMask is available for blockchain payment
+            
+            // Get token from localStorage to ensure it's available
+            const authToken = localStorage.getItem('token');
+            if (!authToken) {
+                alert('Authentication required. Please login again.');
+                window.location.href = '/landing-two';
+                return;
+            }
+            
+            console.log('Token retrieved:', !!authToken);
+            
+            // Optional MetaMask integration - non-blocking
+            let useBlockchain = false;
             if (typeof window.ethereum !== 'undefined') {
                 try {
-                    // Ask user if they want to use MetaMask
-                    const useMetaMask = confirm('MetaMask Detected! Pay deposit using blockchain with MetaMask?');
+                    const useMetaMask = confirm('MetaMask Detected! Pay deposit using blockchain with MetaMask? (Click Cancel to use simulation mode)');
                     
                     if (useMetaMask) {
                         // Connect to MetaMask
                         const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-                        if (!accounts || accounts.length === 0) {
-                            alert('Please connect MetaMask to continue');
-                            return;
+                        if (accounts && accounts.length > 0) {
+                            // Check network
+                            const chainId = await window.ethereum.request({ method: 'eth_chainId' });
+                            const sepoliaChainId = '0xaa36a7';
+                            
+                            if (chainId !== sepoliaChainId) {
+                                const switched = await window.ethereum.request({
+                                    method: 'wallet_switchEthereumChain',
+                                    params: [{ chainId: sepoliaChainId }]
+                                }).catch(() => null);
+                                if (!switched) {
+                                    alert('Please switch to Sepolia testnet manually. Proceeding with simulation mode.');
+                                } else {
+                                    useBlockchain = true;
+                                }
+                            } else {
+                                useBlockchain = true;
+                            }
+                            console.log('MetaMask connected, blockchain mode:', useBlockchain);
+                        } else {
+                            console.log('MetaMask not connected, using simulation mode');
                         }
-                        
-                        // Check network
-                        const chainId = await window.ethereum.request({ method: 'eth_chainId' });
-                        const sepoliaChainId = '0xaa36a7';
-                        
-                        if (chainId !== sepoliaChainId) {
-                            alert('Please switch to Sepolia testnet in MetaMask');
-                            await window.ethereum.request({
-                                method: 'wallet_switchEthereumChain',
-                                params: [{ chainId: sepoliaChainId }]
-                            });
-                        }
-                        
-                        alert('MetaMask connected! Using simulated payment for now.');
+                    } else {
+                        console.log('MetaMask skipped, using simulation mode');
                     }
                 } catch (error) {
                     console.error('MetaMask error:', error);
-                    alert('MetaMask error: ' + error.message + ' Using simulation mode instead.');
+                    console.log('Falling back to simulation mode');
                 }
             }
             
-            // Execute deposit
+            // Execute deposit payment (works with or without MetaMask)
             try {
+                console.log('Sending deposit request to /api/contracts/' + id + '/deposit');
+                // Send deposit request with blockchain flag
                 const response = await fetch('/api/contracts/' + id + '/deposit', {
                     method: 'POST',
                     headers: { 
-                        'Authorization': 'Bearer ' + token,
+                        'Authorization': 'Bearer ' + authToken,
                         'Content-Type': 'application/json'
-                    }
+                    },
+                    body: JSON.stringify({ useBlockchain: useBlockchain })
                 });
                 
+                console.log('Response status:', response.status);
+                console.log('Response ok:', response.ok);
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('Response error:', errorText);
+                    let errorData;
+                    try {
+                        errorData = JSON.parse(errorText);
+                    } catch (e) {
+                        errorData = { error: errorText || 'Server error occurred' };
+                    }
+                    
+                    if (errorData.action === 'fund_wallet' && errorData.details) {
+                        const details = errorData.details;
+                        alert('Payment failed. Required: $' + details.required.toLocaleString() + '. Available: $' + details.available.toLocaleString() + '. Please fund your wallet.');
+                    } else if (errorData.action === 'create_wallet') {
+                        alert('Wallet error: ' + errorData.error + '. Please contact support.');
+                    } else {
+                        alert('Error: ' + (errorData.error || 'Deposit payment failed'));
+                    }
+                    return;
+                }
+                
                 const result = await response.json();
+                console.log('Deposit result:', result);
+                
                 if (result.success) {
                     alert('Deposit paid successfully! Contract is now active.');
                     location.reload();
                 } else {
-                    // Enhanced error handling
-                    if (result.action === 'fund_wallet' && result.details) {
-                        const details = result.details;
-                        alert('Payment failed. Required: $' + details.required.toLocaleString() + '. Available: $' + details.available.toLocaleString() + '. Please fund your wallet.');
-                    } else if (result.action === 'create_wallet') {
-                        alert('Wallet error: ' + result.error + '. Please contact support.');
-                    } else {
-                        alert('Error: ' + result.error);
-                    }
+                    alert('Error: ' + (result.error || 'Deposit payment failed'));
                 }
             } catch (error) {
+                console.error('Network error paying deposit:', error);
                 alert('Network error paying deposit: ' + error.message);
             }
         }
@@ -1788,6 +1904,11 @@ app.get('/dashboard/authenticated', (req, res) => {
             window.location.href = '/manage-contract/' + id; 
         }
         function logout() { localStorage.removeItem('token'); localStorage.removeItem('user'); window.location.href = '/landing-two'; }
+        
+        // Test payDeposit function availability
+        window.addEventListener('load', function() {
+            console.log('Page loaded. payDeposit function:', typeof payDeposit !== 'undefined' ? 'AVAILABLE' : 'NOT DEFINED');
+        });
     </script>
 </body>
 </html>`;
@@ -3894,6 +4015,13 @@ let freeSanctionsAPI = null;
 try {
     freeSanctionsAPI = require('./lib/free-sanctions-api');
     console.log('✅ Free sanctions API module loaded');
+    
+    // Initialize OFAC system after module is loaded
+    initializeOFAC().then(() => {
+        scheduleOFACUpdates();
+    }).catch(error => {
+        console.error('OFAC initialization failed, continuing without OFAC screening');
+    });
 } catch (error) {
     console.warn('⚠️ Free sanctions API not available:', error.message);
 }
@@ -5536,100 +5664,8 @@ app.post('/api/contracts/create', authenticateToken, async (req, res) => {
             }
         }
         
-        // TANGENT-BRIDGE-v4 Credit Risk Assessment Integration - Production Safe
-        if (creditIntegration && creditServiceAvailable) {
-            console.log('🔗 Starting credit risk assessment for contract:', contractId);
-            
-            // Extra safety: wrap in try-catch
-            try {
-            
-            // Prepare data for credit assessment
-            const creditAssessmentData = {
-                contract: {
-                    id: contractId,
-                    amount: totalValue,
-                    tenor_days: 30, // Default tenor, could be calculated from delivery date
-                    inventory_value: totalValue * 0.8, // Assume 80% inventory coverage
-                    inventory_type: 'commodity',
-                    inventory_location: 'warehouse',
-                    buyer_deposit: contract.depositAmount,
-                    is_exchange_traded: false,
-                    exchange_name: null,
-                    exchange_grade: null
-                },
-                user: {
-                    name: req.user.name || req.user.email,
-                    company: req.user.company || req.user.email,
-                    email: req.user.email,
-                    phone: req.user.phone || '',
-                    country: req.user.country || 'Unknown'
-                }
-            };
-            
-            // Perform credit assessment asynchronously (non-blocking)
-            creditIntegration.integrateCreditAssessment(
-                creditAssessmentData.contract, 
-                creditAssessmentData.user
-            ).then(result => {
-                if (result.success) {
-                    console.log('✅ Credit assessment completed:', {
-                        contractId,
-                        decision: result.decision,
-                        riskBand: result.riskBand,
-                        riskScore: (result.riskScore * 100).toFixed(2) + '%'
-                    });
-                    
-                    // Add credit assessment to contract metadata
-                    contract.creditAssessment = {
-                        completed: true,
-                        timestamp: new Date().toISOString(),
-                        decision: result.decision,
-                        riskBand: result.riskBand,
-                        riskScore: result.riskScore,
-                        entityId: result.entityId,
-                        tradeId: result.tradeId
-                    };
-                    
-                    // Update contract in database
-                    database.contracts.set(contractId, contract);
-                    
-                } else {
-                    console.warn('⚠️ Credit assessment failed:', result.error || result.reason);
-                    
-                    // Add failed assessment to contract metadata
-                    contract.creditAssessment = {
-                        completed: false,
-                        timestamp: new Date().toISOString(),
-                        error: result.error || result.reason,
-                        skipped: result.skipped || false
-                    };
-                    
-                    // Update contract in database
-                    database.contracts.set(contractId, contract);
-                }
-            }).catch(error => {
-                console.error('❌ Credit assessment error:', error.message);
-                
-                // Add error to contract metadata
-                contract.creditAssessment = {
-                    completed: false,
-                    timestamp: new Date().toISOString(),
-                    error: error.message
-                };
-                
-                // Update contract in database
-                database.contracts.set(contractId, contract);
-            }).catch(err => {
-                console.error('❌ Unexpected credit integration error:', err.message);
-                // Contract still created successfully
-            });
-            } catch (integrationError) {
-                console.error('❌ Credit integration failed unexpectedly:', integrationError.message);
-                // Contract still created successfully
-            }
-        } else {
-            console.log('📝 Credit assessment skipped - integration not available');
-        }
+        // Note: Credit assessment will be triggered after both parties confirm and payment terms are established
+        // This happens in the contract confirmation endpoint when status becomes 'pending_deposit'
         
         res.json({
             message: counterpartyUser ? 
@@ -5811,6 +5847,116 @@ app.post('/api/contracts/:id/confirm', authenticateToken, (req, res) => {
             // Update status based on confirmations
             if (contract.supplierConfirmed && contract.buyerConfirmed) {
                 contract.status = 'pending_deposit';
+                
+                // TANGENT-BRIDGE-v4 Credit Risk Assessment Integration
+                // Trigger credit assessment AFTER both parties confirm and payment terms are established
+                if (creditIntegration && creditServiceAvailable && !contract.creditAssessment) {
+                    console.log('🔗 Starting credit risk assessment for confirmed contract:', id);
+                    console.log('📋 Contract terms established - both parties confirmed, payment terms: ' + contract.paymentTerms);
+                    
+                    try {
+                        // Get buyer user data for credit assessment
+                        const buyerUser = database.users.get(contract.buyerEmail);
+                        
+                        if (buyerUser) {
+                            // Prepare data for credit assessment
+                            const creditAssessmentData = {
+                                contract: {
+                                    id: id,
+                                    amount: contract.totalValue,
+                                    tenor_days: contract.deliveryDate ? 
+                                        Math.ceil((new Date(contract.deliveryDate) - new Date()) / (1000 * 60 * 60 * 24)) : 30,
+                                    inventory_value: contract.totalValue * 0.8, // Assume 80% inventory coverage
+                                    inventory_type: 'commodity',
+                                    inventory_location: contract.specifications?.destination || 'warehouse',
+                                    buyer_deposit: contract.depositAmount,
+                                    is_exchange_traded: false,
+                                    exchange_name: null,
+                                    exchange_grade: null
+                                },
+                                user: {
+                                    name: buyerUser.name || buyerUser.email,
+                                    company: buyerUser.company || buyerUser.email,
+                                    email: buyerUser.email,
+                                    phone: buyerUser.phone || '',
+                                    country: buyerUser.country || 'Unknown'
+                                }
+                            };
+                            
+                            // Perform credit assessment asynchronously (non-blocking)
+                            creditIntegration.integrateCreditAssessment(
+                                creditAssessmentData.contract, 
+                                creditAssessmentData.user
+                            ).then(result => {
+                                if (result.success) {
+                                    console.log('✅ Credit assessment completed:', {
+                                        contractId: id,
+                                        decision: result.decision,
+                                        riskBand: result.riskBand,
+                                        riskScore: (result.riskScore * 100).toFixed(2) + '%'
+                                    });
+                                    
+                                    // Get updated contract
+                                    const updatedContract = database.contracts.get(id);
+                                    if (updatedContract) {
+                                        updatedContract.creditAssessment = {
+                                            completed: true,
+                                            timestamp: new Date().toISOString(),
+                                            decision: result.decision,
+                                            riskBand: result.riskBand,
+                                            riskScore: result.riskScore,
+                                            entityId: result.entityId,
+                                            tradeId: result.tradeId,
+                                            assessmentDetails: result.assessment || {}
+                                        };
+                                        
+                                        // Update contract in database
+                                        database.contracts.set(id, updatedContract);
+                                    }
+                                    
+                                } else {
+                                    console.warn('⚠️ Credit assessment failed:', result.error || result.reason);
+                                    
+                                    // Add failed assessment to contract metadata
+                                    const updatedContract = database.contracts.get(id);
+                                    if (updatedContract) {
+                                        updatedContract.creditAssessment = {
+                                            completed: false,
+                                            timestamp: new Date().toISOString(),
+                                            error: result.error || result.reason,
+                                            skipped: result.skipped || false
+                                        };
+                                        
+                                        database.contracts.set(id, updatedContract);
+                                    }
+                                }
+                            }).catch(error => {
+                                console.error('❌ Credit assessment error:', error.message);
+                                
+                                // Add error to contract metadata
+                                const updatedContract = database.contracts.get(id);
+                                if (updatedContract) {
+                                    updatedContract.creditAssessment = {
+                                        completed: false,
+                                        timestamp: new Date().toISOString(),
+                                        error: error.message
+                                    };
+                                    
+                                    database.contracts.set(id, updatedContract);
+                                }
+                            });
+                        } else {
+                            console.log('⚠️ Buyer user not found for credit assessment:', contract.buyerEmail);
+                        }
+                    } catch (integrationError) {
+                        console.error('❌ Credit integration failed unexpectedly:', integrationError.message);
+                        // Contract confirmation still succeeds
+                    }
+                } else if (!creditIntegration || !creditServiceAvailable) {
+                    console.log('📝 Credit assessment skipped - integration not available');
+                } else if (contract.creditAssessment) {
+                    console.log('📝 Credit assessment already completed for contract:', id);
+                }
             } else if (contract.supplierConfirmed && !contract.buyerConfirmed) {
                 contract.status = 'pending_buyer_confirmation';
             } else if (!contract.supplierConfirmed && contract.buyerConfirmed) {
@@ -16117,6 +16263,14 @@ server.on('error', (err) => {
 // Graceful shutdown handlers
 process.on('SIGTERM', () => {
     console.log('⚠️ SIGTERM received, shutting down gracefully');
+    
+    // Kill insurance service process if running
+    if (insuranceServiceProcess) {
+        console.log('🛑 Stopping insurance service...');
+        insuranceServiceProcess.kill();
+        insuranceServiceProcess = null;
+    }
+    
     server.close(() => {
         console.log('✅ Server closed gracefully');
         process.exit(0);
@@ -16133,6 +16287,10 @@ process.on('SIGINT', () => {
 
 // Keep server alive on errors
 process.on('exit', (code) => {
+    // Kill insurance service process if running
+    if (insuranceServiceProcess) {
+        insuranceServiceProcess.kill();
+    }
     console.log(`⚠️ Process exiting with code: ${code}`);
 });
 

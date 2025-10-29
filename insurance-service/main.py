@@ -1,118 +1,141 @@
-"""
-Insurance Service - FastAPI application
-Provides actuarial insurance quotes and recommendations
-"""
-
-from fastapi import FastAPI, HTTPException, Depends
+# Insurance Actuarial Service
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import Optional, List
-import logging
+from typing import Optional, Dict, Any
+from datetime import datetime
+import sys
+import os
 
-from insurance_actuarial_model import calculate_insurance_quote, InsuranceActuarialModel
+# Add the current directory to path to import insurance_actuarial_model
+sys.path.append(os.path.dirname(__file__))
 
-app = FastAPI(title="Tangent Insurance Service", version="1.0.0")
+from insurance_actuarial_model import InsuranceActuarialModel
 
-# CORS middleware
+app = FastAPI(title="Insurance Actuarial Service", version="1.0.0")
+
+# Add CORS middleware - allow Tangent Platform to connect
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["http://localhost:3000", "http://localhost:4000", "http://127.0.0.1:4000", "*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-logger = logging.getLogger(__name__)
+# Initialize actuarial model
+actuarial_model = InsuranceActuarialModel()
 
-# Request models
+@app.get("/")
+def root():
+    return {
+        "message": "Insurance Actuarial Service API v1.0",
+        "status": "running",
+        "port": 8002
+    }
+
+@app.get("/health")
+def health():
+    return {
+        "status": "healthy",
+        "timestamp": datetime.now().isoformat(),
+        "service": "insurance",
+        "model": "actuarial_v1.0"
+    }
+
 class TradeData(BaseModel):
-    trade_id: str
-    contract_id: str
+    trade_id: Optional[str] = None
+    contract_id: Optional[str] = None
     amount: float
     tenor_days: int
     inventory_value: float
     inventory_type: str
     inventory_location: str
     buyer_deposit: float
-    is_exchange_traded: bool
+    is_exchange_traded: bool = False
     exchange_name: Optional[str] = None
     exchange_grade: Optional[str] = None
     country_risk: float = 0.05
 
 class CreditAssessment(BaseModel):
-    pd: float
-    risk_band: str
-    collateral_analysis: dict
-    country_risk: float = 0.05
+    pd: float  # Probability of Default
+    risk_band: str  # A+, A, B, C, D, E
+    collateral_analysis: Optional[Dict[str, Any]] = None
 
-class InsuranceQuoteRequest(BaseModel):
+class QuoteRequest(BaseModel):
     trade_data: TradeData
     credit_assessment: CreditAssessment
 
-# API Endpoints
-@app.get("/health")
-def health_check():
-    """Health check endpoint"""
-    return {"status": "healthy", "service": "insurance", "version": "1.0.0"}
-
 @app.post("/quote")
-def get_insurance_quote(request: InsuranceQuoteRequest):
-    """Calculate insurance quote for a trade"""
+def generate_quote(request: QuoteRequest):
+    """
+    Generate insurance quote using actuarial model
+    """
     try:
-        quote = calculate_insurance_quote(
-            request.trade_data.dict(),
-            request.credit_assessment.dict()
+        trade_data = request.trade_data
+        credit_assessment = request.credit_assessment
+        
+        # Calculate underwriting score
+        underwriting_score = actuarial_model.calculate_underwriting_score(
+            pd=credit_assessment.pd,
+            collateral_analysis=credit_assessment.collateral_analysis or {},
+            trade_amount=trade_data.amount,
+            tenor_days=trade_data.tenor_days,
+            inventory_value=trade_data.inventory_value,
+            buyer_deposit=trade_data.buyer_deposit,
+            country_risk=trade_data.country_risk
         )
         
-        return quote
-    except Exception as e:
-        logger.error(f"Failed to calculate insurance quote: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/opportunities")
-def get_insurance_opportunities(contracts: List[dict]):
-    """Get insurance opportunities from multiple contracts"""
-    try:
-        opportunities = []
+        # Calculate premium
+        premium_breakdown = actuarial_model.calculate_premium(
+            trade_amount=trade_data.amount,
+            pd=credit_assessment.pd,
+            risk_band=credit_assessment.risk_band,
+            collateral_analysis=credit_assessment.collateral_analysis or {},
+            tenor_days=trade_data.tenor_days,
+            inventory_value=trade_data.inventory_value,
+            buyer_deposit=trade_data.buyer_deposit,
+            country_risk=trade_data.country_risk
+        )
         
-        for contract in contracts:
-            trade_data = {
-                'trade_id': contract.get('trade_id'),
-                'contract_id': contract.get('contract_id'),
-                'amount': contract.get('amount', 0),
-                'is_exchange_traded': contract.get('is_exchange_traded', False),
-                'country_risk': contract.get('country_risk', 0.05)
-            }
-            
-            credit_assessment = {
-                'pd': contract.get('credit_assessment', {}).get('pd', 0.05),
-                'risk_band': contract.get('credit_assessment', {}).get('risk_band', 'C'),
-                'collateral_analysis': contract.get('credit_assessment', {}).get('collateral_analysis', {})
-            }
-            
-            quote = calculate_insurance_quote(trade_data, credit_assessment)
-            
-            opportunities.append({
-                'contract_id': contract.get('contract_id'),
-                'amount': contract.get('amount', 0),
-                'underwriting_score': quote['underwriting_score'],
-                'recommendation': quote['recommendation']['decision'],
-                'premium': quote['premium_breakdown']['total_premium'],
-                'premium_rate': quote['premium_breakdown']['premium_rate']
-            })
+        # Get recommendation
+        recommendation = actuarial_model.get_recommendation(
+            underwriting_score=underwriting_score,
+            pd=credit_assessment.pd,
+            risk_band=credit_assessment.risk_band
+        )
         
-        return {'opportunities': opportunities}
+        # Calculate actuarial metrics
+        actuarial_metrics = actuarial_model.calculate_actuarial_metrics(
+            premium=premium_breakdown['total_premium'],
+            trade_amount=trade_data.amount,
+            pd=credit_assessment.pd,
+            tenor_days=trade_data.tenor_days
+        )
+        
+        return {
+            "timestamp": datetime.now().isoformat(),
+            "trade_id": trade_data.trade_id or trade_data.contract_id,
+            "contract_id": trade_data.contract_id,
+            "amount": trade_data.amount,
+            "underwriting_score": underwriting_score,
+            "premium_breakdown": premium_breakdown,
+            "recommendation": recommendation,
+            "actuarial_metrics": actuarial_metrics,
+            "insurance_eligible": recommendation["decision"] != "DECLINE",
+            "success": True
+        }
+        
     except Exception as e:
-        logger.error(f"Failed to get insurance opportunities: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.get("/quote/{contract_id}")
-def get_quote_by_contract(contract_id: str):
-    """Get insurance quote by contract ID"""
-    # This would fetch from database in production
-    return {"message": "Quote retrieval not yet implemented"}
+        raise HTTPException(status_code=500, detail=f"Failed to generate quote: {str(e)}")
 
 if __name__ == "__main__":
     import uvicorn
+    import sys
+    # Set UTF-8 encoding for Windows compatibility
+    if sys.platform == 'win32':
+        sys.stdout.reconfigure(encoding='utf-8')
+        sys.stderr.reconfigure(encoding='utf-8')
+    print("Starting Insurance Actuarial Service on port 8002...")
     uvicorn.run(app, host="0.0.0.0", port=8002)
 

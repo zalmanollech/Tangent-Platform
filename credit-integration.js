@@ -100,10 +100,20 @@ async function makeRequestWithRetry(method, url, data = null, attempt = 1) {
         return response.data;
         
     } catch (error) {
-        console.error(`❌ Credit service request failed (attempt ${attempt}):`, error.message);
+        // Only log errors if it's not a connection refused error (service not running)
+        const isConnectionError = error.code === 'ECONNREFUSED' || error.message.includes('ECONNREFUSED') || 
+                                 error.code === 'ETIMEDOUT' || error.message.includes('timeout');
+        
+        if (!isConnectionError || attempt >= CREDIT_SERVICE_CONFIG.retryAttempts) {
+            // Log actual errors, but not connection refused on final attempt
+            if (attempt >= CREDIT_SERVICE_CONFIG.retryAttempts && isConnectionError) {
+                // Silent on final connection error - service just isn't running
+            } else {
+                console.error(`❌ Credit service request failed (attempt ${attempt}):`, error.message);
+            }
+        }
         
         if (attempt < CREDIT_SERVICE_CONFIG.retryAttempts) {
-            console.log(`🔄 Retrying in ${CREDIT_SERVICE_CONFIG.retryDelay}ms...`);
             await new Promise(resolve => setTimeout(resolve, CREDIT_SERVICE_CONFIG.retryDelay));
             return makeRequestWithRetry(method, url, data, attempt + 1);
         }
