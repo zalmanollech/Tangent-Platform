@@ -206,7 +206,7 @@ try {
         insuranceIntegration = null;
     }
 
-console.log('[INFO] Starting Tradeaify Complete Production Platform...');
+console.log('[INFO] Starting traidefi Complete Production Platform...');
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -872,7 +872,7 @@ function getFullKYCPageHTML(userEmail, token) {
   </script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>KYC Verification - Tradeaify</title>
+  <title>KYC Verification - traidefi</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: system-ui, -apple-system, sans-serif; background: #000000; color: #ffffff; min-height: 100vh; }
@@ -1448,7 +1448,7 @@ app.get('/dashboard', (req, res) => {
         </script>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Dashboard - Tradeaify</title>
+        <title>Dashboard - traidefi</title>
     </head>
     <body>
         <div id="loadingMessage">Loading dashboard...</div>
@@ -1553,7 +1553,7 @@ app.get('/dashboard/authenticated', (req, res) => {
     </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>${safeRole.charAt(0).toUpperCase() + safeRole.slice(1)} Dashboard - Tradeaify</title>
+    <title>${safeRole.charAt(0).toUpperCase() + safeRole.slice(1)} Dashboard - traidefi</title>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #000000; color: #ffffff; margin: 0; padding: 20px; }
         .container { max-width: 1200px; margin: 0 auto; }
@@ -2062,7 +2062,7 @@ app.get('/signin', (req, res) => {
         </script>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Sign In - Tradeaify</title>
+        <title>Sign In - traidefi</title>
         <style>
             * { margin: 0; padding: 0; box-sizing: border-box; }
             body { 
@@ -2197,7 +2197,7 @@ app.get('/signup', (req, res) => {
         </script>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Sign Up - Tradeaify</title>
+        <title>Sign Up - traidefi</title>
         <style>
             * { margin: 0; padding: 0; box-sizing: border-box; }
             body { 
@@ -2457,7 +2457,24 @@ app.get('/test', (req, res) => {
 // ================================
 // LANDING PAGE
 // ================================
+// ================================
+// BRAND DETECTION MIDDLEWARE
+// ================================
+app.use((req, res, next) => {
+    // Detect brand based on host header
+    const host = req.get('host') || req.headers.host || '';
+    req.brand = host.includes('traidefy.ai') ? 'traidefy' : 'tangent';
+    next();
+});
+
 app.get('/', (req, res) => {
+  // Use brand for conditional rendering
+  const isTraidefy = req.brand === 'traidefy';
+  const brandName = isTraidefy ? 'Traidefy' : 'Tangent Protocol';
+  const brandSubtitle = isTraidefy 
+    ? 'Trade Credit Reports & Insurance Premium Calculator'
+    : 'Advanced Trading Platform & TGT Stablecoin';
+  
   res.send(`<!DOCTYPE html>
     <html lang="en">
     <head>
@@ -2472,7 +2489,7 @@ app.get('/', (req, res) => {
         </script>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Tradeaify — Advanced Trading Platform & TGT Stablecoin</title>
+  <title>${brandName} — ${brandSubtitle}</title>
         <style>
             body { 
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
@@ -2604,10 +2621,76 @@ app.get('/', (req, res) => {
     <body>
         <div class="container">
     <div class="header">
-      <h1>Tradeaify</h1>
-      <p class="subtitle">Advanced Trading Platform & TGT Stablecoin</p>
+      <h1>${brandName}</h1>
+      <p class="subtitle">${brandSubtitle}</p>
             </div>
             
+    ${isTraidefy ? `
+    <!-- TRAIDEFY LANDING: Tools Focus -->
+    <div class="main-content" style="grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));">
+      <!-- Tools Section -->
+      <div class="platform-section" style="cursor: pointer;" onclick="window.location.href='/tools'">
+        <h2>🛠️ Trade Tools</h2>
+        <p class="section-description">
+          Access professional-grade trade credit reports and insurance premium calculators.
+        </p>
+        <div class="features-list">
+          <ul>
+            <li>Credit Report Generator ($150/report)</li>
+            <li>Insurance Premium Calculator ($50/quote)</li>
+            <li>Instant PDF downloads</li>
+            <li>Secure payment processing</li>
+          </ul>
+        </div>
+        <button class="btn" style="margin-top: 20px;" onclick="event.stopPropagation(); window.location.href='/tools'">Access Tools</button>
+      </div>
+      
+      <!-- Algorithm Section (Future) -->
+      <div class="tgt-section" style="opacity: 0.7;">
+        <h2>📊 Trade Algorithm</h2>
+        <p class="section-description">
+          Big Data Trade Algorithm - Coming Soon
+        </p>
+        <div class="features-list">
+          <ul>
+            <li>Algorithmic buy/sell recommendations</li>
+            <li>Price band forecasting</li>
+            <li>Delivery window optimization</li>
+            <li>Risk scenario analysis</li>
+          </ul>
+        </div>
+        <button class="btn secondary" style="margin-top: 20px;" disabled>Coming Soon</button>
+      </div>
+      
+      <!-- Protocol Section -->
+      <div class="platform-section" style="opacity: 0.7;">
+        <h2>🔗 Tangent Protocol</h2>
+        <p class="section-description">
+          Full trading platform with blockchain integration (separate microsite).
+        </p>
+        <div class="features-list">
+          <ul>
+            <li>Complete trading platform</li>
+            <li>TGT Stablecoin integration</li>
+            <li>Contract management</li>
+            <li>Multi-role dashboards</li>
+          </ul>
+        </div>
+        <button class="btn secondary" style="margin-top: 20px;" onclick="window.location.href='https://tangent-protocol-url.com'">Learn More</button>
+      </div>
+    </div>
+    
+    <!-- Traidefy CTA Section -->
+    <div class="registration-section">
+      <h3>Access Trade Credit & Insurance Tools</h3>
+      <p>Get instant trade credit reports and insurance premium quotes</p>
+      <div style="margin: 30px 0;">
+        <button class="btn" onclick="window.location.href='/tools'">Get Started</button>
+        <button class="btn secondary" onclick="window.location.href='/auth/register'">Register Account</button>
+      </div>
+    </div>
+    ` : `
+    <!-- TANGENT LANDING: Platform/TGT Focus -->
     <div class="main-content">
       <!-- Platform Section -->
       <div class="platform-section">
@@ -2624,8 +2707,8 @@ app.get('/', (req, res) => {
             <li>Multi-asset trading support</li>
             <li>Institutional-grade security</li>
           </ul>
-                </div>
-                </div>
+        </div>
+      </div>
       
       <!-- TGT Stablecoin Section -->
       <div class="tgt-section">
@@ -2642,19 +2725,23 @@ app.get('/', (req, res) => {
             <li>Regulatory compliance ready</li>
             <li>Fast settlement times</li>
           </ul>
-                </div>
-                </div>
-                </div>
+        </div>
+      </div>
+    </div>
     
-    <!-- Registration Section -->
+    <!-- Tangent CTA Section -->
     <div class="registration-section">
-      <h3>Get Started with Tradeaify</h3>
+      <h3>Get Started with Tangent Protocol</h3>
       <p>Join the future of trading and discover the power of TGT stablecoin</p>
       <div style="margin: 30px 0;">
         <button class="btn" onclick="window.location.href='/register'">Register Interest (Early Access)</button>
         <button class="btn secondary" onclick="window.location.href='/landing-two'">Team Portal</button>
-                </div>
-            </div>
+      </div>
+      <div style="margin-top: 20px;">
+        <a href="/tools" style="color: #888888; text-decoration: none; font-size: 1rem;">Access Trade Tools →</a>
+      </div>
+    </div>
+    `}
             
     <!-- Team Access Section -->
     <div style="text-align: center; margin-top: 40px; padding: 30px; border-top: 1px solid #333333; background: rgba(255, 255, 255, 0.05);">
@@ -2663,6 +2750,477 @@ app.get('/', (req, res) => {
             </div>
         </div>
     </body>
+</html>`);
+});
+
+// ================================
+// TRAIDEFY TOOLS ROUTES
+// ================================
+
+// Tools Hub
+app.get('/tools', (req, res) => {
+    const isTraidefy = req.brand === 'traidefy';
+    res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trade Tools - ${isTraidefy ? 'Traidefy' : 'Tangent Protocol'}</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: #000000;
+            color: #ffffff;
+            min-height: 100vh;
+            padding: 40px 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 60px;
+        }
+        h1 {
+            font-size: 3rem;
+            font-weight: 700;
+            margin-bottom: 20px;
+            color: #ffffff;
+        }
+        .subtitle {
+            font-size: 1.2rem;
+            color: #888888;
+            margin-bottom: 40px;
+        }
+        .tools-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 30px;
+            margin: 40px 0;
+        }
+        .tool-card {
+            background: #1a1a1a;
+            border: 1px solid #333333;
+            border-radius: 20px;
+            padding: 40px;
+            text-align: center;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        .tool-card:hover {
+            transform: translateY(-5px);
+            border-color: #ffffff;
+            box-shadow: 0 10px 30px rgba(255, 255, 255, 0.1);
+        }
+        .tool-card h2 {
+            font-size: 2rem;
+            margin-bottom: 20px;
+            color: #ffffff;
+        }
+        .tool-card .price {
+            font-size: 1.5rem;
+            color: #888888;
+            margin-bottom: 20px;
+        }
+        .tool-card .description {
+            color: #cccccc;
+            margin-bottom: 30px;
+            line-height: 1.6;
+        }
+        .btn {
+            display: inline-block;
+            padding: 15px 30px;
+            background: #ffffff;
+            color: #000000;
+            text-decoration: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            border: none;
+            cursor: pointer;
+        }
+        .btn:hover {
+            background: #cccccc;
+            transform: translateY(-2px);
+        }
+        .back-link {
+            display: inline-block;
+            margin-top: 40px;
+            color: #888888;
+            text-decoration: none;
+            font-size: 1rem;
+        }
+        .back-link:hover {
+            color: #ffffff;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Trade Tools</h1>
+            <p class="subtitle">Professional-grade trade credit and insurance tools</p>
+        </div>
+        
+        <div class="tools-grid">
+            <div class="tool-card" onclick="window.location.href='/tools/credit-report'">
+                <h2>📊 Credit Report Generator</h2>
+                <div class="price">$150 per report</div>
+                <div class="description">
+                    Get algorithmic trade-specific credit scores with downloadable PDF reports. Perfect for assessing counterparty risk.
+                </div>
+                <button class="btn">Generate Credit Report</button>
+            </div>
+            
+            <div class="tool-card" onclick="window.location.href='/tools/insurance-quote'">
+                <h2>🛡️ Insurance Premium Calculator</h2>
+                <div class="price">$50 per quote</div>
+                <div class="description">
+                    Calculate insurance premiums using our actuarial model. Get premium range estimates and risk assessments.
+                </div>
+                <button class="btn">Get Insurance Quote</button>
+            </div>
+        </div>
+        
+        <div style="text-align: center;">
+            <a href="/" class="back-link">← Back to Home</a>
+        </div>
+    </div>
+</body>
+</html>`);
+});
+
+// Credit Report Tool Page
+app.get('/tools/credit-report', (req, res) => {
+    const isTraidefy = req.brand === 'traidefy';
+    res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Credit Report Generator - ${isTraidefy ? 'Traidefy' : 'Tangent Protocol'}</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: #000000;
+            color: #ffffff;
+            min-height: 100vh;
+            padding: 40px 20px;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+            color: #ffffff;
+        }
+        .price-badge {
+            display: inline-block;
+            background: #ffffff;
+            color: #000000;
+            padding: 8px 20px;
+            border-radius: 20px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 30px;
+        }
+        .form-card {
+            background: #1a1a1a;
+            border: 1px solid #333333;
+            border-radius: 20px;
+            padding: 40px;
+        }
+        .form-group {
+            margin-bottom: 25px;
+        }
+        label {
+            display: block;
+            color: #cccccc;
+            margin-bottom: 8px;
+            font-size: 1rem;
+            font-weight: 500;
+        }
+        input, select, textarea {
+            width: 100%;
+            padding: 12px 16px;
+            background: #0a0a0a;
+            border: 1px solid #333333;
+            border-radius: 8px;
+            color: #ffffff;
+            font-size: 1rem;
+            font-family: inherit;
+        }
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: #ffffff;
+        }
+        .btn {
+            display: inline-block;
+            padding: 15px 30px;
+            background: #ffffff;
+            color: #000000;
+            text-decoration: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            border: none;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 20px;
+        }
+        .btn:hover {
+            background: #cccccc;
+            transform: translateY(-2px);
+        }
+        .info-box {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid #333333;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 30px;
+        }
+        .info-box p {
+            color: #888888;
+            line-height: 1.6;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Credit Report Generator</h1>
+            <div class="price-badge">$150 per report</div>
+        </div>
+        
+        <div class="form-card">
+            <div class="info-box">
+                <p><strong>What you'll get:</strong> Algorithmic trade-specific credit score (0-100), detailed risk factors, downloadable PDF report.</p>
+            </div>
+            
+            <form id="creditForm">
+                <div class="form-group">
+                    <label>Company Name *</label>
+                    <input type="text" name="companyName" required placeholder="Enter company name">
+                </div>
+                <div class="form-group">
+                    <label>Country *</label>
+                    <input type="text" name="country" required placeholder="Enter country">
+                </div>
+                <div class="form-group">
+                    <label>Sector/Commodity *</label>
+                    <input type="text" name="sector" required placeholder="e.g., Grains, Oilseeds, Softs">
+                </div>
+                <div class="form-group">
+                    <label>Trade Value (USD) *</label>
+                    <input type="number" name="tradeValue" required placeholder="Enter trade value" min="1">
+                </div>
+                <div class="form-group">
+                    <label>Tenor *</label>
+                    <select name="tenor" required>
+                        <option value="">Select tenor</option>
+                        <option value="30">30 days</option>
+                        <option value="60">60 days</option>
+                        <option value="90">90 days</option>
+                        <option value="120">120+ days</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Role *</label>
+                    <select name="role" required>
+                        <option value="">Select role</option>
+                        <option value="buyer">Buyer</option>
+                        <option value="supplier">Supplier</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn">Continue to Payment</button>
+            </form>
+        </div>
+        
+        <div style="text-align: center; margin-top: 30px;">
+            <a href="/tools" style="color: #888888; text-decoration: none;">← Back to Tools</a>
+        </div>
+    </div>
+    
+    <script>
+        document.getElementById('creditForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            // TODO: Redirect to payment flow
+            alert('Payment integration coming soon. This will redirect to PayPal checkout.');
+        });
+    </script>
+</body>
+</html>`);
+});
+
+// Insurance Quote Tool Page
+app.get('/tools/insurance-quote', (req, res) => {
+    const isTraidefy = req.brand === 'traidefy';
+    res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Insurance Premium Calculator - ${isTraidefy ? 'Traidefy' : 'Tangent Protocol'}</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: #000000;
+            color: #ffffff;
+            min-height: 100vh;
+            padding: 40px 20px;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+            color: #ffffff;
+        }
+        .price-badge {
+            display: inline-block;
+            background: #ffffff;
+            color: #000000;
+            padding: 8px 20px;
+            border-radius: 20px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 30px;
+        }
+        .form-card {
+            background: #1a1a1a;
+            border: 1px solid #333333;
+            border-radius: 20px;
+            padding: 40px;
+        }
+        .form-group {
+            margin-bottom: 25px;
+        }
+        label {
+            display: block;
+            color: #cccccc;
+            margin-bottom: 8px;
+            font-size: 1rem;
+            font-weight: 500;
+        }
+        input, select, textarea {
+            width: 100%;
+            padding: 12px 16px;
+            background: #0a0a0a;
+            border: 1px solid #333333;
+            border-radius: 8px;
+            color: #ffffff;
+            font-size: 1rem;
+            font-family: inherit;
+        }
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: #ffffff;
+        }
+        .btn {
+            display: inline-block;
+            padding: 15px 30px;
+            background: #ffffff;
+            color: #000000;
+            text-decoration: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            border: none;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 20px;
+        }
+        .btn:hover {
+            background: #cccccc;
+            transform: translateY(-2px);
+        }
+        .info-box {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid #333333;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 30px;
+        }
+        .info-box p {
+            color: #888888;
+            line-height: 1.6;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Insurance Premium Calculator</h1>
+            <div class="price-badge">$50 per quote</div>
+        </div>
+        
+        <div class="form-card">
+            <div class="info-box">
+                <p><strong>What you'll get:</strong> Actuarial model outputting premium percentage range, risk assumptions, and optional PDF report.</p>
+            </div>
+            
+            <form id="insuranceForm">
+                <div class="form-group">
+                    <label>Trade Value (USD) *</label>
+                    <input type="number" name="tradeValue" required placeholder="Enter trade value" min="1">
+                </div>
+                <div class="form-group">
+                    <label>Tenor *</label>
+                    <select name="tenor" required>
+                        <option value="">Select tenor</option>
+                        <option value="30">30 days</option>
+                        <option value="60">60 days</option>
+                        <option value="90">90 days</option>
+                        <option value="120">120+ days</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Sector/Commodity *</label>
+                    <input type="text" name="sector" required placeholder="e.g., Grains, Oilseeds, Softs">
+                </div>
+                <div class="form-group">
+                    <label>Counterparty Credit Score</label>
+                    <input type="number" name="counterpartyScore" placeholder="Enter score (0-100) or leave blank for estimate" min="0" max="100">
+                    <small style="color: #888888; font-size: 0.9rem;">If unknown, we'll use an estimated score</small>
+                </div>
+                <button type="submit" class="btn">Continue to Payment</button>
+            </form>
+        </div>
+        
+        <div style="text-align: center; margin-top: 30px;">
+            <a href="/tools" style="color: #888888; text-decoration: none;">← Back to Tools</a>
+        </div>
+    </div>
+    
+    <script>
+        document.getElementById('insuranceForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            // TODO: Redirect to payment flow
+            alert('Payment integration coming soon. This will redirect to PayPal checkout.');
+        });
+    </script>
+</body>
 </html>`);
 });
 
@@ -2677,7 +3235,7 @@ app.get('/wallet-setup', authenticateToken, (req, res) => {
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Wallet Setup - Tradeaify</title>
+        <title>Wallet Setup - traidefi</title>
         <style>
             * { margin: 0; padding: 0; box-sizing: border-box; }
             body { 
@@ -3105,7 +3663,7 @@ app.get('/landing-two', (req, res) => {
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Tradeaify - Access Portal</title>
+        <title>traidefi - Access Portal</title>
         <style>
             * { margin: 0; padding: 0; box-sizing: border-box; }
             body { 
@@ -3209,7 +3767,7 @@ app.get('/landing-two', (req, res) => {
     </head>
     <body>
         <div class="container">
-            <h1>Welcome to Tradeaify</h1>
+            <h1>Welcome to traidefi</h1>
             <p class="subtitle">Access Your Trading Platform</p>
             
             <div class="welcome-message">
@@ -3786,7 +4344,7 @@ app.get('/register', (req, res) => {
             
             <div id="registrationForm">
                 <h1>Register Interest</h1>
-                <p class="subtitle">Join the waiting list for early access to Tradeaify</p>
+                <p class="subtitle">Join the waiting list for early access to traidefi</p>
                 
                 <form id="interestForm">
                     <div class="form-group">
@@ -7442,7 +8000,7 @@ app.get('/create-contract', authenticateToken, (req, res) => {
   <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Create Contract - Tradeaify</title>
+        <title>Create Contract - traidefi</title>
     <style>
       * { margin: 0; padding: 0; box-sizing: border-box; }
       body { font-family: system-ui, -apple-system, sans-serif; background: #000000; color: #ffffff; }
@@ -8193,7 +8751,7 @@ app.get('/manage-contract/:contractId', authenticateToken, (req, res) => {
   <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Manage Contract - Tradeaify</title>
+    <title>Manage Contract - traidefi</title>
     <style>
       * { margin: 0; padding: 0; box-sizing: border-box; }
       body { font-family: system-ui, -apple-system, sans-serif; background: #0f172a; color: #f8fafc; }
@@ -11897,7 +12455,7 @@ app.get('/demo/buyer/step3-dashboard-empty', (req, res) => {
         </div>
 
         <div class="welcome-section">
-            <h2>Welcome to Tradeaify!</h2>
+            <h2>Welcome to traidefi!</h2>
             <p>Your account is fully verified and ready for trading. Start by creating your first contract.</p>
         </div>
 
@@ -16390,7 +16948,7 @@ const server = app.listen(PORT, '0.0.0.0', (err) => {
         console.error('[ERROR] Failed to start server:', err);
         process.exit(1);
     }
-    console.log('[INFO] Tradeaify Complete Production Platform running on port', PORT);
+    console.log('[INFO] traidefi Complete Production Platform running on port', PORT);
     console.log('[INFO] Landing Page:', `http://localhost:${PORT}/`);
     console.log('[INFO] Team Portal:', `http://localhost:${PORT}/landing-two`);
     console.log('[INFO] Health Check:', `http://localhost:${PORT}/health`);
