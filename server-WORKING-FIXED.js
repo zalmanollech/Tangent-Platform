@@ -8,6 +8,21 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const session = require('express-session');
 const { spawn } = require('child_process');
+const axios = require('axios');
+require('dotenv').config({ path: './config.env' });
+
+// Database integration
+const db = require('./lib/database');
+
+// Report generator for Traidefi
+const reportGenerator = require('./lib/report-generator');
+
+// PDF generator and storage service
+const pdfGenerator = require('./lib/pdf-generator');
+const storageService = require('./lib/storage-service');
+
+// Email service
+const emailService = require('./lib/email-service');
 
 // TANGENT-BRIDGE-v4 Credit Risk Integration - Production Safe
 let creditIntegration = null;
@@ -210,6 +225,21 @@ console.log('[INFO] Starting traidefi Complete Production Platform...');
 
 const app = express();
 const PORT = process.env.PORT || 4000;
+
+// Initialize database (creates tables automatically) - Non-blocking
+(async () => {
+    try {
+        // Initialize database in background, don't block server startup
+        db.initDatabase().then(() => {
+            console.log('[INFO] Database initialization complete');
+        }).catch((error) => {
+            console.warn('[WARN] Database initialization failed:', error.message);
+            console.warn('[WARN] Server will continue without database - features will be limited');
+        });
+    } catch (error) {
+        console.warn('[WARN] Database initialization error:', error.message);
+    }
+})();
 
 // Initialize blockchain service with error handling
 let blockchain = null;
@@ -2458,20 +2488,63 @@ app.get('/test', (req, res) => {
 // LANDING PAGE
 // ================================
 // ================================
+// PAYPAL CLIENT SETUP
+// ================================
+async function getPayPalAccessToken() {
+    const clientId = process.env.PAYPAL_CLIENT_ID;
+    const clientSecret = process.env.PAYPAL_CLIENT_SECRET;
+    const environment = process.env.PAYPAL_ENVIRONMENT || 'sandbox';
+    
+    if (!clientId || !clientSecret) {
+        console.warn('[WARN] PayPal credentials not configured');
+        return null;
+    }
+    
+    const baseUrl = environment === 'live' 
+        ? 'https://api.paypal.com'
+        : 'https://api.sandbox.paypal.com';
+    
+    try {
+        const response = await axios.post(
+            `${baseUrl}/v1/oauth2/token`,
+            'grant_type=client_credentials',
+            {
+                auth: {
+                    username: clientId,
+                    password: clientSecret
+                },
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                }
+            }
+        );
+        
+        return {
+            accessToken: response.data.access_token,
+            baseUrl: baseUrl
+        };
+    } catch (error) {
+        console.error('[ERROR] PayPal token error:', error.response?.data || error.message);
+        return null;
+    }
+}
+
+// ================================
 // BRAND DETECTION MIDDLEWARE
 // ================================
 app.use((req, res, next) => {
-    // Detect brand based on host header
+    // Detect brand based on host header or query parameter (for local testing)
     const host = req.get('host') || req.headers.host || '';
-    req.brand = 'traidefi'; // Always use traidefi brand
+    const isTraidefiDomain = host.includes('traidefi.ai');
+    const isTraidefiParam = req.query.brand === 'traidefi'; // For local testing: ?brand=traidefi
+    req.brand = (isTraidefiDomain || isTraidefiParam) ? 'traidefi' : 'tangent';
     next();
 });
 
 app.get('/', (req, res) => {
-  // Use brand for conditional rendering
-  const isTraidefi = req.brand === 'traidefi';
+  // Always use traidefi branding
   const brandName = 'traidefi';
-  const brandSubtitle = 'Trade Credit Reports & Insurance Premium Calculator';
+  const brandSubtitle = 'Advanced Trading Platform & TGT Stablecoin';
   
   res.send(`<!DOCTYPE html>
     <html lang="en">
@@ -2623,72 +2696,7 @@ app.get('/', (req, res) => {
       <p class="subtitle">${brandSubtitle}</p>
             </div>
             
-    ${isTraidefi ? `
-    <!-- TRAIDEFY LANDING: Tools Focus -->
-    <div class="main-content" style="grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));">
-      <!-- Tools Section -->
-      <div class="platform-section" style="cursor: pointer;" onclick="window.location.href='/tools'">
-        <h2>🛠️ Trade Tools</h2>
-        <p class="section-description">
-          Access professional-grade trade credit reports and insurance premium calculators.
-        </p>
-        <div class="features-list">
-          <ul>
-            <li>Credit Report Generator ($150/report)</li>
-            <li>Insurance Premium Calculator ($50/quote)</li>
-            <li>Instant PDF downloads</li>
-            <li>Secure payment processing</li>
-          </ul>
-        </div>
-        <button class="btn" style="margin-top: 20px;" onclick="event.stopPropagation(); window.location.href='/tools'">Access Tools</button>
-      </div>
-      
-      <!-- Algorithm Section (Future) -->
-      <div class="tgt-section" style="opacity: 0.7;">
-        <h2>📊 Trade Algorithm</h2>
-        <p class="section-description">
-          Big Data Trade Algorithm - Coming Soon
-        </p>
-        <div class="features-list">
-          <ul>
-            <li>Algorithmic buy/sell recommendations</li>
-            <li>Price band forecasting</li>
-            <li>Delivery window optimization</li>
-            <li>Risk scenario analysis</li>
-          </ul>
-        </div>
-        <button class="btn secondary" style="margin-top: 20px;" disabled>Coming Soon</button>
-      </div>
-      
-      <!-- Protocol Section -->
-      <div class="platform-section" style="opacity: 0.7;">
-        <h2>🔗 traidefi</h2>
-        <p class="section-description">
-          Full trading platform with blockchain integration (separate microsite).
-        </p>
-        <div class="features-list">
-          <ul>
-            <li>Complete trading platform</li>
-            <li>TGT Stablecoin integration</li>
-            <li>Contract management</li>
-            <li>Multi-role dashboards</li>
-          </ul>
-        </div>
-        <button class="btn secondary" style="margin-top: 20px;" onclick="window.location.href='https://tangent-protocol-url.com'">Learn More</button>
-      </div>
-    </div>
-    
-    <!-- traidefi CTA Section -->
-    <div class="registration-section">
-      <h3>Access Trade Credit & Insurance Tools</h3>
-      <p>Get instant trade credit reports and insurance premium quotes</p>
-      <div style="margin: 30px 0;">
-        <button class="btn" onclick="window.location.href='/tools'">Get Started</button>
-        <button class="btn secondary" onclick="window.location.href='/auth/register'">Register Account</button>
-      </div>
-    </div>
-    ` : `
-    <!-- TANGENT LANDING: Platform/TGT Focus -->
+    <!-- traidefi LANDING: Platform/TGT Focus -->
     <div class="main-content">
       <!-- Platform Section -->
       <div class="platform-section">
@@ -2727,7 +2735,7 @@ app.get('/', (req, res) => {
       </div>
     </div>
     
-    <!-- Tangent CTA Section -->
+    <!-- traidefi CTA Section -->
     <div class="registration-section">
       <h3>Get Started with traidefi</h3>
       <p>Join the future of trading and discover the power of TGT stablecoin</p>
@@ -2736,10 +2744,9 @@ app.get('/', (req, res) => {
         <button class="btn secondary" onclick="window.location.href='/landing-two'">Team Portal</button>
       </div>
       <div style="margin-top: 20px;">
-        <a href="/tools" style="color: #888888; text-decoration: none; font-size: 1rem;">Access Trade Tools →</a>
+        <a href="/tools" style="color: #888888; text-decoration: none; font-size: 1rem;">Access Credit & Insurance Tools →</a>
       </div>
     </div>
-    `}
             
     <!-- Team Access Section -->
     <div style="text-align: center; margin-top: 40px; padding: 30px; border-top: 1px solid #333333; background: rgba(255, 255, 255, 0.05);">
@@ -2752,7 +2759,7 @@ app.get('/', (req, res) => {
 });
 
 // ================================
-// TRAIDEFY TOOLS ROUTES
+// TRAIDEFI TOOLS ROUTES
 // ================================
 
 // Tools Hub
@@ -2763,7 +2770,7 @@ app.get('/tools', (req, res) => {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Trade Tools - traidefi</title>
+    <title>Trade Tools - ${isTraidefi ? 'Traidefi' : 'Tangent Protocol'}</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -2899,7 +2906,7 @@ app.get('/tools/credit-report', (req, res) => {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Credit Report Generator - traidefi</title>
+    <title>Credit Report Generator - ${isTraidefi ? 'Traidefi' : 'Tangent Protocol'}</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -3052,10 +3059,33 @@ app.get('/tools/credit-report', (req, res) => {
     </div>
     
     <script>
-        document.getElementById('creditForm').addEventListener('submit', function(e) {
+        document.getElementById('creditForm').addEventListener('submit', async function(e) {
             e.preventDefault();
-            // TODO: Redirect to payment flow
-            alert('Payment integration coming soon. This will redirect to PayPal checkout.');
+            
+            const formData = new FormData(e.target);
+            const data = Object.fromEntries(formData);
+            
+            try {
+                const response = await fetch('/api/paypal/create-order', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        product: 'credit-report',
+                        amount: 150,
+                        currency: 'USD',
+                        formData: data
+                    })
+                });
+                
+                const result = await response.json();
+                if (result.approvalUrl) {
+                    window.location.href = result.approvalUrl;
+                } else {
+                    alert('Error: ' + (result.error || 'Failed to create payment'));
+                }
+            } catch (error) {
+                alert('Error creating payment: ' + error.message);
+            }
         });
     </script>
 </body>
@@ -3070,7 +3100,7 @@ app.get('/tools/insurance-quote', (req, res) => {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Insurance Premium Calculator - traidefi</title>
+    <title>Insurance Premium Calculator - ${isTraidefi ? 'Traidefi' : 'Tangent Protocol'}</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -3212,12 +3242,1955 @@ app.get('/tools/insurance-quote', (req, res) => {
     </div>
     
     <script>
-        document.getElementById('insuranceForm').addEventListener('submit', function(e) {
+        document.getElementById('insuranceForm').addEventListener('submit', async function(e) {
             e.preventDefault();
-            // TODO: Redirect to payment flow
-            alert('Payment integration coming soon. This will redirect to PayPal checkout.');
+            
+            const formData = new FormData(e.target);
+            const data = Object.fromEntries(formData);
+            
+            try {
+                const response = await fetch('/api/paypal/create-order', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        product: 'insurance-quote',
+                        amount: 50,
+                        currency: 'USD',
+                        formData: data
+                    })
+                });
+                
+                const result = await response.json();
+                if (result.approvalUrl) {
+                    window.location.href = result.approvalUrl;
+                } else {
+                    alert('Error: ' + (result.error || 'Failed to create payment'));
+                }
+            } catch (error) {
+                alert('Error creating payment: ' + error.message);
+            }
         });
     </script>
+</body>
+</html>`);
+});
+
+// ================================
+// PAYPAL PAYMENT ROUTES
+// ================================
+
+// Create PayPal Order
+app.post('/api/paypal/create-order', express.json(), async (req, res) => {
+    try {
+        const { product, amount, currency, formData } = req.body;
+        
+        if (!product || !amount || !formData) {
+            return res.status(400).json({ error: 'Missing required fields' });
+        }
+        
+        const paypalAuth = await getPayPalAccessToken();
+        if (!paypalAuth) {
+            return res.status(500).json({ error: 'PayPal not configured' });
+        }
+        
+        const currencyCode = currency || process.env.PAYPAL_CURRENCY || 'USD';
+        const productName = product === 'credit-report' 
+            ? 'Traidefi Credit Report' 
+            : 'Traidefi Insurance Premium Quote';
+        
+        const orderData = {
+            intent: 'CAPTURE',
+            application_context: {
+                brand_name: 'Traidefi',
+                landing_page: 'BILLING',
+                user_action: 'PAY_NOW',
+                return_url: `${req.protocol}://${req.get('host')}/api/paypal/success?product=${product}`,
+                cancel_url: `${req.protocol}://${req.get('host')}/tools/${product === 'credit-report' ? 'credit-report' : 'insurance-quote'}`
+            },
+            purchase_units: [{
+                reference_id: `traidefi-${product}-${Date.now()}`,
+                description: productName,
+                amount: {
+                    currency_code: currencyCode,
+                    value: amount.toString()
+                }
+            }]
+        };
+        
+        const response = await axios.post(
+            `${paypalAuth.baseUrl}/v2/checkout/orders`,
+            orderData,
+            {
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${paypalAuth.accessToken}`,
+                    'Prefer': 'return=representation'
+                }
+            }
+        );
+        
+        const order = response.data;
+        
+        // Store form data temporarily (in production, use database/Redis)
+        const formDataEncoded = encodeURIComponent(JSON.stringify(formData));
+        
+        const approvalUrl = order.links.find(link => link.rel === 'approve')?.href;
+        
+        if (!approvalUrl) {
+            return res.status(500).json({ error: 'Failed to get PayPal approval URL' });
+        }
+        
+        // Store order ID and form data (in production, use database)
+        const approvalUrlWithData = `${approvalUrl}&formData=${formDataEncoded}`;
+        
+        res.json({
+            orderId: order.id,
+            approvalUrl: approvalUrlWithData
+        });
+        
+    } catch (error) {
+        console.error('[ERROR] PayPal order creation error:', error.response?.data || error.message);
+        res.status(500).json({ error: error.response?.data?.message || error.message || 'Failed to create PayPal order' });
+    }
+});
+
+// PayPal Success Handler
+app.get('/api/paypal/success', async (req, res) => {
+    try {
+        const { token, product } = req.query;
+        
+        if (!token) {
+            return res.status(400).send('Missing payment token');
+        }
+        
+        const paypalAuth = await getPayPalAccessToken();
+        if (!paypalAuth) {
+            return res.status(500).send('PayPal not configured');
+        }
+        
+        // Capture the payment
+        const captureResponse = await axios.post(
+            `${paypalAuth.baseUrl}/v2/checkout/orders/${token}/capture`,
+            {},
+            {
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${paypalAuth.accessToken}`,
+                    'Prefer': 'return=representation'
+                }
+            }
+        );
+        
+        const capture = captureResponse.data;
+        
+        if (capture.status === 'COMPLETED') {
+            // Payment successful - store purchase in database
+            let purchaseRecord = null;
+            let userId = null;
+            
+            try {
+                // Get form data from query params (passed through PayPal redirect)
+                const formDataParam = req.query.formData;
+                let formData = {};
+                
+                if (formDataParam) {
+                    try {
+                        formData = JSON.parse(decodeURIComponent(formDataParam));
+                    } catch (e) {
+                        console.warn('[WARN] Could not parse form data:', e.message);
+                    }
+                }
+                
+                // Get user email from PayPal payer info or form
+                const payerEmail = capture.payer?.email_address || capture.payer?.payer_info?.email || formData.email || null;
+                const payerId = capture.payer?.payer_id || null;
+                
+                // Find or create user by email
+                if (payerEmail) {
+                    let user = await db.users.findByEmail(payerEmail);
+                    if (!user) {
+                        // Create user without password (they'll set it later if needed)
+                        // For now, create a temporary password hash
+                        const tempPassword = 'temp_' + Math.random().toString(36).slice(-12);
+                        const passwordHash = await bcrypt.hash(tempPassword, 10);
+                        user = await db.users.create(payerEmail, passwordHash);
+                        console.log('[INFO] Created new user from PayPal payment:', payerEmail);
+                    }
+                    userId = user.id;
+                }
+                
+                // Get payment amount from capture response
+                const purchaseUnit = capture.purchase_units && capture.purchase_units[0];
+                const captureData = purchaseUnit?.payments?.captures?.[0] || {};
+                const amount = parseFloat(captureData.amount?.value || '0');
+                const currency = captureData.amount?.currency_code || 'USD';
+                
+                // Create purchase record
+                purchaseRecord = await db.purchases.create({
+                    userId: userId,
+                    brand: 'traidefi',
+                    product: product || 'credit-report',
+                    amount: amount,
+                    currency: currency,
+                    status: 'paid',
+                    paypalOrderId: token,
+                    paypalPayerId: payerId,
+                    formData: formData
+                });
+                
+                console.log('[INFO] Purchase recorded:', purchaseRecord.id);
+                
+                // Generate report/quote asynchronously (don't block response)
+                (async () => {
+                    try {
+                        if (product === 'credit-report') {
+                            // Generate credit report
+                            const report = await reportGenerator.generateCreditReport(formData, purchaseRecord.id);
+                            
+                            // Generate PDF
+                            let pdfUrl = null;
+                            try {
+                                const pdfData = await pdfGenerator.generateCreditReportPDF(
+                                    { id: purchaseRecord.id, score: report.score, created_at: new Date(), risk_notes: report.riskNotes },
+                                    formData,
+                                    report.factors
+                                );
+                                
+                                // Upload PDF to storage
+                                const fileName = `credit-reports/report-${purchaseRecord.id}-${Date.now()}.html`;
+                                pdfUrl = await storageService.uploadFile(
+                                    pdfData.content,
+                                    fileName,
+                                    'text/html'
+                                );
+                                
+                                if (pdfUrl) {
+                                    console.log('[INFO] PDF uploaded to storage:', pdfUrl);
+                                } else {
+                                    console.warn('[WARN] PDF upload failed, but report saved to database');
+                                }
+                            } catch (pdfError) {
+                                console.error('[ERROR] PDF generation/upload error:', pdfError.message);
+                                // Continue even if PDF generation fails
+                            }
+                            
+                            // Save report to database
+                            const savedReport = await db.creditReports.create({
+                                userId: userId,
+                                purchaseId: purchaseRecord.id,
+                                brand: 'traidefi',
+                                inputJson: formData,
+                                score: report.score,
+                                factors: report.factors,
+                                riskNotes: report.riskNotes,
+                                pdfUrl: pdfUrl
+                            });
+                            
+                            console.log('[INFO] Credit report generated and saved for purchase:', purchaseRecord.id);
+                            
+                            // Send email notification (async, don't block)
+                            if (payerEmail) {
+                                (async () => {
+                                    try {
+                                        await emailService.sendReportReadyEmail(
+                                            payerEmail,
+                                            'credit-report',
+                                            savedReport.id,
+                                            pdfUrl,
+                                            { score: report.score }
+                                        );
+                                        console.log('[INFO] Report ready email sent to:', payerEmail);
+                                    } catch (emailError) {
+                                        console.error('[ERROR] Failed to send report ready email:', emailError.message);
+                                    }
+                                })();
+                            }
+                        } else if (product === 'insurance-quote') {
+                            // Generate insurance quote
+                            const quote = await reportGenerator.generateInsuranceQuote(formData, purchaseRecord.id);
+                            
+                            // Generate PDF (optional)
+                            let pdfUrl = null;
+                            try {
+                                const pdfData = await pdfGenerator.generateInsuranceQuotePDF(
+                                    { id: purchaseRecord.id, created_at: new Date(), premium_min: quote.premiumMin, premium_max: quote.premiumMax },
+                                    formData,
+                                    quote.assumptions
+                                );
+                                
+                                // Upload PDF to storage
+                                const fileName = `insurance-quotes/quote-${purchaseRecord.id}-${Date.now()}.html`;
+                                pdfUrl = await storageService.uploadFile(
+                                    pdfData.content,
+                                    fileName,
+                                    'text/html'
+                                );
+                                
+                                if (pdfUrl) {
+                                    console.log('[INFO] PDF uploaded to storage:', pdfUrl);
+                                } else {
+                                    console.warn('[WARN] PDF upload failed, but quote saved to database');
+                                }
+                            } catch (pdfError) {
+                                console.error('[ERROR] PDF generation/upload error:', pdfError.message);
+                                // Continue even if PDF generation fails
+                            }
+                            
+                            // Save quote to database
+                            const savedQuote = await db.premiumQuotes.create({
+                                userId: userId,
+                                purchaseId: purchaseRecord.id,
+                                brand: 'traidefi',
+                                inputJson: formData,
+                                premiumMin: quote.premiumMin,
+                                premiumMax: quote.premiumMax,
+                                assumptionsJson: quote.assumptions,
+                                pdfUrl: pdfUrl // Optional PDF
+                            });
+                            
+                            console.log('[INFO] Insurance quote generated and saved for purchase:', purchaseRecord.id);
+                            
+                            // Send email notification (async, don't block)
+                            if (payerEmail) {
+                                (async () => {
+                                    try {
+                                        await emailService.sendReportReadyEmail(
+                                            payerEmail,
+                                            'insurance-quote',
+                                            savedQuote.id,
+                                            pdfUrl,
+                                            { premiumMin: quote.premiumMin, premiumMax: quote.premiumMax }
+                                        );
+                                        console.log('[INFO] Quote ready email sent to:', payerEmail);
+                                    } catch (emailError) {
+                                        console.error('[ERROR] Failed to send quote ready email:', emailError.message);
+                                    }
+                                })();
+                            }
+                        }
+                    } catch (reportError) {
+                        console.error('[ERROR] Report generation error:', reportError.message);
+                        // Don't fail the payment if report generation fails
+                    }
+                })();
+                
+            } catch (dbError) {
+                console.error('[ERROR] Database error during purchase recording:', dbError.message);
+                // Continue even if DB save fails - payment is already captured
+            }
+            
+            // Get payer email for "My Reports" link (defined earlier in the function)
+            const payerEmailForLink = capture.payer?.email_address || capture.payer?.payer_info?.email || formData.email || null;
+            
+            // Show success page with purchase details
+            const purchaseDetails = purchaseRecord ? `
+                <div style="background: #0f172a; border: 1px solid #334155; border-radius: 12px; padding: 20px; margin: 20px 0; text-align: left;">
+                    <h3 style="color: #06b6d4; margin-bottom: 15px;">📋 Purchase Details</h3>
+                    <div style="margin-bottom: 10px;">
+                        <span style="color: #94a3b8;">Order ID:</span>
+                        <span style="color: #ffffff; font-weight: 600;">${purchaseRecord.paypal_order_id || 'N/A'}</span>
+                    </div>
+                    <div style="margin-bottom: 10px;">
+                        <span style="color: #94a3b8;">Product:</span>
+                        <span style="color: #ffffff; font-weight: 600;">${purchaseRecord.product === 'credit-report' ? 'Credit Report' : 'Insurance Quote'}</span>
+                    </div>
+                    <div style="margin-bottom: 10px;">
+                        <span style="color: #94a3b8;">Amount:</span>
+                        <span style="color: #10b981; font-weight: 600;">${purchaseRecord.currency} ${purchaseRecord.amount}</span>
+                    </div>
+                    <div style="margin-bottom: 10px;">
+                        <span style="color: #94a3b8;">Status:</span>
+                        <span style="color: #10b981; font-weight: 600; text-transform: uppercase;">${purchaseRecord.status}</span>
+                    </div>
+                    <div style="margin-bottom: 10px;">
+                        <span style="color: #94a3b8;">Purchase ID:</span>
+                        <span style="color: #ffffff; font-weight: 600;">#${purchaseRecord.id}</span>
+                    </div>
+                    <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #334155;">
+                        <span style="color: #94a3b8; font-size: 0.9rem;">✅ Purchase saved to database</span>
+                    </div>
+                </div>
+            ` : '<p style="color: #ef4444;">⚠️ Purchase record could not be retrieved</p>';
+            
+            res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payment Successful - Traidefi</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: #000000;
+            color: #ffffff;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .container {
+            background: #1a1a1a;
+            border: 1px solid #333333;
+            border-radius: 20px;
+            padding: 40px;
+            text-align: center;
+            max-width: 700px;
+        }
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 20px;
+            color: #ffffff;
+        }
+        .success-icon {
+            font-size: 4rem;
+            margin-bottom: 20px;
+        }
+        p {
+            color: #cccccc;
+            margin-bottom: 20px;
+            line-height: 1.6;
+        }
+        .btn {
+            display: inline-block;
+            padding: 15px 30px;
+            background: #ffffff;
+            color: #000000;
+            text-decoration: none;
+            border-radius: 12px;
+            font-weight: 600;
+            margin: 10px;
+            transition: background 0.3s;
+        }
+        .btn:hover {
+            background: #cccccc;
+        }
+        .btn-secondary {
+            background: #333333;
+            color: #ffffff;
+        }
+        .btn-secondary:hover {
+            background: #444444;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="success-icon">✅</div>
+        <h1>Payment Successful!</h1>
+        <p>Your payment has been processed successfully.</p>
+        <p>Your ${product === 'credit-report' ? 'credit report' : 'insurance quote'} is being generated and will be emailed to you shortly.</p>
+        ${purchaseDetails}
+        <div style="margin-top: 30px;">
+            <a href="/tools" class="btn">Back to Tools</a>
+            ${purchaseRecord && payerEmailForLink ? `<a href="/my-reports?email=${encodeURIComponent(payerEmailForLink)}" class="btn btn-secondary">View My Reports</a>` : ''}
+            <a href="/admin/purchases" class="btn btn-secondary">Admin: View All Purchases</a>
+        </div>
+    </div>
+</body>
+</html>`);
+        } else {
+            res.status(400).send('Payment not completed');
+        }
+        
+    } catch (error) {
+        console.error('[ERROR] PayPal capture error:', error);
+        res.status(500).send('Error processing payment');
+    }
+});
+
+// Admin: View All Purchases
+app.get('/admin/purchases', async (req, res) => {
+    try {
+        // Ensure database is initialized
+        await db.initDatabase();
+        
+        const purchases = await db.query(
+            `SELECT p.*, u.email 
+             FROM purchases p 
+             LEFT JOIN users u ON p.user_id = u.id 
+             ORDER BY p.created_at DESC 
+             LIMIT 100`
+        );
+        
+        // Get reports/quotes for each purchase
+               const purchasesWithReports = await Promise.all(purchases.rows.map(async (p) => {
+                   let reportId = null;
+                   let quoteId = null;
+                   let pdfUrl = null;
+                   
+                   if (p.product === 'credit-report') {
+                       const report = await db.query(
+                           'SELECT id, pdf_url FROM credit_reports WHERE purchase_id = $1 LIMIT 1',
+                           [p.id]
+                       );
+                       if (report.rows.length > 0) {
+                           reportId = report.rows[0].id;
+                           pdfUrl = report.rows[0].pdf_url;
+                       }
+                   } else if (p.product === 'insurance-quote') {
+                       const quote = await db.query(
+                           'SELECT id, pdf_url FROM premium_quotes WHERE purchase_id = $1 LIMIT 1',
+                           [p.id]
+                       );
+                       if (quote.rows.length > 0) {
+                           quoteId = quote.rows[0].id;
+                           pdfUrl = quote.rows[0].pdf_url;
+                       }
+                   }
+                   
+                   return { ...p, reportId, quoteId, pdfUrl };
+               }));
+               
+               const purchasesHtml = purchasesWithReports.map(p => {
+                   let viewLink = '';
+                   if (p.reportId) {
+                       viewLink = `<a href="/admin/reports/credit/${p.reportId}" style="color: #06b6d4; text-decoration: none; font-weight: 600; margin-right: 10px;">📄 View Report</a>`;
+                       if (p.pdfUrl) {
+                           viewLink += `<a href="${p.pdfUrl}" target="_blank" style="color: #10b981; text-decoration: none; font-weight: 600;">📥 PDF</a>`;
+                       }
+                   } else if (p.quoteId) {
+                       viewLink = `<a href="/admin/reports/insurance/${p.quoteId}" style="color: #06b6d4; text-decoration: none; font-weight: 600; margin-right: 10px;">📄 View Quote</a>`;
+                       if (p.pdfUrl) {
+                           viewLink += `<a href="${p.pdfUrl}" target="_blank" style="color: #10b981; text-decoration: none; font-weight: 600;">📥 PDF</a>`;
+                       }
+                   } else {
+                       viewLink = '<span style="color: #666;">⏳ Generating...</span>';
+                   }
+            
+            return `
+            <tr style="border-bottom: 1px solid #334155;">
+                <td style="padding: 15px; color: #ffffff;">#${p.id}</td>
+                <td style="padding: 15px; color: #94a3b8;">${p.email || 'N/A'}</td>
+                <td style="padding: 15px; color: #ffffff; text-transform: capitalize;">${p.product}</td>
+                <td style="padding: 15px; color: #10b981; font-weight: 600;">${p.currency} ${p.amount}</td>
+                <td style="padding: 15px;">
+                    <span style="padding: 5px 10px; border-radius: 4px; background: ${p.status === 'paid' ? '#10b981' : '#f59e0b'}; color: #000; font-size: 0.85rem; font-weight: 600;">
+                        ${p.status.toUpperCase()}
+                    </span>
+                </td>
+                <td style="padding: 15px; color: #94a3b8; font-size: 0.9rem;">${new Date(p.created_at).toLocaleString()}</td>
+                <td style="padding: 15px; color: #06b6d4; font-size: 0.85rem; font-family: monospace;">${p.paypal_order_id ? p.paypal_order_id.substring(0, 20) + '...' : 'N/A'}</td>
+                <td style="padding: 15px;">${viewLink}</td>
+            </tr>
+        `;
+        }).join('');
+        
+        res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - Purchases - Traidefi</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: #000000;
+            color: #ffffff;
+            padding: 20px;
+        }
+        .header {
+            background: #1a1a1a;
+            border: 1px solid #333333;
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 30px;
+        }
+        h1 {
+            font-size: 2rem;
+            margin-bottom: 10px;
+            color: #ffffff;
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+        .stat-card {
+            background: #0f172a;
+            border: 1px solid #334155;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 600;
+            color: #06b6d4;
+            margin-bottom: 5px;
+        }
+        .stat-label {
+            color: #94a3b8;
+            font-size: 0.9rem;
+        }
+        table {
+            width: 100%;
+            background: #1a1a1a;
+            border: 1px solid #333333;
+            border-radius: 12px;
+            overflow: hidden;
+            border-collapse: collapse;
+        }
+        thead {
+            background: #0f172a;
+        }
+        th {
+            padding: 15px;
+            text-align: left;
+            color: #06b6d4;
+            font-weight: 600;
+            border-bottom: 2px solid #334155;
+        }
+        .btn {
+            display: inline-block;
+            padding: 10px 20px;
+            background: #ffffff;
+            color: #000000;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 600;
+            margin-top: 20px;
+        }
+        .btn:hover {
+            background: #cccccc;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>📊 Admin - Purchase History</h1>
+        <p style="color: #94a3b8; margin-top: 10px;">View all purchases and verify database storage</p>
+        <div class="stats">
+            <div class="stat-card">
+                <div class="stat-value">${purchases.rows.length}</div>
+                <div class="stat-label">Total Purchases</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">${purchases.rows.filter(p => p.status === 'paid').length}</div>
+                <div class="stat-label">Paid Orders</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">${new Set(purchases.rows.filter(p => p.email).map(p => p.email)).size}</div>
+                <div class="stat-label">Unique Users</div>
+            </div>
+        </div>
+    </div>
+    
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Email</th>
+                <th>Product</th>
+                <th>Amount</th>
+                <th>Status</th>
+                <th>Date</th>
+                <th>PayPal Order ID</th>
+                <th>Report/Quote</th>
+            </tr>
+        </thead>
+        <tbody>
+            ${purchases.rows.length > 0 ? purchasesHtml : '<tr><td colspan="8" style="padding: 40px; text-align: center; color: #94a3b8;">No purchases found</td></tr>'}
+        </tbody>
+    </table>
+    
+    <div style="margin-top: 30px; text-align: center;">
+        <a href="/tools" class="btn">← Back to Tools</a>
+    </div>
+</body>
+</html>`);
+    } catch (error) {
+        console.error('[ERROR] Admin purchases error:', error);
+        console.error('[ERROR] Error details:', {
+            message: error.message,
+            stack: error.stack,
+            databaseUrl: process.env.DATABASE_URL ? 'Set' : 'Not set'
+        });
+        
+        const errorHtml = `
+            <html>
+                <head>
+                    <title>Error - Admin Purchases</title>
+                    <style>
+                        * { margin: 0; padding: 0; box-sizing: border-box; }
+                        body {
+                            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+                            background: #000000;
+                            color: #ffffff;
+                            padding: 40px;
+                            min-height: 100vh;
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                        }
+                        .error-container {
+                            background: #1a1a1a;
+                            border: 1px solid #333333;
+                            border-radius: 20px;
+                            padding: 40px;
+                            max-width: 600px;
+                            text-align: center;
+                        }
+                        h1 {
+                            color: #ef4444;
+                            margin-bottom: 20px;
+                        }
+                        .error-details {
+                            background: #0f172a;
+                            border: 1px solid #334155;
+                            border-radius: 12px;
+                            padding: 20px;
+                            margin: 20px 0;
+                            text-align: left;
+                            font-family: monospace;
+                            font-size: 0.9rem;
+                            color: #94a3b8;
+                        }
+                        .btn {
+                            display: inline-block;
+                            padding: 15px 30px;
+                            background: #ffffff;
+                            color: #000000;
+                            text-decoration: none;
+                            border-radius: 12px;
+                            font-weight: 600;
+                            margin-top: 20px;
+                        }
+                        .btn:hover {
+                            background: #cccccc;
+                        }
+                    </style>
+                </head>
+                <body>
+                    <div class="error-container">
+                        <h1>❌ Error Loading Purchases</h1>
+                        <p style="color: #94a3b8; margin-bottom: 20px;">${error.message}</p>
+                        <div class="error-details">
+                            <div style="margin-bottom: 10px;">
+                                <strong style="color: #06b6d4;">Database URL:</strong> 
+                                ${process.env.DATABASE_URL ? '✅ Configured' : '❌ Not set'}
+                            </div>
+                            <div style="margin-bottom: 10px;">
+                                <strong style="color: #06b6d4;">Error Type:</strong> ${error.name || 'Unknown'}
+                            </div>
+                            ${error.stack ? `<div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #334155; font-size: 0.8rem; color: #666;">${error.stack.split('\\n').slice(0, 3).join('\\n')}</div>` : ''}
+                        </div>
+                        <a href="/tools" class="btn">← Back to Tools</a>
+                    </div>
+                </body>
+            </html>
+        `;
+        
+        res.status(500).send(errorHtml);
+    }
+});
+
+// View Credit Report
+app.get('/admin/reports/credit/:id', async (req, res) => {
+    try {
+        await db.initDatabase();
+        
+        const reportId = parseInt(req.params.id);
+        const report = await db.creditReports.findById(reportId);
+        
+        if (!report) {
+            return res.status(404).send(`
+                <html>
+                    <head><title>Report Not Found</title></head>
+                    <body style="background: #000; color: #fff; padding: 40px; font-family: sans-serif;">
+                        <h1>Report Not Found</h1>
+                        <p>Credit report #${reportId} not found.</p>
+                        <a href="/admin/purchases" style="color: #06b6d4;">← Back to Purchases</a>
+                    </body>
+                </html>
+            `);
+        }
+        
+        const inputData = typeof report.input_json === 'string' ? JSON.parse(report.input_json) : report.input_json;
+        const factors = typeof report.factors === 'string' ? JSON.parse(report.factors) : report.factors;
+        
+        const riskBandColor = report.score >= 80 ? '#10b981' : report.score >= 65 ? '#3b82f6' : report.score >= 50 ? '#eab308' : report.score >= 35 ? '#f97316' : '#ef4444';
+        const riskBand = factors?.risk_band || 'C';
+        
+        res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Credit Report #${report.id} - Traidefi</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: #000000;
+            color: #ffffff;
+            padding: 20px;
+        }
+        .header {
+            background: #1a1a1a;
+            border: 1px solid #333333;
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 30px;
+        }
+        h1 {
+            font-size: 2rem;
+            margin-bottom: 10px;
+            color: #ffffff;
+        }
+        .score-display {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            margin: 20px 0;
+        }
+        .score-circle {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            background: ${riskBandColor};
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: #000;
+        }
+        .report-card {
+            background: #1a1a1a;
+            border: 1px solid #333333;
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 20px;
+        }
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+        .info-item {
+            background: #0f172a;
+            border: 1px solid #334155;
+            border-radius: 8px;
+            padding: 15px;
+        }
+        .info-label {
+            color: #94a3b8;
+            font-size: 0.9rem;
+            margin-bottom: 5px;
+        }
+        .info-value {
+            color: #ffffff;
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+        .btn {
+            display: inline-block;
+            padding: 10px 20px;
+            background: #ffffff;
+            color: #000000;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 600;
+            margin-top: 20px;
+        }
+        .btn:hover {
+            background: #cccccc;
+        }
+        .risk-badge {
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            display: inline-block;
+            margin: 5px 5px 5px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>📊 Credit Report #${report.id}</h1>
+        <p style="color: #94a3b8; margin-top: 10px;">Generated on ${new Date(report.created_at).toLocaleString()}</p>
+    </div>
+    
+    <div class="report-card">
+        <div class="score-display">
+            <div class="score-circle">${report.score}</div>
+            <div>
+                <h2 style="font-size: 1.5rem; margin-bottom: 10px;">Credit Score</h2>
+                <div>
+                    <span class="risk-badge" style="background: ${riskBandColor}; color: #000;">Risk Band: ${riskBand}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="report-card">
+        <h3 style="color: #06b6d4; margin-bottom: 20px;">📋 Input Data</h3>
+        <div class="info-grid">
+            <div class="info-item">
+                <div class="info-label">Company Name</div>
+                <div class="info-value">${inputData.companyName || inputData.company_name || 'N/A'}</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Country</div>
+                <div class="info-value">${inputData.country || 'N/A'}</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Sector/Commodity</div>
+                <div class="info-value">${inputData.sector || inputData.sector_commodity || 'N/A'}</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Trade Value</div>
+                <div class="info-value">$${inputData.tradeValue || inputData.trade_value || 'N/A'}</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Tenor</div>
+                <div class="info-value">${inputData.tenor || 'N/A'} days</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Role</div>
+                <div class="info-value">${(inputData.role || 'N/A').toUpperCase()}</div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="report-card">
+        <h3 style="color: #06b6d4; margin-bottom: 20px;">🔍 Risk Factors</h3>
+        <div class="info-grid">
+            <div class="info-item">
+                <div class="info-label">Probability of Default (PD)</div>
+                <div class="info-value">${((factors?.pd || 0) * 100).toFixed(2)}%</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Verification Score</div>
+                <div class="info-value">${factors?.verification_score || 'N/A'}</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Sanctions Status</div>
+                <div class="info-value">${factors?.sanctions_status || 'N/A'}</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Registry Status</div>
+                <div class="info-value">${factors?.registry_status || 'N/A'}</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">PEP Status</div>
+                <div class="info-value">${factors?.pep_status || 'N/A'}</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Country Risk</div>
+                <div class="info-value">${factors?.country_risk || 'N/A'}</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Tenor Risk</div>
+                <div class="info-value">${factors?.tenor_risk || 'N/A'}</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Trade Amount Risk</div>
+                <div class="info-value">${factors?.trade_amount_risk || 'N/A'}</div>
+            </div>
+        </div>
+    </div>
+    
+    ${report.risk_notes ? `
+    <div class="report-card">
+        <h3 style="color: #06b6d4; margin-bottom: 20px;">⚠️ Risk Notes</h3>
+        <p style="color: #cccccc; line-height: 1.6;">${report.risk_notes}</p>
+    </div>
+    ` : ''}
+    
+    <div style="text-align: center; margin-top: 30px;">
+        <a href="/admin/purchases" class="btn">← Back to Purchases</a>
+        ${report.pdf_url ? `<a href="${report.pdf_url}" target="_blank" class="btn" style="background: #10b981; color: #fff; margin-left: 10px;">📥 Download PDF</a>` : ''}
+    </div>
+</body>
+</html>`);
+    } catch (error) {
+        console.error('[ERROR] View credit report error:', error);
+        res.status(500).send(`Error loading report: ${error.message}`);
+    }
+});
+
+// View Insurance Quote
+app.get('/admin/reports/insurance/:id', async (req, res) => {
+    try {
+        await db.initDatabase();
+        
+        const quoteId = parseInt(req.params.id);
+        const quote = await db.premiumQuotes.findById(quoteId);
+        
+        if (!quote) {
+            return res.status(404).send(`
+                <html>
+                    <head><title>Quote Not Found</title></head>
+                    <body style="background: #000; color: #fff; padding: 40px; font-family: sans-serif;">
+                        <h1>Quote Not Found</h1>
+                        <p>Insurance quote #${quoteId} not found.</p>
+                        <a href="/admin/purchases" style="color: #06b6d4;">← Back to Purchases</a>
+                    </body>
+                </html>
+            `);
+        }
+        
+        const inputData = typeof quote.input_json === 'string' ? JSON.parse(quote.input_json) : quote.input_json;
+        const assumptions = typeof quote.assumptions_json === 'string' ? JSON.parse(quote.assumptions_json) : quote.assumptions_json;
+        
+        res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Insurance Quote #${quote.id} - Traidefi</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: #000000;
+            color: #ffffff;
+            padding: 20px;
+        }
+        .header {
+            background: #1a1a1a;
+            border: 1px solid #333333;
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 30px;
+        }
+        h1 {
+            font-size: 2rem;
+            margin-bottom: 10px;
+            color: #ffffff;
+        }
+        .premium-display {
+            text-align: center;
+            margin: 20px 0;
+        }
+        .premium-range {
+            font-size: 3rem;
+            font-weight: 700;
+            color: #10b981;
+            margin: 20px 0;
+        }
+        .report-card {
+            background: #1a1a1a;
+            border: 1px solid #333333;
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 20px;
+        }
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+        .info-item {
+            background: #0f172a;
+            border: 1px solid #334155;
+            border-radius: 8px;
+            padding: 15px;
+        }
+        .info-label {
+            color: #94a3b8;
+            font-size: 0.9rem;
+            margin-bottom: 5px;
+        }
+        .info-value {
+            color: #ffffff;
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+        .btn {
+            display: inline-block;
+            padding: 10px 20px;
+            background: #ffffff;
+            color: #000000;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 600;
+            margin-top: 20px;
+        }
+        .btn:hover {
+            background: #cccccc;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🛡️ Insurance Quote #${quote.id}</h1>
+        <p style="color: #94a3b8; margin-top: 10px;">Generated on ${new Date(quote.created_at).toLocaleString()}</p>
+    </div>
+    
+    <div class="report-card">
+        <div class="premium-display">
+            <h2 style="color: #06b6d4; margin-bottom: 10px;">Premium Range</h2>
+            <div class="premium-range">${quote.premium_min}% - ${quote.premium_max}%</div>
+            <p style="color: #94a3b8;">Of trade value</p>
+        </div>
+    </div>
+    
+    <div class="report-card">
+        <h3 style="color: #06b6d4; margin-bottom: 20px;">📋 Input Data</h3>
+        <div class="info-grid">
+            <div class="info-item">
+                <div class="info-label">Trade Value</div>
+                <div class="info-value">$${inputData.tradeValue || inputData.trade_value || 'N/A'}</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Tenor</div>
+                <div class="info-value">${inputData.tenor || 'N/A'} days</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Sector/Commodity</div>
+                <div class="info-value">${inputData.sector || inputData.sector_commodity || 'N/A'}</div>
+            </div>
+            ${inputData.counterpartyScore ? `
+            <div class="info-item">
+                <div class="info-label">Counterparty Credit Score</div>
+                <div class="info-value">${inputData.counterpartyScore}</div>
+            </div>
+            ` : ''}
+        </div>
+    </div>
+    
+    ${assumptions ? `
+    <div class="report-card">
+        <h3 style="color: #06b6d4; margin-bottom: 20px;">📊 Assumptions</h3>
+        <div class="info-grid">
+            <div class="info-item">
+                <div class="info-label">Probability of Default (PD)</div>
+                <div class="info-value">${((assumptions.pd || 0) * 100).toFixed(2)}%</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Risk Band</div>
+                <div class="info-value">${assumptions.risk_band || 'N/A'}</div>
+            </div>
+            ${assumptions.underwriting_score ? `
+            <div class="info-item">
+                <div class="info-label">Underwriting Score</div>
+                <div class="info-value">${assumptions.underwriting_score}</div>
+            </div>
+            ` : ''}
+            ${assumptions.recommendation ? `
+            <div class="info-item">
+                <div class="info-label">Recommendation</div>
+                <div class="info-value">${assumptions.recommendation.decision || 'N/A'}</div>
+            </div>
+            ` : ''}
+        </div>
+    </div>
+    ` : ''}
+    
+    <div style="text-align: center; margin-top: 30px;">
+        <a href="/admin/purchases" class="btn">← Back to Purchases</a>
+        ${quote.pdf_url ? `<a href="${quote.pdf_url}" target="_blank" class="btn" style="background: #10b981; color: #fff; margin-left: 10px;">📥 Download PDF</a>` : ''}
+    </div>
+</body>
+</html>`);
+    } catch (error) {
+        console.error('[ERROR] View insurance quote error:', error);
+        res.status(500).send(`Error loading quote: ${error.message}`);
+    }
+});
+
+// User Dashboard - My Reports and Quotes
+app.get('/my-reports', async (req, res) => {
+    try {
+        await db.initDatabase();
+        
+        // Get user identifier from query or session
+        const userEmail = req.query.email || req.session?.email;
+        const userId = req.query.user_id || req.session?.user_id;
+        
+        if (!userEmail && !userId) {
+            return res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Reports - Traidefi</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: #000000;
+            color: #ffffff;
+            padding: 20px;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .container {
+            background: #1a1a1a;
+            border: 1px solid #333333;
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 600px;
+            text-align: center;
+        }
+        h1 {
+            font-size: 2rem;
+            margin-bottom: 20px;
+            color: #ffffff;
+        }
+        p {
+            color: #94a3b8;
+            margin-bottom: 30px;
+            line-height: 1.6;
+        }
+        .btn {
+            display: inline-block;
+            padding: 15px 30px;
+            background: #ffffff;
+            color: #000000;
+            text-decoration: none;
+            border-radius: 12px;
+            font-weight: 600;
+            margin: 10px;
+        }
+        .btn:hover {
+            background: #cccccc;
+        }
+        .form-input {
+            width: 100%;
+            padding: 12px 16px;
+            background: #0a0a0a;
+            border: 1px solid #333333;
+            border-radius: 8px;
+            color: #ffffff;
+            font-size: 1rem;
+            margin-bottom: 15px;
+            font-family: inherit;
+        }
+        .form-input:focus {
+            outline: none;
+            border-color: #ffffff;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📊 My Reports</h1>
+        <p>Enter your email address to view your purchased reports and quotes</p>
+        <form method="GET" action="/my-reports">
+            <input type="email" name="email" class="form-input" placeholder="Enter your email address" required>
+            <button type="submit" class="btn" style="width: 100%; cursor: pointer; border: none;">View My Reports</button>
+        </form>
+        <div style="margin-top: 30px;">
+            <a href="/tools" class="btn">← Back to Tools</a>
+        </div>
+    </div>
+</body>
+</html>`);
+        }
+        
+        // Find user by email or ID
+        let user = null;
+        if (userEmail) {
+            user = await db.users.findByEmail(userEmail);
+        } else if (userId) {
+            user = await db.query('SELECT * FROM users WHERE id = $1', [userId]).then(r => r.rows[0]);
+        }
+        
+        if (!user) {
+            return res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>No Reports Found - Traidefi</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: #000000;
+            color: #ffffff;
+            padding: 20px;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .container {
+            background: #1a1a1a;
+            border: 1px solid #333333;
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 600px;
+            text-align: center;
+        }
+        h1 {
+            font-size: 2rem;
+            margin-bottom: 20px;
+            color: #ffffff;
+        }
+        p {
+            color: #94a3b8;
+            margin-bottom: 30px;
+            line-height: 1.6;
+        }
+        .btn {
+            display: inline-block;
+            padding: 15px 30px;
+            background: #ffffff;
+            color: #000000;
+            text-decoration: none;
+            border-radius: 12px;
+            font-weight: 600;
+            margin: 10px;
+        }
+        .btn:hover {
+            background: #cccccc;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📭 No Reports Found</h1>
+        <p>We couldn't find any reports for <strong>${userEmail || 'this email'}</strong>.</p>
+        <p>Make sure you're using the same email address you used when making the purchase.</p>
+        <div style="margin-top: 30px;">
+            <a href="/my-reports" class="btn">Try Another Email</a>
+            <a href="/tools" class="btn">← Back to Tools</a>
+        </div>
+    </div>
+</body>
+</html>`);
+        }
+        
+        // Get user's reports and quotes
+        const reports = await db.creditReports.findByUserId(user.id);
+        const quotes = await db.premiumQuotes.findByUserId(user.id);
+        
+        const reportsHtml = reports.length > 0 ? reports.map(r => {
+            const inputData = typeof r.input_json === 'string' ? JSON.parse(r.input_json) : r.input_json;
+            const factors = typeof r.factors === 'string' ? JSON.parse(r.factors) : r.factors;
+            const riskBand = factors?.risk_band || 'C';
+            const riskBandColor = r.score >= 80 ? '#10b981' : r.score >= 65 ? '#3b82f6' : r.score >= 50 ? '#eab308' : r.score >= 35 ? '#f97316' : '#ef4444';
+            
+            return `
+            <div style="background: #1a1a1a; border: 1px solid #333333; border-radius: 12px; padding: 20px; margin-bottom: 15px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <div>
+                        <h3 style="color: #ffffff; margin-bottom: 5px;">Credit Report #${r.id}</h3>
+                        <p style="color: #94a3b8; font-size: 0.9rem;">${inputData.companyName || inputData.company_name || 'N/A'} • ${new Date(r.created_at).toLocaleDateString()}</p>
+                    </div>
+                    <div style="text-align: right;">
+                        <div style="font-size: 2rem; font-weight: 700; color: ${riskBandColor};">${r.score}</div>
+                        <div style="color: #94a3b8; font-size: 0.85rem;">Risk: ${riskBand}</div>
+                    </div>
+                </div>
+                <div style="margin-top: 15px;">
+                    <a href="/my-reports/credit/${r.id}" style="color: #06b6d4; text-decoration: none; font-weight: 600; margin-right: 15px;">📄 View Full Report →</a>
+                    ${r.pdf_url ? `<a href="${r.pdf_url}" target="_blank" style="color: #10b981; text-decoration: none; font-weight: 600;">📥 Download PDF</a>` : '<span style="color: #666; font-size: 0.9rem;">⏳ PDF generating...</span>'}
+                </div>
+            </div>
+        `;
+        }).join('') : '<p style="color: #94a3b8; text-align: center; padding: 40px;">No credit reports found</p>';
+        
+        const quotesHtml = quotes.length > 0 ? quotes.map(q => {
+            const inputData = typeof q.input_json === 'string' ? JSON.parse(q.input_json) : q.input_json;
+            
+            return `
+            <div style="background: #1a1a1a; border: 1px solid #333333; border-radius: 12px; padding: 20px; margin-bottom: 15px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <div>
+                        <h3 style="color: #ffffff; margin-bottom: 5px;">Insurance Quote #${q.id}</h3>
+                        <p style="color: #94a3b8; font-size: 0.9rem;">Trade Value: $${inputData.tradeValue || inputData.trade_value || 'N/A'} • ${new Date(q.created_at).toLocaleDateString()}</p>
+                    </div>
+                    <div style="text-align: right;">
+                        <div style="font-size: 1.5rem; font-weight: 700; color: #10b981;">${q.premium_min}% - ${q.premium_max}%</div>
+                        <div style="color: #94a3b8; font-size: 0.85rem;">Premium Range</div>
+                    </div>
+                </div>
+                <div style="margin-top: 15px;">
+                    <a href="/my-reports/insurance/${q.id}" style="color: #06b6d4; text-decoration: none; font-weight: 600; margin-right: 15px;">📄 View Full Quote →</a>
+                    ${q.pdf_url ? `<a href="${q.pdf_url}" target="_blank" style="color: #10b981; text-decoration: none; font-weight: 600;">📥 Download PDF</a>` : '<span style="color: #666; font-size: 0.9rem;">⏳ PDF generating...</span>'}
+                </div>
+            </div>
+        `;
+        }).join('') : '<p style="color: #94a3b8; text-align: center; padding: 40px;">No insurance quotes found</p>';
+        
+        res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Reports - Traidefi</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: #000000;
+            color: #ffffff;
+            padding: 20px;
+        }
+        .header {
+            background: #1a1a1a;
+            border: 1px solid #333333;
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 30px;
+        }
+        h1 {
+            font-size: 2rem;
+            margin-bottom: 10px;
+            color: #ffffff;
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+        .stat-card {
+            background: #0f172a;
+            border: 1px solid #334155;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 600;
+            color: #06b6d4;
+            margin-bottom: 5px;
+        }
+        .stat-label {
+            color: #94a3b8;
+            font-size: 0.9rem;
+        }
+        .section {
+            background: #1a1a1a;
+            border: 1px solid #333333;
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 30px;
+        }
+        .section-title {
+            font-size: 1.5rem;
+            color: #ffffff;
+            margin-bottom: 20px;
+        }
+        .btn {
+            display: inline-block;
+            padding: 10px 20px;
+            background: #ffffff;
+            color: #000000;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 600;
+            margin-top: 20px;
+        }
+        .btn:hover {
+            background: #cccccc;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>📊 My Reports</h1>
+        <p style="color: #94a3b8; margin-top: 10px;">View all your purchased reports and quotes</p>
+        <p style="color: #666; margin-top: 5px; font-size: 0.9rem;">Email: ${user.email}</p>
+        <div class="stats">
+            <div class="stat-card">
+                <div class="stat-value">${reports.length}</div>
+                <div class="stat-label">Credit Reports</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">${quotes.length}</div>
+                <div class="stat-label">Insurance Quotes</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">${reports.length + quotes.length}</div>
+                <div class="stat-label">Total Reports</div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="section">
+        <h2 class="section-title">📋 Credit Reports</h2>
+        ${reportsHtml}
+    </div>
+    
+    <div class="section">
+        <h2 class="section-title">🛡️ Insurance Quotes</h2>
+        ${quotesHtml}
+    </div>
+    
+    <div style="text-align: center; margin-top: 30px;">
+        <a href="/tools" class="btn">← Back to Tools</a>
+    </div>
+</body>
+</html>`);
+    } catch (error) {
+        console.error('[ERROR] My reports error:', error);
+        res.status(500).send(`Error loading reports: ${error.message}`);
+    }
+});
+
+// View User's Credit Report
+app.get('/my-reports/credit/:id', async (req, res) => {
+    try {
+        await db.initDatabase();
+        
+        const reportId = parseInt(req.params.id);
+        const report = await db.creditReports.findById(reportId);
+        
+        if (!report) {
+            return res.status(404).send('Report not found');
+        }
+        
+        const inputData = typeof report.input_json === 'string' ? JSON.parse(report.input_json) : report.input_json;
+        const factors = typeof report.factors === 'string' ? JSON.parse(report.factors) : report.factors;
+        const riskBandColor = report.score >= 80 ? '#10b981' : report.score >= 65 ? '#3b82f6' : report.score >= 50 ? '#eab308' : report.score >= 35 ? '#f97316' : '#ef4444';
+        const riskBand = factors?.risk_band || 'C';
+        
+        // Same HTML as admin view but with user-friendly messaging
+        res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Credit Report #${report.id} - Traidefi</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: #000000;
+            color: #ffffff;
+            padding: 20px;
+        }
+        .header {
+            background: #1a1a1a;
+            border: 1px solid #333333;
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 30px;
+        }
+        h1 {
+            font-size: 2rem;
+            margin-bottom: 10px;
+            color: #ffffff;
+        }
+        .score-display {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            margin: 20px 0;
+        }
+        .score-circle {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            background: ${riskBandColor};
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: #000;
+        }
+        .report-card {
+            background: #1a1a1a;
+            border: 1px solid #333333;
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 20px;
+        }
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+        .info-item {
+            background: #0f172a;
+            border: 1px solid #334155;
+            border-radius: 8px;
+            padding: 15px;
+        }
+        .info-label {
+            color: #94a3b8;
+            font-size: 0.9rem;
+            margin-bottom: 5px;
+        }
+        .info-value {
+            color: #ffffff;
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+        .btn {
+            display: inline-block;
+            padding: 10px 20px;
+            background: #ffffff;
+            color: #000000;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 600;
+            margin-top: 20px;
+        }
+        .btn:hover {
+            background: #cccccc;
+        }
+        .risk-badge {
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            display: inline-block;
+            margin: 5px 5px 5px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>📊 My Credit Report #${report.id}</h1>
+        <p style="color: #94a3b8; margin-top: 10px;">Generated on ${new Date(report.created_at).toLocaleString()}</p>
+    </div>
+    
+    <div class="report-card">
+        <div class="score-display">
+            <div class="score-circle">${report.score}</div>
+            <div>
+                <h2 style="font-size: 1.5rem; margin-bottom: 10px;">Credit Score</h2>
+                <div>
+                    <span class="risk-badge" style="background: ${riskBandColor}; color: #000;">Risk Band: ${riskBand}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="report-card">
+        <h3 style="color: #06b6d4; margin-bottom: 20px;">📋 Input Data</h3>
+        <div class="info-grid">
+            <div class="info-item">
+                <div class="info-label">Company Name</div>
+                <div class="info-value">${inputData.companyName || inputData.company_name || 'N/A'}</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Country</div>
+                <div class="info-value">${inputData.country || 'N/A'}</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Sector/Commodity</div>
+                <div class="info-value">${inputData.sector || inputData.sector_commodity || 'N/A'}</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Trade Value</div>
+                <div class="info-value">$${inputData.tradeValue || inputData.trade_value || 'N/A'}</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Tenor</div>
+                <div class="info-value">${inputData.tenor || 'N/A'} days</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Role</div>
+                <div class="info-value">${(inputData.role || 'N/A').toUpperCase()}</div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="report-card">
+        <h3 style="color: #06b6d4; margin-bottom: 20px;">🔍 Risk Factors</h3>
+        <div class="info-grid">
+            <div class="info-item">
+                <div class="info-label">Probability of Default (PD)</div>
+                <div class="info-value">${((factors?.pd || 0) * 100).toFixed(2)}%</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Verification Score</div>
+                <div class="info-value">${factors?.verification_score || 'N/A'}</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Sanctions Status</div>
+                <div class="info-value">${factors?.sanctions_status || 'N/A'}</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Registry Status</div>
+                <div class="info-value">${factors?.registry_status || 'N/A'}</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">PEP Status</div>
+                <div class="info-value">${factors?.pep_status || 'N/A'}</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Country Risk</div>
+                <div class="info-value">${factors?.country_risk || 'N/A'}</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Tenor Risk</div>
+                <div class="info-value">${factors?.tenor_risk || 'N/A'}</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Trade Amount Risk</div>
+                <div class="info-value">${factors?.trade_amount_risk || 'N/A'}</div>
+            </div>
+        </div>
+    </div>
+    
+    ${report.risk_notes ? `
+    <div class="report-card">
+        <h3 style="color: #06b6d4; margin-bottom: 20px;">⚠️ Risk Notes</h3>
+        <p style="color: #cccccc; line-height: 1.6;">${report.risk_notes}</p>
+    </div>
+    ` : ''}
+    
+    <div style="text-align: center; margin-top: 30px;">
+        <a href="/my-reports?email=${req.query.email || ''}" class="btn">← Back to My Reports</a>
+        ${report.pdf_url ? `<a href="${report.pdf_url}" target="_blank" class="btn" style="background: #10b981; color: #fff; margin-left: 10px;">📥 Download PDF</a>` : ''}
+    </div>
+</body>
+</html>`);
+    } catch (error) {
+        console.error('[ERROR] View user credit report error:', error);
+        res.status(500).send(`Error loading report: ${error.message}`);
+    }
+});
+
+// View User's Insurance Quote
+app.get('/my-reports/insurance/:id', async (req, res) => {
+    try {
+        await db.initDatabase();
+        
+        const quoteId = parseInt(req.params.id);
+        const quote = await db.premiumQuotes.findById(quoteId);
+        
+        if (!quote) {
+            return res.status(404).send('Quote not found');
+        }
+        
+        const inputData = typeof quote.input_json === 'string' ? JSON.parse(quote.input_json) : quote.input_json;
+        const assumptions = typeof quote.assumptions_json === 'string' ? JSON.parse(quote.assumptions_json) : quote.assumptions_json;
+        
+        // Same HTML as admin view but with user-friendly messaging
+        res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Insurance Quote #${quote.id} - Traidefi</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: #000000;
+            color: #ffffff;
+            padding: 20px;
+        }
+        .header {
+            background: #1a1a1a;
+            border: 1px solid #333333;
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 30px;
+        }
+        h1 {
+            font-size: 2rem;
+            margin-bottom: 10px;
+            color: #ffffff;
+        }
+        .premium-display {
+            text-align: center;
+            margin: 20px 0;
+        }
+        .premium-range {
+            font-size: 3rem;
+            font-weight: 700;
+            color: #10b981;
+            margin: 20px 0;
+        }
+        .report-card {
+            background: #1a1a1a;
+            border: 1px solid #333333;
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 20px;
+        }
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+        .info-item {
+            background: #0f172a;
+            border: 1px solid #334155;
+            border-radius: 8px;
+            padding: 15px;
+        }
+        .info-label {
+            color: #94a3b8;
+            font-size: 0.9rem;
+            margin-bottom: 5px;
+        }
+        .info-value {
+            color: #ffffff;
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+        .btn {
+            display: inline-block;
+            padding: 10px 20px;
+            background: #ffffff;
+            color: #000000;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 600;
+            margin-top: 20px;
+        }
+        .btn:hover {
+            background: #cccccc;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🛡️ My Insurance Quote #${quote.id}</h1>
+        <p style="color: #94a3b8; margin-top: 10px;">Generated on ${new Date(quote.created_at).toLocaleString()}</p>
+    </div>
+    
+    <div class="report-card">
+        <div class="premium-display">
+            <h2 style="color: #06b6d4; margin-bottom: 10px;">Premium Range</h2>
+            <div class="premium-range">${quote.premium_min}% - ${quote.premium_max}%</div>
+            <p style="color: #94a3b8;">Of trade value</p>
+        </div>
+    </div>
+    
+    <div class="report-card">
+        <h3 style="color: #06b6d4; margin-bottom: 20px;">📋 Input Data</h3>
+        <div class="info-grid">
+            <div class="info-item">
+                <div class="info-label">Trade Value</div>
+                <div class="info-value">$${inputData.tradeValue || inputData.trade_value || 'N/A'}</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Tenor</div>
+                <div class="info-value">${inputData.tenor || 'N/A'} days</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Sector/Commodity</div>
+                <div class="info-value">${inputData.sector || inputData.sector_commodity || 'N/A'}</div>
+            </div>
+            ${inputData.counterpartyScore ? `
+            <div class="info-item">
+                <div class="info-label">Counterparty Credit Score</div>
+                <div class="info-value">${inputData.counterpartyScore}</div>
+            </div>
+            ` : ''}
+        </div>
+    </div>
+    
+    ${assumptions ? `
+    <div class="report-card">
+        <h3 style="color: #06b6d4; margin-bottom: 20px;">📊 Assumptions</h3>
+        <div class="info-grid">
+            <div class="info-item">
+                <div class="info-label">Probability of Default (PD)</div>
+                <div class="info-value">${((assumptions.pd || 0) * 100).toFixed(2)}%</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Risk Band</div>
+                <div class="info-value">${assumptions.risk_band || 'N/A'}</div>
+            </div>
+            ${assumptions.underwriting_score ? `
+            <div class="info-item">
+                <div class="info-label">Underwriting Score</div>
+                <div class="info-value">${assumptions.underwriting_score}</div>
+            </div>
+            ` : ''}
+            ${assumptions.recommendation ? `
+            <div class="info-item">
+                <div class="info-label">Recommendation</div>
+                <div class="info-value">${assumptions.recommendation.decision || 'N/A'}</div>
+            </div>
+            ` : ''}
+        </div>
+    </div>
+    ` : ''}
+    
+    <div style="text-align: center; margin-top: 30px;">
+        <a href="/my-reports?email=${req.query.email || ''}" class="btn">← Back to My Reports</a>
+        ${quote.pdf_url ? `<a href="${quote.pdf_url}" target="_blank" class="btn" style="background: #10b981; color: #fff; margin-left: 10px;">📥 Download PDF</a>` : ''}
+    </div>
+</body>
+</html>`);
+    } catch (error) {
+        console.error('[ERROR] View user insurance quote error:', error);
+        res.status(500).send(`Error loading quote: ${error.message}`);
+    }
+});
+
+// PayPal Cancel Handler
+app.get('/api/paypal/cancel', (req, res) => {
+    res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payment Cancelled - Traidefi</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: #000000;
+            color: #ffffff;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .container {
+            background: #1a1a1a;
+            border: 1px solid #333333;
+            border-radius: 20px;
+            padding: 40px;
+            text-align: center;
+            max-width: 600px;
+        }
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 20px;
+            color: #ffffff;
+        }
+        .cancel-icon {
+            font-size: 4rem;
+            margin-bottom: 20px;
+        }
+        p {
+            color: #cccccc;
+            margin-bottom: 20px;
+        }
+        .btn {
+            display: inline-block;
+            padding: 15px 30px;
+            background: #ffffff;
+            color: #000000;
+            text-decoration: none;
+            border-radius: 12px;
+            font-weight: 600;
+            margin-top: 20px;
+        }
+        .btn:hover {
+            background: #cccccc;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="cancel-icon">❌</div>
+        <h1>Payment Cancelled</h1>
+        <p>Your payment was cancelled. No charges were made.</p>
+        <a href="/tools" class="btn">Back to Tools</a>
+    </div>
 </body>
 </html>`);
 });
@@ -16927,7 +18900,8 @@ app.use((err, req, res, next) => {
     });
 });
 
-// 404 handler - catch all unmatched routes
+// 404 handler - catch all unmatched routes (must be LAST)
+// Note: Admin routes must be defined BEFORE this handler
 app.use('*', (req, res) => {
     console.log(`🔍 404 - Route not found: ${req.method} ${req.originalUrl}`);
     res.status(404).json({
