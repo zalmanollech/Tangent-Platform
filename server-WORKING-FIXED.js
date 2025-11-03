@@ -2463,17 +2463,15 @@ app.get('/test', (req, res) => {
 app.use((req, res, next) => {
     // Detect brand based on host header
     const host = req.get('host') || req.headers.host || '';
-    req.brand = host.includes('traidefy.ai') ? 'traidefy' : 'tangent';
+    req.brand = 'traidefi'; // Always use traidefi brand
     next();
 });
 
 app.get('/', (req, res) => {
   // Use brand for conditional rendering
-  const isTraidefy = req.brand === 'traidefy';
-  const brandName = isTraidefy ? 'Traidefy' : 'Tangent Protocol';
-  const brandSubtitle = isTraidefy 
-    ? 'Trade Credit Reports & Insurance Premium Calculator'
-    : 'Advanced Trading Platform & TGT Stablecoin';
+  const isTraidefi = req.brand === 'traidefi';
+  const brandName = 'traidefi';
+  const brandSubtitle = 'Trade Credit Reports & Insurance Premium Calculator';
   
   res.send(`<!DOCTYPE html>
     <html lang="en">
@@ -2625,7 +2623,7 @@ app.get('/', (req, res) => {
       <p class="subtitle">${brandSubtitle}</p>
             </div>
             
-    ${isTraidefy ? `
+    ${isTraidefi ? `
     <!-- TRAIDEFY LANDING: Tools Focus -->
     <div class="main-content" style="grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));">
       <!-- Tools Section -->
@@ -2664,7 +2662,7 @@ app.get('/', (req, res) => {
       
       <!-- Protocol Section -->
       <div class="platform-section" style="opacity: 0.7;">
-        <h2>🔗 Tangent Protocol</h2>
+        <h2>🔗 traidefi</h2>
         <p class="section-description">
           Full trading platform with blockchain integration (separate microsite).
         </p>
@@ -2680,7 +2678,7 @@ app.get('/', (req, res) => {
       </div>
     </div>
     
-    <!-- Traidefy CTA Section -->
+    <!-- traidefi CTA Section -->
     <div class="registration-section">
       <h3>Access Trade Credit & Insurance Tools</h3>
       <p>Get instant trade credit reports and insurance premium quotes</p>
@@ -2731,7 +2729,7 @@ app.get('/', (req, res) => {
     
     <!-- Tangent CTA Section -->
     <div class="registration-section">
-      <h3>Get Started with Tangent Protocol</h3>
+      <h3>Get Started with traidefi</h3>
       <p>Join the future of trading and discover the power of TGT stablecoin</p>
       <div style="margin: 30px 0;">
         <button class="btn" onclick="window.location.href='/register'">Register Interest (Early Access)</button>
@@ -2759,13 +2757,13 @@ app.get('/', (req, res) => {
 
 // Tools Hub
 app.get('/tools', (req, res) => {
-    const isTraidefy = req.brand === 'traidefy';
+    const isTraidefi = req.brand === 'traidefi';
     res.send(`<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Trade Tools - ${isTraidefy ? 'Traidefy' : 'Tangent Protocol'}</title>
+    <title>Trade Tools - traidefi</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -2895,13 +2893,13 @@ app.get('/tools', (req, res) => {
 
 // Credit Report Tool Page
 app.get('/tools/credit-report', (req, res) => {
-    const isTraidefy = req.brand === 'traidefy';
+    const isTraidefi = req.brand === 'traidefi';
     res.send(`<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Credit Report Generator - ${isTraidefy ? 'Traidefy' : 'Tangent Protocol'}</title>
+    <title>Credit Report Generator - traidefi</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -3066,13 +3064,13 @@ app.get('/tools/credit-report', (req, res) => {
 
 // Insurance Quote Tool Page
 app.get('/tools/insurance-quote', (req, res) => {
-    const isTraidefy = req.brand === 'traidefy';
+    const isTraidefi = req.brand === 'traidefi';
     res.send(`<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Insurance Premium Calculator - ${isTraidefy ? 'Traidefy' : 'Tangent Protocol'}</title>
+    <title>Insurance Premium Calculator - traidefi</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -4235,7 +4233,7 @@ app.get('/register', (req, res) => {
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Register Interest - Tangent Protocol</title>
+        <title>Register Interest - traidefi</title>
         <style>
             * { margin: 0; padding: 0; box-sizing: border-box; }
             body { 
@@ -6219,11 +6217,11 @@ app.post('/api/contracts/create', authenticateToken, async (req, res) => {
                 
                 const emailContent = {
                     to: counterpartyEmail,
-                    subject: `Contract ${contractRole === 'buyer' ? 'Confirmation' : 'Invitation'} Required - Tangent Protocol`,
+                    subject: `Contract ${contractRole === 'buyer' ? 'Confirmation' : 'Invitation'} Required - traidefi`,
                     html: `
                     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
                         <h2 style="color: #2563eb;">Contract ${contractRole === 'buyer' ? 'Confirmation Required' : 'Invitation'}</h2>
-                        <p>You have been ${contractRole === 'buyer' ? 'assigned' : 'invited'} to a contract on the Tangent Protocol platform as the <strong>${roleText}</strong>.</p>
+                        <p>You have been ${contractRole === 'buyer' ? 'assigned' : 'invited'} to a contract on the traidefi platform as the <strong>${roleText}</strong>.</p>
                         
                         <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
                             <h3>Contract Details</h3>
@@ -6256,7 +6254,7 @@ app.post('/api/contracts/create', authenticateToken, async (req, res) => {
                         }
                         
                         <p style="color: #666; font-size: 12px;">
-                            Tangent Protocol - Secure Smart Contract Trading Platform
+                            traidefi - Secure Smart Contract Trading Platform
                         </p>
                     </div>
                     `
@@ -7718,7 +7716,7 @@ function createDashboard(role, user) {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${config.title} — Tangent Protocol</title>
+  <title>${config.title} — traidefi</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: system-ui, -apple-system, sans-serif; background: #0f172a; color: #f8fafc; }
@@ -10541,11 +10539,11 @@ async function createTraderDualContracts(req, res, contractData) {
             // Email to supplier
             const supplierEmailContent = {
                 to: supplierEmail,
-                subject: 'Contract Confirmation Required - Tangent Protocol',
+                subject: 'Contract Confirmation Required - traidefi',
                 html: `
                 <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
                     <h2 style="color: #2563eb;">Contract Confirmation Required</h2>
-                    <p>A trader wants to purchase from you on the Tangent Protocol platform.</p>
+                    <p>A trader wants to purchase from you on the traidefi platform.</p>
                     
                     <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
                         <h3>Contract Details</h3>
@@ -10565,11 +10563,11 @@ async function createTraderDualContracts(req, res, contractData) {
             // Email to end buyer
             const buyerEmailContent = {
                 to: buyerEmail,
-                subject: 'Contract Confirmation Required - Tangent Protocol',
+                subject: 'Contract Confirmation Required - traidefi',
                 html: `
                 <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
                     <h2 style="color: #2563eb;">Contract Confirmation Required</h2>
-                    <p>A trader is offering to sell to you on the Tangent Protocol platform.</p>
+                    <p>A trader is offering to sell to you on the traidefi platform.</p>
                     
                     <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
                         <h3>Contract Details</h3>
@@ -11269,7 +11267,7 @@ app.get('/demo/admin/step1-dashboard', requireDemoPassword, (req, res) => {
         </script>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Admin Dashboard Demo - Tangent Protocol</title>
+        <title>Admin Dashboard Demo - traidefi</title>
         <style>
             * { margin: 0; padding: 0; box-sizing: border-box; }
             body { font-family: system-ui, -apple-system, sans-serif; background: #0f172a; color: #f8fafc; min-height: 100vh; }
@@ -11340,7 +11338,7 @@ app.get('/demo/admin/step2-user-management', requireDemoPassword, (req, res) => 
         </script>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>User Management Demo - Tangent Protocol</title>
+        <title>User Management Demo - traidefi</title>
         <style>
             * { margin: 0; padding: 0; box-sizing: border-box; }
             body { font-family: system-ui, -apple-system, sans-serif; background: #0f172a; color: #f8fafc; min-height: 100vh; }
@@ -11429,7 +11427,7 @@ app.get('/demo/admin/step3-contract-oversight', requireDemoPassword, (req, res) 
         </script>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Contract Oversight Demo - Tangent Protocol</title>
+        <title>Contract Oversight Demo - traidefi</title>
         <style>
             * { margin: 0; padding: 0; box-sizing: border-box; }
             body { font-family: system-ui, -apple-system, sans-serif; background: #0f172a; color: #f8fafc; min-height: 100vh; }
@@ -11523,7 +11521,7 @@ app.get('/demo/admin/step4-auction-management', requireDemoPassword, (req, res) 
         </script>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Auction Management Demo - Tangent Protocol</title>
+        <title>Auction Management Demo - traidefi</title>
         <style>
             * { margin: 0; padding: 0; box-sizing: border-box; }
             body { font-family: system-ui, -apple-system, sans-serif; background: #0f172a; color: #f8fafc; min-height: 100vh; }
@@ -11593,7 +11591,7 @@ app.get('/demo/admin/step5-platform-settings', requireDemoPassword, (req, res) =
         </script>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Platform Settings Demo - Tangent Protocol</title>
+        <title>Platform Settings Demo - traidefi</title>
         <style>
             * { margin: 0; padding: 0; box-sizing: border-box; }
             body { font-family: system-ui, -apple-system, sans-serif; background: #0f172a; color: #f8fafc; min-height: 100vh; }
