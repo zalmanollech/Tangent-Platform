@@ -2627,9 +2627,15 @@ async function getPayPalAccessToken() {
 // ================================
 app.use((req, res, next) => {
     // Detect brand based on host header or query parameter (for local testing)
-    const host = req.get('host') || req.headers.host || '';
+    const host = req.get('host') || req.headers.host || req.headers['x-forwarded-host'] || '';
     const hostLower = host.toLowerCase();
-    const isTraidefiDomain = hostLower.includes('traidefi.ai') || hostLower.includes('traidefi');
+    
+    // More explicit domain matching for traidefi.ai
+    const isTraidefiDomain = hostLower === 'traidefi.ai' || 
+                             hostLower === 'www.traidefi.ai' ||
+                             hostLower.includes('traidefi.ai') ||
+                             hostLower.startsWith('traidefi');
+    
     const isLocalhost = hostLower.includes('localhost') || hostLower.includes('127.0.0.1');
     const isTraidefiParam = req.query.brand === 'traidefi'; // For local testing: ?brand=traidefi
     const isTangentParam = req.query.brand === 'tangent'; // Allow override: ?brand=tangent
@@ -2643,9 +2649,9 @@ app.use((req, res, next) => {
         req.brand = 'tangent';
     }
     
-    // Debug logging
+    // Enhanced debug logging
     if (req.path === '/') {
-        console.log(`[BRAND] Host: ${host}, Query: ${JSON.stringify(req.query)}, Brand: ${req.brand}`);
+        console.log(`[BRAND] Host: ${host}, Lower: ${hostLower}, IsTraidefiDomain: ${isTraidefiDomain}, Brand: ${req.brand}`);
     }
     next();
 });
@@ -3528,9 +3534,6 @@ app.post('/api/paypal/create-order', express.json(), async (req, res) => {
                 brand_name: 'Traidefi',
                 landing_page: 'BILLING',
                 user_action: 'PAY_NOW',
-                payment_method: {
-                    payee_preferred: 'UNRESTRICTED'  // Enable guest checkout (credit card without PayPal account)
-                },
                 return_url: `${cleanBaseUrl}/api/paypal/success?product=${product}`,
                 cancel_url: `${cleanBaseUrl}/tools/${product === 'credit-report' ? 'credit-report' : 'insurance-quote'}`
             },
@@ -3540,6 +3543,9 @@ app.post('/api/paypal/create-order', express.json(), async (req, res) => {
                 amount: {
                     currency_code: currencyCode,
                     value: amount.toString()
+                },
+                payment_method: {
+                    payee_preferred: 'UNRESTRICTED'  // Enable guest checkout (credit card without PayPal account)
                 }
             }]
         };
