@@ -2535,15 +2535,16 @@ async function getPayPalAccessToken() {
 app.use((req, res, next) => {
     // Detect brand based on host header or query parameter (for local testing)
     const host = req.get('host') || req.headers.host || '';
-    const isTraidefiDomain = host.includes('traidefi.ai');
-    const isLocalhost = host.includes('localhost') || host.includes('127.0.0.1');
+    const hostLower = host.toLowerCase();
+    const isTraidefiDomain = hostLower.includes('traidefi.ai') || hostLower.includes('traidefi');
+    const isLocalhost = hostLower.includes('localhost') || hostLower.includes('127.0.0.1');
     const isTraidefiParam = req.query.brand === 'traidefi'; // For local testing: ?brand=traidefi
     const isTangentParam = req.query.brand === 'tangent'; // Allow override: ?brand=tangent
     
-    // Default to Traidefi for localhost, unless explicitly set to tangent
-    if (isLocalhost && !isTangentParam) {
+    // Prioritize Traidefi: check domain first, then localhost, then query param
+    if (isTraidefiDomain || isTraidefiParam) {
         req.brand = 'traidefi';
-    } else if (isTraidefiDomain || isTraidefiParam) {
+    } else if (isLocalhost && !isTangentParam) {
         req.brand = 'traidefi';
     } else {
         req.brand = 'tangent';
