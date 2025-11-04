@@ -2536,14 +2536,30 @@ app.use((req, res, next) => {
     // Detect brand based on host header or query parameter (for local testing)
     const host = req.get('host') || req.headers.host || '';
     const isTraidefiDomain = host.includes('traidefi.ai');
+    const isLocalhost = host.includes('localhost') || host.includes('127.0.0.1');
     const isTraidefiParam = req.query.brand === 'traidefi'; // For local testing: ?brand=traidefi
-    req.brand = (isTraidefiDomain || isTraidefiParam) ? 'traidefi' : 'tangent';
+    const isTangentParam = req.query.brand === 'tangent'; // Allow override: ?brand=tangent
+    
+    // Default to Traidefi for localhost, unless explicitly set to tangent
+    if (isLocalhost && !isTangentParam) {
+        req.brand = 'traidefi';
+    } else if (isTraidefiDomain || isTraidefiParam) {
+        req.brand = 'traidefi';
+    } else {
+        req.brand = 'tangent';
+    }
+    
+    // Debug logging
+    if (req.path === '/') {
+        console.log(`[BRAND] Host: ${host}, Query: ${JSON.stringify(req.query)}, Brand: ${req.brand}`);
+    }
     next();
 });
 
 app.get('/', (req, res) => {
-  // Always use traidefi branding
-  const brandName = 'traidefi';
+  // Use brand for conditional rendering
+  const isTraidefi = req.brand === 'traidefi';
+  const brandName = isTraidefi ? 'Traidefi' : 'Tangent Protocol';
   const brandSubtitle = 'Advanced Trading Platform & TGT Stablecoin';
   
   res.send(`<!DOCTYPE html>
@@ -2696,7 +2712,8 @@ app.get('/', (req, res) => {
       <p class="subtitle">${brandSubtitle}</p>
             </div>
             
-    <!-- traidefi LANDING: Platform/TGT Focus -->
+    ${isTraidefi ? `
+    <!-- TRAIDEFI LANDING: Same design as Tangent, just with Traidefi name -->
     <div class="main-content">
       <!-- Platform Section -->
       <div class="platform-section">
@@ -2735,9 +2752,9 @@ app.get('/', (req, res) => {
       </div>
     </div>
     
-    <!-- traidefi CTA Section -->
+    <!-- Traidefi CTA Section -->
     <div class="registration-section">
-      <h3>Get Started with traidefi</h3>
+      <h3>Get Started with Traidefi</h3>
       <p>Join the future of trading and discover the power of TGT stablecoin</p>
       <div style="margin: 30px 0;">
         <button class="btn" onclick="window.location.href='/register'">Register Interest (Early Access)</button>
@@ -2747,6 +2764,59 @@ app.get('/', (req, res) => {
         <a href="/tools" style="color: #888888; text-decoration: none; font-size: 1rem;">Access Credit & Insurance Tools →</a>
       </div>
     </div>
+    ` : `
+    <!-- TANGENT LANDING: Platform/TGT Focus -->
+    <div class="main-content">
+      <!-- Platform Section -->
+      <div class="platform-section">
+        <h2>Trading Platform</h2>
+        <p class="section-description">
+          Experience next-generation trading with institutional-grade tools, real-time analytics, and seamless execution.
+        </p>
+        <div class="features-list">
+          <ul>
+            <li>Real-time market data and analytics</li>
+            <li>Advanced order types and execution</li>
+            <li>Comprehensive risk management</li>
+            <li>Portfolio analytics and reporting</li>
+            <li>Multi-asset trading support</li>
+            <li>Institutional-grade security</li>
+          </ul>
+        </div>
+      </div>
+      
+      <!-- TGT Stablecoin Section -->
+      <div class="tgt-section">
+        <h2>TGT Stablecoin</h2>
+        <p class="section-description">
+          Discover the benefits of our innovative TGT stablecoin - designed for stability, transparency, and seamless integration.
+        </p>
+        <div class="features-list">
+          <ul>
+            <li>Advanced price stability mechanisms</li>
+            <li>Transparent reserve management</li>
+            <li>Ultra-low transaction costs</li>
+            <li>Seamless DeFi integration</li>
+            <li>Regulatory compliance ready</li>
+            <li>Fast settlement times</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Tangent CTA Section -->
+    <div class="registration-section">
+      <h3>Get Started with Tangent Protocol</h3>
+      <p>Join the future of trading and discover the power of TGT stablecoin</p>
+      <div style="margin: 30px 0;">
+        <button class="btn" onclick="window.location.href='/register'">Register Interest (Early Access)</button>
+        <button class="btn secondary" onclick="window.location.href='/landing-two'">Team Portal</button>
+      </div>
+      <div style="margin-top: 20px;">
+        <a href="/tools" style="color: #888888; text-decoration: none; font-size: 1rem;">Access Credit & Insurance Tools →</a>
+      </div>
+    </div>
+    `}
             
     <!-- Team Access Section -->
     <div style="text-align: center; margin-top: 40px; padding: 30px; border-top: 1px solid #333333; background: rgba(255, 255, 255, 0.05);">
