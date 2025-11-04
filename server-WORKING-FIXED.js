@@ -3424,14 +3424,19 @@ app.post('/api/paypal/create-order', express.json(), async (req, res) => {
             ? 'Traidefi Credit Report' 
             : 'Traidefi Insurance Premium Quote';
         
+        // Use BASE_URL if set, otherwise use current host
+        const baseUrl = process.env.BASE_URL || `${req.protocol}://${req.get('host')}`;
+        // Ensure BASE_URL doesn't end with slash
+        const cleanBaseUrl = baseUrl.replace(/\/$/, '');
+        
         const orderData = {
             intent: 'CAPTURE',
             application_context: {
                 brand_name: 'Traidefi',
                 landing_page: 'BILLING',
                 user_action: 'PAY_NOW',
-                return_url: `${req.protocol}://${req.get('host')}/api/paypal/success?product=${product}`,
-                cancel_url: `${req.protocol}://${req.get('host')}/tools/${product === 'credit-report' ? 'credit-report' : 'insurance-quote'}`
+                return_url: `${cleanBaseUrl}/api/paypal/success?product=${product}`,
+                cancel_url: `${cleanBaseUrl}/tools/${product === 'credit-report' ? 'credit-report' : 'insurance-quote'}`
             },
             purchase_units: [{
                 reference_id: `traidefi-${product}-${Date.now()}`,
@@ -3485,29 +3490,42 @@ app.get('/api/paypal/success', async (req, res) => {
     try {
         const { token, product } = req.query;
         
+        console.log('[INFO] PayPal success callback received:', { token, product, query: req.query });
+        
         if (!token) {
+            console.error('[ERROR] Missing payment token in PayPal success callback');
             return res.status(400).send('Missing payment token');
         }
         
         const paypalAuth = await getPayPalAccessToken();
         if (!paypalAuth) {
+            console.error('[ERROR] PayPal not configured - missing credentials');
             return res.status(500).send('PayPal not configured');
         }
         
         // Capture the payment
-        const captureResponse = await axios.post(
-            `${paypalAuth.baseUrl}/v2/checkout/orders/${token}/capture`,
-            {},
-            {
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${paypalAuth.accessToken}`,
-                    'Prefer': 'return=representation'
+        console.log('[INFO] Capturing PayPal payment for order:', token);
+        let captureResponse;
+        try {
+            captureResponse = await axios.post(
+                `${paypalAuth.baseUrl}/v2/checkout/orders/${token}/capture`,
+                {},
+                {
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${paypalAuth.accessToken}`,
+                        'Prefer': 'return=representation'
+                    }
                 }
-            }
-        );
+            );
+        } catch (captureError) {
+            console.error('[ERROR] PayPal capture error:', captureError.response?.data || captureError.message);
+            console.error('[ERROR] Capture error details:', JSON.stringify(captureError.response?.data, null, 2));
+            throw captureError;
+        }
         
         const capture = captureResponse.data;
+        console.log('[INFO] PayPal payment captured successfully:', { status: capture.status, orderId: capture.id });
         
         if (capture.status === 'COMPLETED') {
             // Payment successful - store purchase in database
