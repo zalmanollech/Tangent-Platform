@@ -3636,14 +3636,18 @@ app.get('/api/paypal/success', async (req, res) => {
                             if (payerEmail) {
                                 (async () => {
                                     try {
-                                        await emailService.sendReportReadyEmail(
+                                        const emailSent = await emailService.sendReportReadyEmail(
                                             payerEmail,
                                             'credit-report',
                                             savedReport.id,
                                             pdfUrl,
                                             { score: report.score }
                                         );
-                                        console.log('[INFO] Report ready email sent to:', payerEmail);
+                                        if (emailSent) {
+                                            console.log('[INFO] Report ready email sent successfully to:', payerEmail);
+                                        } else {
+                                            console.error('[ERROR] Report ready email failed to send to:', payerEmail);
+                                        }
                                     } catch (emailError) {
                                         console.error('[ERROR] Failed to send report ready email:', emailError.message);
                                     }
@@ -3698,14 +3702,18 @@ app.get('/api/paypal/success', async (req, res) => {
                             if (payerEmail) {
                                 (async () => {
                                     try {
-                                        await emailService.sendReportReadyEmail(
+                                        const emailSent = await emailService.sendReportReadyEmail(
                                             payerEmail,
                                             'insurance-quote',
                                             savedQuote.id,
                                             pdfUrl,
                                             { premiumMin: quote.premiumMin, premiumMax: quote.premiumMax }
                                         );
-                                        console.log('[INFO] Quote ready email sent to:', payerEmail);
+                                        if (emailSent) {
+                                            console.log('[INFO] Quote ready email sent successfully to:', payerEmail);
+                                        } else {
+                                            console.error('[ERROR] Quote ready email failed to send to:', payerEmail);
+                                        }
                                     } catch (emailError) {
                                         console.error('[ERROR] Failed to send quote ready email:', emailError.message);
                                     }
@@ -3835,12 +3843,19 @@ app.get('/api/paypal/success', async (req, res) => {
 </body>
 </html>`);
         } else {
+            console.warn('[WARN] PayPal payment not completed, status:', capture.status);
             res.status(400).send('Payment not completed');
         }
         
     } catch (error) {
-        console.error('[ERROR] PayPal capture error:', error);
-        res.status(500).send('Error processing payment');
+        console.error('[ERROR] PayPal success handler error:', error);
+        console.error('[ERROR] Error stack:', error.stack);
+        console.error('[ERROR] Error details:', JSON.stringify({
+            message: error.message,
+            response: error.response?.data,
+            status: error.response?.status
+        }, null, 2));
+        res.status(500).send(`Error processing payment: ${error.message || 'Unknown error'}. Please check Railway logs for details.`);
     }
 });
 
