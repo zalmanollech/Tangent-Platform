@@ -1,0 +1,13 @@
+node_modules
+
+# Environment variables and secrets
+config.env
+.env
+*.env
+.env.local
+.env.production
+.env.development
+
+# Keep example file for reference
+!config.env.example
+!.env.example
