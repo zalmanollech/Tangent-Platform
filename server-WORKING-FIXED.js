@@ -1734,6 +1734,7 @@ app.get('/dashboard/authenticated', (req, res) => {
                 <button class="btn secondary" onclick="navigateAdmin('/admin/auction')">Auction Board</button>
                 <button class="btn secondary" onclick="navigateAdmin('/admin/kyc-reports')">KYC Reports</button>
                 <button class="btn secondary" onclick="navigateAdmin('/admin/credit-assessments')">Credit Risk Assessments</button>
+                <button class="btn secondary" onclick="window.open('/price-prediction-demo?token=' + localStorage.getItem('token'), '_blank')" style="background: #f59e0b; font-weight: bold; border: 2px solid #d97706;">📊 Price Prediction Algorithm</button>
                 <button class="btn secondary" onclick="navigateAdmin('/admin/ofac-management')">OFAC Screening</button>
                 <button class="btn secondary" onclick="navigateAdmin('/admin/blockchain')">Blockchain</button>
                 <button class="btn secondary" onclick="navigateAdmin('/admin/fees')">Manage Fees</button>
@@ -3069,6 +3070,15 @@ app.get('/tools', (req, res) => {
                     Calculate insurance premiums using our actuarial model. Get premium range estimates and risk assessments.
                 </div>
                 <button class="btn">Get Insurance Quote</button>
+            </div>
+            
+            <div class="tool-card" onclick="window.location.href='/price-prediction-demo'">
+                <h2>📊 Price Prediction Algorithm</h2>
+                <div class="price">Free</div>
+                <div class="description">
+                    Get 6-month price forecasts for agricultural commodities (wheat, soy, corn, sugar, coffee) with buy/sell signals, delivery period recommendations, and best buy locations based on GDELT historical news analysis.
+                </div>
+                <button class="btn">View Price Forecasts</button>
             </div>
         </div>
         
@@ -8794,8 +8804,13 @@ app.get('/price-prediction', authenticateToken, (req, res) => {
 
 // Price Prediction Demo Page (no authentication required for testing)
 app.get('/price-prediction-demo', (req, res) => {
-    const pricePredictionHtml = fs.readFileSync(path.join(__dirname, 'public', 'price-prediction.html'), 'utf8');
-    res.send(pricePredictionHtml);
+    try {
+        const pricePredictionHtml = fs.readFileSync(path.join(__dirname, 'public', 'price-prediction.html'), 'utf8');
+        res.send(pricePredictionHtml);
+    } catch (error) {
+        console.error('Error loading price prediction page:', error);
+        res.status(500).send('<html><body><h1>Price Prediction Dashboard</h1><p>Error loading page. Please contact support.</p></body></html>');
+    }
 });
 
 // ================================
