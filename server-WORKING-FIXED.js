@@ -34,6 +34,11 @@ let insuranceIntegration = null;
 let insuranceServiceAvailable = false;
 let insuranceServiceProcess = null; // For auto-start functionality
 
+// Price Prediction Integration - Production Safe
+let pricePredictionIntegration = null;
+let pricePredictionServiceAvailable = false;
+let pricePredictionServiceProcess = null; // For auto-start functionality
+
 // Function to auto-start credit service
 function startCreditService() {
     // Always attempt to auto-start credit service (required for automatic credit assessments)
@@ -193,6 +198,66 @@ function startInsuranceService() {
     }
 }
 
+// Function to auto-start price prediction service
+function startPricePredictionService() {
+    try {
+        const pricePredictionServicePath = path.join(__dirname, 'price-prediction-service', 'main.py');
+        const isWindows = process.platform === 'win32';
+        
+        console.log('[INFO] Auto-starting Price Prediction Service...');
+        
+        if (isWindows) {
+            pricePredictionServiceProcess = spawn('python', ['main.py'], {
+                cwd: path.join(__dirname, 'price-prediction-service'),
+                shell: true,
+                stdio: 'pipe'
+            });
+        } else {
+            pricePredictionServiceProcess = spawn('python3', ['main.py'], {
+                cwd: path.join(__dirname, 'price-prediction-service'),
+                shell: true,
+                stdio: 'pipe'
+            });
+        }
+        
+        pricePredictionServiceProcess.stdout.on('data', (data) => {
+            const output = data.toString().trim();
+            if (output) {
+                console.log(`[INFO] Price Prediction Service: ${output}`);
+            }
+        });
+        
+        pricePredictionServiceProcess.stderr.on('data', (data) => {
+            const error = data.toString().trim();
+            if (error && !error.includes('INFO:') && !error.includes('Application startup') && !error.includes('only one usage')) {
+                console.warn(`[WARN] Price Prediction Service: ${error}`);
+            }
+        });
+        
+        pricePredictionServiceProcess.on('error', (error) => {
+            if (error.code === 'ENOENT') {
+                console.warn('[WARN] Python not found. Price prediction service must be started manually: cd price-prediction-service && python main.py');
+            } else {
+                console.warn('[WARN] Failed to start price prediction service:', error.message);
+            }
+            pricePredictionServiceProcess = null;
+        });
+        
+        pricePredictionServiceProcess.on('exit', (code) => {
+            if (code !== 0 && code !== null && code !== 1) {
+                console.warn(`[WARN] Price prediction service exited with code ${code}`);
+            }
+            pricePredictionServiceProcess = null;
+        });
+        
+        console.log('[INFO] Price prediction service startup initiated');
+        
+    } catch (error) {
+        console.warn('[WARN] Could not auto-start price prediction service:', error.message);
+        console.log('   To start manually: cd price-prediction-service && python main.py');
+    }
+}
+
 // Load Insurance Integration
 try {
     insuranceIntegration = require('./insurance-integration');
@@ -220,6 +285,34 @@ try {
         console.log('[INFO] Continuing without insurance quotes');
         insuranceIntegration = null;
     }
+
+// Load Price Prediction Integration
+try {
+    pricePredictionIntegration = require('./price-prediction-integration');
+    console.log('[INFO] Price Prediction Integration loaded successfully');
+    
+    // Auto-start the Python service
+    startPricePredictionService();
+    
+    // Wait a bit for service to start, then check health
+    setTimeout(async () => {
+        try {
+            const status = await pricePredictionIntegration.checkPricePredictionServiceHealth();
+            pricePredictionServiceAvailable = status.status === 'healthy';
+            console.log(pricePredictionServiceAvailable ? 
+                '[INFO] Price prediction service verified and available' : 
+                '[WARN] Price prediction service not healthy');
+        } catch (error) {
+            console.warn('[WARN] Price prediction service health check failed:', error.message);
+            console.log('[INFO] The service may still be starting. It will be available shortly.');
+            pricePredictionServiceAvailable = false;
+        }
+    }, 5000);
+} catch (error) {
+    console.warn('[WARN] Price prediction integration not available:', error.message);
+    console.log('[INFO] Continuing without price predictions');
+    pricePredictionIntegration = null;
+}
 
 console.log('[INFO] Starting traidefi Complete Production Platform...');
 
@@ -3435,6 +3528,9 @@ app.post('/api/paypal/create-order', express.json(), async (req, res) => {
                 brand_name: 'Traidefi',
                 landing_page: 'BILLING',
                 user_action: 'PAY_NOW',
+                payment_method: {
+                    payee_preferred: 'UNRESTRICTED'  // Enable guest checkout (credit card without PayPal account)
+                },
                 return_url: `${cleanBaseUrl}/api/paypal/success?product=${product}`,
                 cancel_url: `${cleanBaseUrl}/tools/${product === 'credit-report' ? 'credit-report' : 'insurance-quote'}`
             },
@@ -8224,6 +8320,113 @@ app.get('/api/admin/insurance-status', authenticateToken, requireRole(['admin'])
         console.error('Insurance status error:', error);
         res.status(500).json({ error: 'Failed to get insurance status' });
     }
+});
+
+// ==================== PRICE PREDICTION API ENDPOINTS ====================
+
+// Get Price Forecast for a Commodity (Today's Forecast)
+// Note: authenticateToken is optional - can be used with or without auth for testing
+app.post('/api/price-prediction/forecast', async (req, res) => {
+    try {
+        const { commodity, date } = req.body;
+        
+        if (!commodity) {
+            return res.status(400).json({ error: 'Commodity is required (wheat, soy, corn, sugar, coffee)' });
+        }
+        
+        // Validate commodity
+        const validCommodities = ['wheat', 'soy', 'corn', 'sugar', 'coffee'];
+        if (!validCommodities.includes(commodity.toLowerCase())) {
+            return res.status(400).json({ 
+                error: `Invalid commodity. Must be one of: ${validCommodities.join(', ')}` 
+            });
+        }
+        
+        if (!pricePredictionIntegration) {
+            // Return mock data if service is not available
+            console.warn('[WARN] Price prediction service not available, returning mock data');
+            const mockData = pricePredictionIntegration?.generateMockForecast || 
+                require('./price-prediction-integration').generateMockForecast;
+            return res.json({
+                success: false,
+                data: typeof mockData === 'function' ? mockData(commodity) : mockData,
+                warning: 'Price prediction service unavailable, showing mock data'
+            });
+        }
+        
+        const forecast = await pricePredictionIntegration.getPriceForecast(commodity.toLowerCase(), date);
+        
+        if (!forecast.success) {
+            return res.status(500).json({ 
+                error: 'Failed to get price forecast',
+                details: forecast.error 
+            });
+        }
+        
+        res.json(forecast.data);
+    } catch (error) {
+        console.error('Price forecast error:', error);
+        res.status(500).json({ error: 'Failed to get price forecast', details: error.message });
+    }
+});
+
+// Get Batch Forecasts for Multiple Commodities
+app.post('/api/price-prediction/forecast/batch', authenticateToken, async (req, res) => {
+    try {
+        const { commodities } = req.body;
+        
+        if (!commodities || !Array.isArray(commodities) || commodities.length === 0) {
+            return res.status(400).json({ error: 'Commodities array is required' });
+        }
+        
+        if (!pricePredictionIntegration) {
+            return res.status(400).json({ error: 'Price prediction service not available' });
+        }
+        
+        const forecasts = await pricePredictionIntegration.getBatchForecasts(commodities);
+        
+        if (!forecasts.success) {
+            return res.status(500).json({ 
+                error: 'Failed to get batch forecasts',
+                details: forecasts.error 
+            });
+        }
+        
+        res.json(forecasts.data);
+    } catch (error) {
+        console.error('Batch forecast error:', error);
+        res.status(500).json({ error: 'Failed to get batch forecasts', details: error.message });
+    }
+});
+
+// Get Price Prediction Service Status
+app.get('/api/admin/price-prediction-status', authenticateToken, requireRole(['admin']), async (req, res) => {
+    try {
+        if (!pricePredictionIntegration) {
+            return res.json({ status: 'disabled' });
+        }
+        
+        const healthStatus = await pricePredictionIntegration.checkPricePredictionServiceHealth();
+        res.json({
+            ...healthStatus,
+            service_available: pricePredictionServiceAvailable
+        });
+    } catch (error) {
+        console.error('Price prediction status error:', error);
+        res.status(500).json({ error: 'Failed to get price prediction status' });
+    }
+});
+
+// Price Prediction Dashboard Page (with authentication)
+app.get('/price-prediction', authenticateToken, (req, res) => {
+    const pricePredictionHtml = fs.readFileSync(path.join(__dirname, 'public', 'price-prediction.html'), 'utf8');
+    res.send(pricePredictionHtml);
+});
+
+// Price Prediction Demo Page (no authentication required for testing)
+app.get('/price-prediction-demo', (req, res) => {
+    const pricePredictionHtml = fs.readFileSync(path.join(__dirname, 'public', 'price-prediction.html'), 'utf8');
+    res.send(pricePredictionHtml);
 });
 
 // ================================
