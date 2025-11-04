@@ -2626,15 +2626,23 @@ async function getPayPalAccessToken() {
 // BRAND DETECTION MIDDLEWARE
 // ================================
 app.use((req, res, next) => {
-    // Detect brand based on host header or query parameter (for local testing)
+    // Detect brand based on host header, referer, origin, or query parameter
     const host = req.get('host') || req.headers.host || req.headers['x-forwarded-host'] || '';
+    const referer = req.get('referer') || req.headers.referer || '';
+    const origin = req.get('origin') || req.headers.origin || '';
+    const fullUrl = host + referer + origin;
     const hostLower = host.toLowerCase();
+    const fullUrlLower = fullUrl.toLowerCase();
     
     // More explicit domain matching for traidefi.ai
+    // Check host header, referer, origin, or any combination
     const isTraidefiDomain = hostLower === 'traidefi.ai' || 
                              hostLower === 'www.traidefi.ai' ||
                              hostLower.includes('traidefi.ai') ||
-                             hostLower.startsWith('traidefi');
+                             hostLower.includes('traidefi') ||
+                             hostLower.startsWith('traidefi') ||
+                             fullUrlLower.includes('traidefi.ai') ||
+                             fullUrlLower.includes('traidefi');
     
     const isLocalhost = hostLower.includes('localhost') || hostLower.includes('127.0.0.1');
     const isTraidefiParam = req.query.brand === 'traidefi'; // For local testing: ?brand=traidefi
@@ -2649,9 +2657,9 @@ app.use((req, res, next) => {
         req.brand = 'tangent';
     }
     
-    // Enhanced debug logging
-    if (req.path === '/') {
-        console.log(`[BRAND] Host: ${host}, Lower: ${hostLower}, IsTraidefiDomain: ${isTraidefiDomain}, Brand: ${req.brand}`);
+    // Enhanced debug logging for all requests to root
+    if (req.path === '/' || req.path === '') {
+        console.log(`[BRAND] Path: ${req.path}, Host: ${host}, Lower: ${hostLower}, IsTraidefiDomain: ${isTraidefiDomain}, Brand: ${req.brand}, Referer: ${referer}, Origin: ${origin}`);
     }
     next();
 });
