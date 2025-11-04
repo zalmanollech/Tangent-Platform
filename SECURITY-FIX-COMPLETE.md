@@ -12,24 +12,24 @@
 ### 1. PayPal Credentials ✅
 - **Client ID:** Unchanged (same as before)
 - **Client Secret:** Rotated
-  - Old: `EK_p2WB-evloXIcdU0Uj_cWr-yQKR64Ruac-KF1ro5SZtNLM2X6RQT8CsCEqbkv2vxSdjv82XqzCcnD8`
-  - New: `EIDTlZvxh43G0grlT-VLsaGoCGs2X4Tc5QaHuu6z3k9miePn5WC-Sw06JdvhfdykUvlBNMy7akAb2x_X`
+  - Old: `[REDACTED - revoked]`
+  - New: `[REDACTED - check config.env or Railway]`
 - **Updated in:** `config.env` ✅
 - **Updated in:** Railway ✅
 
 ### 2. Supabase Database Password ✅
 - **Password:** Rotated
-  - Old: `knddyt2247`
-  - New: `Knddyt224725`
+  - Old: `[REDACTED - revoked]`
+  - New: `[REDACTED - check config.env or Railway]`
 - **Connection String:** Updated
-  - New: `postgresql://postgres.qqqfkszxkuxvqyisphti:Knddyt224725@aws-1-ap-southeast-2.pooler.supabase.com:5432/postgres`
+  - Connection string updated with new password (check `config.env` or Railway)
 - **Updated in:** `config.env` ✅
 - **Updated in:** Railway ✅
 
 ### 3. Resend API Key ✅
 - **API Key:** Rotated
-  - Old: `re_2FTgoC7d_M4Es3yieBG2LMLtfprXehpw1` (revoked)
-  - New: `re_MKNgEVXv_5bH5exadKbgX4p5Yek4bkrDm`
+  - Old: `[REDACTED - revoked]`
+  - New: `[REDACTED - check config.env or Railway]`
 - **Updated in:** `config.env` ✅
 - **Updated in:** Railway ✅
 
