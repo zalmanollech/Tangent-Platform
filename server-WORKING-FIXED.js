@@ -3528,6 +3528,330 @@ app.get('/tools/insurance-quote', (req, res) => {
 });
 
 // ================================
+// LEGAL PAGES
+// ================================
+
+// Terms of Service
+app.get('/terms', (req, res) => {
+    const isTraidefi = req.brand === 'traidefi';
+    const brandName = isTraidefi ? 'Traidefi' : 'Tangent Protocol';
+    
+    res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Terms of Service - ${brandName}</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: #000000;
+            color: #ffffff;
+            min-height: 100vh;
+            padding: 40px 20px;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #333333;
+        }
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+            color: #ffffff;
+        }
+        .last-updated {
+            color: #888888;
+            font-size: 0.9rem;
+        }
+        .content {
+            background: #1a1a1a;
+            border: 1px solid #333333;
+            border-radius: 20px;
+            padding: 40px;
+            margin-bottom: 30px;
+        }
+        h2 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-top: 30px;
+            margin-bottom: 15px;
+            color: #ffffff;
+        }
+        h2:first-child {
+            margin-top: 0;
+        }
+        p {
+            margin-bottom: 15px;
+            color: #cccccc;
+        }
+        ul {
+            margin-left: 20px;
+            margin-bottom: 15px;
+        }
+        li {
+            margin-bottom: 10px;
+            color: #cccccc;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #333333;
+        }
+        .footer a {
+            color: #888888;
+            text-decoration: none;
+            margin: 0 15px;
+        }
+        .footer a:hover {
+            color: #ffffff;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Terms of Service</h1>
+            <p class="last-updated">Last Updated: November 4, 2025</p>
+        </div>
+        
+        <div class="content">
+            <h2>1. Acceptance of Terms</h2>
+            <p>By accessing and using ${brandName} services, you accept and agree to be bound by the terms and provision of this agreement. If you do not agree to these terms, please do not use our services.</p>
+            
+            <h2>2. Services Description</h2>
+            <p>${brandName} provides the following services:</p>
+            <ul>
+                <li><strong>Credit Report Generation:</strong> Algorithmic trade-specific credit scoring service ($150 per report)</li>
+                <li><strong>Insurance Premium Quotes:</strong> Actuarial model for premium range estimation ($50 per quote)</li>
+            </ul>
+            <p>All services are provided "as is" and are based on available data and algorithms at the time of generation.</p>
+            
+            <h2>3. Payment Terms</h2>
+            <p>All payments must be made in full before services are rendered. We accept payments through PayPal. Payments are non-refundable once services have been generated, except as required by law.</p>
+            
+            <h2>4. Use of Services</h2>
+            <p>You agree to:</p>
+            <ul>
+                <li>Provide accurate and complete information when using our services</li>
+                <li>Use services only for lawful purposes</li>
+                <li>Not attempt to reverse engineer or copy our algorithms</li>
+                <li>Not share or resell reports without authorization</li>
+            </ul>
+            
+            <h2>5. Accuracy and Reliability</h2>
+            <p>While we strive for accuracy, credit reports and insurance quotes are based on available data and algorithmic models. Results should be used as guidance and not as the sole basis for financial decisions. We do not guarantee the accuracy or reliability of any report or quote.</p>
+            
+            <h2>6. Limitation of Liability</h2>
+            <p>${brandName} shall not be liable for any indirect, incidental, special, consequential, or punitive damages resulting from your use or inability to use our services. Our total liability shall not exceed the amount you paid for the specific service.</p>
+            
+            <h2>7. Intellectual Property</h2>
+            <p>All content, algorithms, and materials provided by ${brandName} are protected by intellectual property laws. You may not reproduce, distribute, or create derivative works without our express written permission.</p>
+            
+            <h2>8. Data Privacy</h2>
+            <p>Your use of our services is also governed by our Privacy Policy. Please review our Privacy Policy to understand how we collect and use your information.</p>
+            
+            <h2>9. Modifications to Terms</h2>
+            <p>We reserve the right to modify these terms at any time. Continued use of our services after changes constitutes acceptance of the new terms.</p>
+            
+            <h2>10. Contact Information</h2>
+            <p>If you have questions about these Terms of Service, please contact us at:</p>
+            <p>Email: support@${isTraidefi ? 'traidefi.ai' : 'tangent-protocol.com'}</p>
+        </div>
+        
+        <div class="footer">
+            <a href="/">Home</a>
+            <a href="/terms">Terms of Service</a>
+            <a href="/privacy">Privacy Policy</a>
+        </div>
+    </div>
+</body>
+</html>`);
+});
+
+// Privacy Policy
+app.get('/privacy', (req, res) => {
+    const isTraidefi = req.brand === 'traidefi';
+    const brandName = isTraidefi ? 'Traidefi' : 'Tangent Protocol';
+    
+    res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Privacy Policy - ${brandName}</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: #000000;
+            color: #ffffff;
+            min-height: 100vh;
+            padding: 40px 20px;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #333333;
+        }
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+            color: #ffffff;
+        }
+        .last-updated {
+            color: #888888;
+            font-size: 0.9rem;
+        }
+        .content {
+            background: #1a1a1a;
+            border: 1px solid #333333;
+            border-radius: 20px;
+            padding: 40px;
+            margin-bottom: 30px;
+        }
+        h2 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-top: 30px;
+            margin-bottom: 15px;
+            color: #ffffff;
+        }
+        h2:first-child {
+            margin-top: 0;
+        }
+        p {
+            margin-bottom: 15px;
+            color: #cccccc;
+        }
+        ul {
+            margin-left: 20px;
+            margin-bottom: 15px;
+        }
+        li {
+            margin-bottom: 10px;
+            color: #cccccc;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #333333;
+        }
+        .footer a {
+            color: #888888;
+            text-decoration: none;
+            margin: 0 15px;
+        }
+        .footer a:hover {
+            color: #ffffff;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Privacy Policy</h1>
+            <p class="last-updated">Last Updated: November 4, 2025</p>
+        </div>
+        
+        <div class="content">
+            <h2>1. Information We Collect</h2>
+            <p>We collect information that you provide directly to us, including:</p>
+            <ul>
+                <li><strong>Account Information:</strong> Email address, password (encrypted), and account preferences</li>
+                <li><strong>Payment Information:</strong> Payment details processed through PayPal (we do not store credit card information)</li>
+                <li><strong>Service Information:</strong> Data provided when using our services (company names, trade values, sector information, etc.)</li>
+                <li><strong>Usage Data:</strong> Information about how you use our services, including IP address, browser type, and access times</li>
+            </ul>
+            
+            <h2>2. How We Use Your Information</h2>
+            <p>We use the information we collect to:</p>
+            <ul>
+                <li>Provide, maintain, and improve our services</li>
+                <li>Process payments and generate reports/quotes</li>
+                <li>Send you service-related notifications and updates</li>
+                <li>Respond to your inquiries and provide customer support</li>
+                <li>Monitor and analyze usage patterns</li>
+                <li>Detect and prevent fraud or abuse</li>
+            </ul>
+            
+            <h2>3. Information Sharing</h2>
+            <p>We do not sell, trade, or rent your personal information to third parties. We may share your information only in the following circumstances:</p>
+            <ul>
+                <li><strong>Service Providers:</strong> With trusted third-party service providers who assist us in operating our services (e.g., payment processors, email services)</li>
+                <li><strong>Legal Requirements:</strong> When required by law or to protect our rights and safety</li>
+                <li><strong>Business Transfers:</strong> In connection with a merger, acquisition, or sale of assets</li>
+            </ul>
+            
+            <h2>4. Data Security</h2>
+            <p>We implement appropriate technical and organizational measures to protect your personal information, including:</p>
+            <ul>
+                <li>Encryption of sensitive data in transit and at rest</li>
+                <li>Secure password hashing (bcrypt)</li>
+                <li>Regular security assessments and updates</li>
+                <li>Access controls and authentication mechanisms</li>
+            </ul>
+            <p>However, no method of transmission over the Internet is 100% secure, and we cannot guarantee absolute security.</p>
+            
+            <h2>5. Data Retention</h2>
+            <p>We retain your personal information for as long as necessary to provide our services and comply with legal obligations. Generated reports and quotes are stored in our database for your access and our records.</p>
+            
+            <h2>6. Your Rights</h2>
+            <p>You have the right to:</p>
+            <ul>
+                <li>Access your personal information</li>
+                <li>Correct inaccurate information</li>
+                <li>Request deletion of your information</li>
+                <li>Opt out of marketing communications</li>
+                <li>Request a copy of your data</li>
+            </ul>
+            <p>To exercise these rights, please contact us at support@${isTraidefi ? 'traidefi.ai' : 'tangent-protocol.com'}</p>
+            
+            <h2>7. Cookies and Tracking</h2>
+            <p>We use cookies and similar tracking technologies to improve your experience, analyze usage, and assist with our marketing efforts. You can control cookies through your browser settings.</p>
+            
+            <h2>8. Third-Party Services</h2>
+            <p>Our services may contain links to third-party websites or services. We are not responsible for the privacy practices of these third parties. We encourage you to review their privacy policies.</p>
+            
+            <h2>9. Children's Privacy</h2>
+            <p>Our services are not intended for individuals under the age of 18. We do not knowingly collect personal information from children.</p>
+            
+            <h2>10. Changes to This Policy</h2>
+            <p>We may update this Privacy Policy from time to time. We will notify you of any changes by posting the new policy on this page and updating the "Last Updated" date.</p>
+            
+            <h2>11. Contact Us</h2>
+            <p>If you have questions about this Privacy Policy, please contact us at:</p>
+            <p>Email: support@${isTraidefi ? 'traidefi.ai' : 'tangent-protocol.com'}</p>
+        </div>
+        
+        <div class="footer">
+            <a href="/">Home</a>
+            <a href="/terms">Terms of Service</a>
+            <a href="/privacy">Privacy Policy</a>
+        </div>
+    </div>
+</body>
+</html>`);
+});
+
+// ================================
 // PAYPAL PAYMENT ROUTES
 // ================================
 
