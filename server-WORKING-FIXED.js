@@ -2649,12 +2649,16 @@ app.use((req, res, next) => {
     const isTangentParam = req.query.brand === 'tangent'; // Allow override: ?brand=tangent
     
     // Prioritize Traidefi: check domain first, then localhost, then query param
+    // Default to Traidefi if domain matches or if localhost
     if (isTraidefiDomain || isTraidefiParam) {
         req.brand = 'traidefi';
     } else if (isLocalhost && !isTangentParam) {
         req.brand = 'traidefi';
-    } else {
+    } else if (isTangentParam || hostLower.includes('tangent-protocol.com')) {
         req.brand = 'tangent';
+    } else {
+        // Default to Traidefi for unknown domains (safer default)
+        req.brand = 'traidefi';
     }
     
     // Enhanced debug logging for all requests to root
