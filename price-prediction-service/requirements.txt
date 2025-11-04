@@ -1,0 +1,14 @@
+# Price Prediction Service Requirements
+fastapi>=0.110.0
+uvicorn>=0.27.0
+pydantic>=2.6.0
+requests>=2.31.0
+pandas>=1.5.0
+numpy>=1.24.0
+scikit-learn>=1.3.0
+
+# Optional: For advanced NLP (if using real news analysis)
+# transformers>=4.30.0
+# torch>=2.0.0
+
+
