@@ -3119,6 +3119,54 @@ app.get('/tools/credit-report', (req, res) => {
                         <option value="supplier">Supplier</option>
                     </select>
                 </div>
+                
+                <!-- Deal Structure Section (Optional - for deal-specific scoring) -->
+                <div style="margin-top: 40px; padding-top: 30px; border-top: 2px solid #333333;">
+                    <h3 style="color: #ffffff; margin-bottom: 15px; font-size: 1.3rem;">📋 Deal Structure (Optional)</h3>
+                    <p style="color: #888888; font-size: 0.9rem; margin-bottom: 20px;">Provide deal structure details to get a deal-specific risk score that accounts for collateral and payment protection.</p>
+                    
+                    <div class="form-group">
+                        <label>Deposit Percentage (%)</label>
+                        <input type="number" name="depositPercentage" placeholder="e.g., 30" min="0" max="100" step="5">
+                        <small style="color: #666; font-size: 0.85rem; display: block; margin-top: 5px;">Percentage of trade value paid upfront as deposit</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Payment Terms</label>
+                        <select name="paymentTerms">
+                            <option value="">Select payment terms (optional)</option>
+                            <option value="cash_on_delivery">Cash on Delivery (COD)</option>
+                            <option value="payment_against_documents">Payment Against Documents (PAD)</option>
+                            <option value="document_control_with_auction">Payment Against Documents + Auction Protection</option>
+                            <option value="letter_of_credit">Letter of Credit (LC)</option>
+                            <option value="bank_guarantee">Bank Guarantee</option>
+                            <option value="open_account">Open Account</option>
+                        </select>
+                        <small style="color: #666; font-size: 0.85rem; display: block; margin-top: 5px;">Payment terms affect risk score</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Merchandise Collateral Type</label>
+                        <select name="merchandiseCollateral">
+                            <option value="">Select collateral type (optional)</option>
+                            <option value="liquid">Liquid (easily sellable)</option>
+                            <option value="tradable">Tradable (standard commodity)</option>
+                            <option value="perishable">Perishable</option>
+                            <option value="specialized">Specialized (limited market)</option>
+                            <option value="none">No merchandise collateral</option>
+                        </select>
+                        <small style="color: #666; font-size: 0.85rem; display: block; margin-top: 5px;">Type of merchandise affects collateral value</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label style="display: flex; align-items: center; gap: 10px;">
+                            <input type="checkbox" name="auctionAvailable" value="true" style="width: auto;">
+                            <span>Auction Protection Available</span>
+                        </label>
+                        <small style="color: #666; font-size: 0.85rem; display: block; margin-top: 5px;">Check if documents/goods can be sold at auction if payment fails</small>
+                    </div>
+                </div>
+                
                 <button type="submit" class="btn">Continue to Payment</button>
             </form>
         </div>
@@ -3134,6 +3182,13 @@ app.get('/tools/credit-report', (req, res) => {
             
             const formData = new FormData(e.target);
             const data = Object.fromEntries(formData);
+            
+            // Handle checkbox value
+            if (data.auctionAvailable === 'true') {
+                data.auctionAvailable = true;
+            } else {
+                data.auctionAvailable = false;
+            }
             
             try {
                 const response = await fetch('/api/paypal/create-order', {
