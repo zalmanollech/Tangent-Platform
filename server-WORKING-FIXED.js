@@ -3267,12 +3267,25 @@ app.get('/tools/credit-report', (req, res) => {
                     </div>
                 </div>
                 
+                <div class="form-group" style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #333333;">
+                    <label style="display: flex; align-items: flex-start; gap: 10px; cursor: pointer;">
+                        <input type="checkbox" id="termsCheckbox" required style="width: auto; margin-top: 4px; cursor: pointer;">
+                        <span style="color: #cccccc; font-size: 0.9rem;">I agree to the <a href="/terms" target="_blank" style="color: #ffffff; text-decoration: underline;">Terms of Service</a> and <a href="/privacy" target="_blank" style="color: #ffffff; text-decoration: underline;">Privacy Policy</a></span>
+                    </label>
+                </div>
+                
                 <button type="submit" class="btn">Continue to Payment</button>
             </form>
         </div>
         
         <div style="text-align: center; margin-top: 30px;">
             <a href="/tools" style="color: #888888; text-decoration: none;">← Back to Tools</a>
+        </div>
+        
+        <div style="text-align: center; margin-top: 40px; padding-top: 20px; border-top: 1px solid #333333;">
+            <a href="/terms" style="color: #888888; text-decoration: none; margin: 0 10px; font-size: 0.9rem;">Terms of Service</a>
+            <span style="color: #888888;">|</span>
+            <a href="/privacy" style="color: #888888; text-decoration: none; margin: 0 10px; font-size: 0.9rem;">Privacy Policy</a>
         </div>
     </div>
     
@@ -3457,12 +3470,26 @@ app.get('/tools/insurance-quote', (req, res) => {
                     <input type="number" name="counterpartyScore" placeholder="Enter score (0-100) or leave blank for estimate" min="0" max="100">
                     <small style="color: #888888; font-size: 0.9rem;">If unknown, we'll use an estimated score</small>
                 </div>
+                
+                <div class="form-group" style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #333333;">
+                    <label style="display: flex; align-items: flex-start; gap: 10px; cursor: pointer;">
+                        <input type="checkbox" id="termsCheckboxInsurance" required style="width: auto; margin-top: 4px; cursor: pointer;">
+                        <span style="color: #cccccc; font-size: 0.9rem;">I agree to the <a href="/terms" target="_blank" style="color: #ffffff; text-decoration: underline;">Terms of Service</a> and <a href="/privacy" target="_blank" style="color: #ffffff; text-decoration: underline;">Privacy Policy</a></span>
+                    </label>
+                </div>
+                
                 <button type="submit" class="btn">Continue to Payment</button>
             </form>
         </div>
         
         <div style="text-align: center; margin-top: 30px;">
             <a href="/tools" style="color: #888888; text-decoration: none;">← Back to Tools</a>
+        </div>
+        
+        <div style="text-align: center; margin-top: 40px; padding-top: 20px; border-top: 1px solid #333333;">
+            <a href="/terms" style="color: #888888; text-decoration: none; margin: 0 10px; font-size: 0.9rem;">Terms of Service</a>
+            <span style="color: #888888;">|</span>
+            <a href="/privacy" style="color: #888888; text-decoration: none; margin: 0 10px; font-size: 0.9rem;">Privacy Policy</a>
         </div>
     </div>
     
