@@ -3023,24 +3023,53 @@ app.get('/tools/credit-report', (req, res) => {
             </div>
             
             <form id="creditForm">
+                <div style="background: rgba(255, 255, 255, 0.03); border: 1px solid #333; border-radius: 12px; padding: 20px; margin-bottom: 30px;">
+                    <h3 style="color: #06b6d4; margin-bottom: 15px; font-size: 1.2rem;">Company Identification Information</h3>
+                    <p style="color: #888; font-size: 0.9rem; margin-bottom: 20px; line-height: 1.5;">
+                        <strong>Important:</strong> To ensure we check the correct company, please provide accurate company identification details. 
+                        The more information you provide, the more reliable the credit report will be.
+                    </p>
+                </div>
+                
                 <div class="form-group">
                     <label>Company Name *</label>
-                    <input type="text" name="companyName" required placeholder="Enter company name">
+                    <input type="text" name="companyName" required placeholder="Enter full company name as registered">
                 </div>
+                
                 <div class="form-group">
-                    <label>Country *</label>
-                    <input type="text" name="country" required placeholder="Enter country">
+                    <label>Registration Number / Tax ID *</label>
+                    <input type="text" name="registrationNumber" required placeholder="Enter company registration number or tax ID">
+                    <small style="color: #888; font-size: 0.85rem; margin-top: 5px; display: block;">This is critical for accurate company identification</small>
                 </div>
+                
                 <div class="form-group">
-                    <label>Sector/Commodity *</label>
-                    <input type="text" name="sector" required placeholder="e.g., Grains, Oilseeds, Softs">
+                    <label>Place of Incorporation / Country of Establishment *</label>
+                    <input type="text" name="country" required placeholder="Enter country where company is registered">
+                    <small style="color: #888; font-size: 0.85rem; margin-top: 5px; display: block;">Country where the company is legally registered</small>
                 </div>
+                
+                <div class="form-group">
+                    <label>Company Address *</label>
+                    <textarea name="address" required placeholder="Enter full registered address" rows="3"></textarea>
+                    <small style="color: #888; font-size: 0.85rem; margin-top: 5px; display: block;">Include street address, city, state/province, postal code</small>
+                </div>
+                
+                <div class="form-group">
+                    <label>Sector/Industry *</label>
+                    <input type="text" name="sector" required placeholder="e.g., Agriculture, Manufacturing, Trading, Commodities">
+                </div>
+                
+                <div style="background: rgba(255, 255, 255, 0.03); border: 1px solid #333; border-radius: 12px; padding: 20px; margin-bottom: 30px; margin-top: 30px;">
+                    <h3 style="color: #06b6d4; margin-bottom: 15px; font-size: 1.2rem;">Trade Details</h3>
+                </div>
+                
                 <div class="form-group">
                     <label>Trade Value (USD) *</label>
                     <input type="number" name="tradeValue" required placeholder="Enter trade value" min="1">
                 </div>
+                
                 <div class="form-group">
-                    <label>Tenor *</label>
+                    <label>Tenor (Payment Terms) *</label>
                     <select name="tenor" required>
                         <option value="">Select tenor</option>
                         <option value="30">30 days</option>
@@ -3049,6 +3078,7 @@ app.get('/tools/credit-report', (req, res) => {
                         <option value="120">120+ days</option>
                     </select>
                 </div>
+                
                 <div class="form-group">
                     <label>Role *</label>
                     <select name="role" required>
@@ -3057,6 +3087,7 @@ app.get('/tools/credit-report', (req, res) => {
                         <option value="supplier">Supplier</option>
                     </select>
                 </div>
+                
                 <button type="submit" class="btn">Continue to Payment</button>
             </form>
         </div>
@@ -4227,6 +4258,108 @@ app.get('/admin/reports/credit/:id', async (req, res) => {
     </div>
     ` : ''}
     
+    ${factors?.verificationSteps ? `
+    <div class="report-card">
+        <h3 style="color: #06b6d4; margin-bottom: 20px;">✅ Verification Steps Performed</h3>
+        <p style="color: #94a3b8; margin-bottom: 20px;">This section shows what verification steps were actually performed and what data sources were checked to generate this credit report.</p>
+        <div class="info-grid">
+            <div class="info-item">
+                <div class="info-label">Company Identification</div>
+                <div class="info-value" style="color: ${factors.verificationSteps.companyIdentification === 'VERIFIED' ? '#10b981' : factors.verificationSteps.companyIdentification === 'PARTIAL' ? '#eab308' : '#ef4444'}">
+                    ${factors.verificationSteps.companyIdentification === 'VERIFIED' ? '✓ VERIFIED' : factors.verificationSteps.companyIdentification === 'PARTIAL' ? '⚠ PARTIAL' : '✗ WEAK'}
+                </div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Company Registry Lookup</div>
+                <div class="info-value" style="color: ${factors.verificationSteps.companyRegistryLookup === 'ATTEMPTED' ? '#10b981' : '#ef4444'}">
+                    ${factors.verificationSteps.companyRegistryLookup === 'ATTEMPTED' ? '✓ ATTEMPTED' : '✗ NOT ATTEMPTED'}
+                </div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Credit Bureau Queries</div>
+                <div class="info-value" style="color: ${factors.verificationSteps.creditBureauQueries === 'ATTEMPTED' ? '#10b981' : '#ef4444'}">
+                    ${factors.verificationSteps.creditBureauQueries === 'ATTEMPTED' ? '✓ ATTEMPTED' : '✗ NOT ATTEMPTED'}
+                </div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Sanctions Screening</div>
+                <div class="info-value" style="color: ${factors.verificationSteps.sanctionsScreening === 'VERIFIED' ? '#10b981' : '#eab308'}">
+                    ${factors.verificationSteps.sanctionsScreening === 'VERIFIED' ? '✓ VERIFIED' : '⚠ SIMULATED'}
+                </div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Financial Analysis</div>
+                <div class="info-value" style="color: ${factors.verificationSteps.financialAnalysis === 'ATTEMPTED' ? '#10b981' : '#ef4444'}">
+                    ${factors.verificationSteps.financialAnalysis === 'ATTEMPTED' ? '✓ ATTEMPTED' : '✗ NOT ATTEMPTED'}
+                </div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Payment History Check</div>
+                <div class="info-value" style="color: ${factors.verificationSteps.paymentHistoryCheck === 'ATTEMPTED' ? '#10b981' : '#ef4444'}">
+                    ${factors.verificationSteps.paymentHistoryCheck === 'ATTEMPTED' ? '✓ ATTEMPTED' : '✗ NOT ATTEMPTED'}
+                </div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Bankruptcy Check</div>
+                <div class="info-value" style="color: ${factors.verificationSteps.bankruptcyCheck === 'ATTEMPTED' ? '#10b981' : '#ef4444'}">
+                    ${factors.verificationSteps.bankruptcyCheck === 'ATTEMPTED' ? '✓ ATTEMPTED' : '✗ NOT ATTEMPTED'}
+                </div>
+            </div>
+        </div>
+    </div>
+    ` : ''}
+    
+    ${factors?.dataSourcesChecked ? `
+    <div class="report-card">
+        <h3 style="color: #06b6d4; margin-bottom: 20px;">📊 Data Sources Checked</h3>
+        <p style="color: #94a3b8; margin-bottom: 20px;">This section shows which data sources were successfully queried and provided data for this credit report.</p>
+        <div class="info-grid">
+            <div class="info-item">
+                <div class="info-label">Company Registry</div>
+                <div class="info-value" style="color: ${factors.dataSourcesChecked.companyRegistry ? '#10b981' : '#ef4444'}">
+                    ${factors.dataSourcesChecked.companyRegistry ? '✓ Available' : '✗ Not Available'}
+                </div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Dun & Bradstreet</div>
+                <div class="info-value" style="color: ${factors.dataSourcesChecked.creditBureaus?.dnb ? '#10b981' : '#ef4444'}">
+                    ${factors.dataSourcesChecked.creditBureaus?.dnb ? '✓ Data Retrieved' : '✗ No Data'}
+                </div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Experian</div>
+                <div class="info-value" style="color: ${factors.dataSourcesChecked.creditBureaus?.experian ? '#10b981' : '#ef4444'}">
+                    ${factors.dataSourcesChecked.creditBureaus?.experian ? '✓ Data Retrieved' : '✗ No Data'}
+                </div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Equifax</div>
+                <div class="info-value" style="color: ${factors.dataSourcesChecked.creditBureaus?.equifax ? '#10b981' : '#ef4444'}">
+                    ${factors.dataSourcesChecked.creditBureaus?.equifax ? '✓ Data Retrieved' : '✗ No Data'}
+                </div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Financial Analysis</div>
+                <div class="info-value" style="color: ${factors.dataSourcesChecked.financialAnalysis ? '#10b981' : '#ef4444'}">
+                    ${factors.dataSourcesChecked.financialAnalysis ? '✓ Available' : '✗ Not Available'}
+                </div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Payment History</div>
+                <div class="info-value" style="color: ${factors.dataSourcesChecked.paymentHistory ? '#10b981' : '#ef4444'}">
+                    ${factors.dataSourcesChecked.paymentHistory ? '✓ Available' : '✗ Not Available'}
+                </div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Bankruptcy Records</div>
+                <div class="info-value" style="color: ${factors.dataSourcesChecked.bankruptcyCheck ? '#10b981' : '#ef4444'}">
+                    ${factors.dataSourcesChecked.bankruptcyCheck ? '✓ Checked' : '✗ Not Checked'}
+                </div>
+            </div>
+        </div>
+    </div>
+    ` : ''}
+    
     ${factors?.confidenceLevels ? `
     <div class="report-card">
         <h3 style="color: #06b6d4; margin-bottom: 20px;">🎯 Confidence Levels</h3>
@@ -5057,6 +5190,108 @@ app.get('/my-reports/credit/:id', async (req, res) => {
             <div class="info-item" style="grid-column: 1 / -1; background: #1e293b; border: 2px solid ${riskBandColor};">
                 <div class="info-label">Final Credit Score</div>
                 <div class="info-value" style="font-size: 1.5rem; color: ${riskBandColor};">${factors.scoreBreakdown.finalScore}</div>
+            </div>
+        </div>
+    </div>
+    ` : ''}
+    
+    ${factors?.verificationSteps ? `
+    <div class="report-card">
+        <h3 style="color: #06b6d4; margin-bottom: 20px;">✅ Verification Steps Performed</h3>
+        <p style="color: #94a3b8; margin-bottom: 20px;">This section shows what verification steps were actually performed and what data sources were checked to generate this credit report.</p>
+        <div class="info-grid">
+            <div class="info-item">
+                <div class="info-label">Company Identification</div>
+                <div class="info-value" style="color: ${factors.verificationSteps.companyIdentification === 'VERIFIED' ? '#10b981' : factors.verificationSteps.companyIdentification === 'PARTIAL' ? '#eab308' : '#ef4444'}">
+                    ${factors.verificationSteps.companyIdentification === 'VERIFIED' ? '✓ VERIFIED' : factors.verificationSteps.companyIdentification === 'PARTIAL' ? '⚠ PARTIAL' : '✗ WEAK'}
+                </div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Company Registry Lookup</div>
+                <div class="info-value" style="color: ${factors.verificationSteps.companyRegistryLookup === 'ATTEMPTED' ? '#10b981' : '#ef4444'}">
+                    ${factors.verificationSteps.companyRegistryLookup === 'ATTEMPTED' ? '✓ ATTEMPTED' : '✗ NOT ATTEMPTED'}
+                </div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Credit Bureau Queries</div>
+                <div class="info-value" style="color: ${factors.verificationSteps.creditBureauQueries === 'ATTEMPTED' ? '#10b981' : '#ef4444'}">
+                    ${factors.verificationSteps.creditBureauQueries === 'ATTEMPTED' ? '✓ ATTEMPTED' : '✗ NOT ATTEMPTED'}
+                </div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Sanctions Screening</div>
+                <div class="info-value" style="color: ${factors.verificationSteps.sanctionsScreening === 'VERIFIED' ? '#10b981' : '#eab308'}">
+                    ${factors.verificationSteps.sanctionsScreening === 'VERIFIED' ? '✓ VERIFIED' : '⚠ SIMULATED'}
+                </div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Financial Analysis</div>
+                <div class="info-value" style="color: ${factors.verificationSteps.financialAnalysis === 'ATTEMPTED' ? '#10b981' : '#ef4444'}">
+                    ${factors.verificationSteps.financialAnalysis === 'ATTEMPTED' ? '✓ ATTEMPTED' : '✗ NOT ATTEMPTED'}
+                </div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Payment History Check</div>
+                <div class="info-value" style="color: ${factors.verificationSteps.paymentHistoryCheck === 'ATTEMPTED' ? '#10b981' : '#ef4444'}">
+                    ${factors.verificationSteps.paymentHistoryCheck === 'ATTEMPTED' ? '✓ ATTEMPTED' : '✗ NOT ATTEMPTED'}
+                </div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Bankruptcy Check</div>
+                <div class="info-value" style="color: ${factors.verificationSteps.bankruptcyCheck === 'ATTEMPTED' ? '#10b981' : '#ef4444'}">
+                    ${factors.verificationSteps.bankruptcyCheck === 'ATTEMPTED' ? '✓ ATTEMPTED' : '✗ NOT ATTEMPTED'}
+                </div>
+            </div>
+        </div>
+    </div>
+    ` : ''}
+    
+    ${factors?.dataSourcesChecked ? `
+    <div class="report-card">
+        <h3 style="color: #06b6d4; margin-bottom: 20px;">📊 Data Sources Checked</h3>
+        <p style="color: #94a3b8; margin-bottom: 20px;">This section shows which data sources were successfully queried and provided data for this credit report.</p>
+        <div class="info-grid">
+            <div class="info-item">
+                <div class="info-label">Company Registry</div>
+                <div class="info-value" style="color: ${factors.dataSourcesChecked.companyRegistry ? '#10b981' : '#ef4444'}">
+                    ${factors.dataSourcesChecked.companyRegistry ? '✓ Available' : '✗ Not Available'}
+                </div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Dun & Bradstreet</div>
+                <div class="info-value" style="color: ${factors.dataSourcesChecked.creditBureaus?.dnb ? '#10b981' : '#ef4444'}">
+                    ${factors.dataSourcesChecked.creditBureaus?.dnb ? '✓ Data Retrieved' : '✗ No Data'}
+                </div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Experian</div>
+                <div class="info-value" style="color: ${factors.dataSourcesChecked.creditBureaus?.experian ? '#10b981' : '#ef4444'}">
+                    ${factors.dataSourcesChecked.creditBureaus?.experian ? '✓ Data Retrieved' : '✗ No Data'}
+                </div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Equifax</div>
+                <div class="info-value" style="color: ${factors.dataSourcesChecked.creditBureaus?.equifax ? '#10b981' : '#ef4444'}">
+                    ${factors.dataSourcesChecked.creditBureaus?.equifax ? '✓ Data Retrieved' : '✗ No Data'}
+                </div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Financial Analysis</div>
+                <div class="info-value" style="color: ${factors.dataSourcesChecked.financialAnalysis ? '#10b981' : '#ef4444'}">
+                    ${factors.dataSourcesChecked.financialAnalysis ? '✓ Available' : '✗ Not Available'}
+                </div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Payment History</div>
+                <div class="info-value" style="color: ${factors.dataSourcesChecked.paymentHistory ? '#10b981' : '#ef4444'}">
+                    ${factors.dataSourcesChecked.paymentHistory ? '✓ Available' : '✗ Not Available'}
+                </div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Bankruptcy Records</div>
+                <div class="info-value" style="color: ${factors.dataSourcesChecked.bankruptcyCheck ? '#10b981' : '#ef4444'}">
+                    ${factors.dataSourcesChecked.bankruptcyCheck ? '✓ Checked' : '✗ Not Checked'}
+                </div>
             </div>
         </div>
     </div>
