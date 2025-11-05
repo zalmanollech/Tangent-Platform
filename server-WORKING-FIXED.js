@@ -811,9 +811,7 @@ function processPendingContractsForUser(userEmail) {
 // AUTHENTICATION MIDDLEWARE
 // ================================
 const authenticateToken = (req, res, next) => {
-    console.log('🔐 AUTH MIDDLEWARE - Path:', req.path);
-    console.log('🔐 AUTH MIDDLEWARE - Query params:', req.query);
-    
+    // Reduced logging - only log errors to prevent terminal flickering
     // Try multiple ways to get the token
     let token = null;
     
@@ -821,41 +819,50 @@ const authenticateToken = (req, res, next) => {
     const authHeader = req.headers['authorization'];
     if (authHeader && authHeader.split(' ')[1]) {
         token = authHeader.split(' ')[1];
-        console.log('🔐 AUTH MIDDLEWARE - Token from header:', token.substring(0, 20) + '...');
     }
     
     // 2. Check query parameter (for dashboard redirects)
     if (!token && req.query.token) {
         token = req.query.token;
-        console.log('🔐 AUTH MIDDLEWARE - Token from query:', token.substring(0, 20) + '...');
     }
     
     // 3. Check cookies (if we implement cookie auth later)
     if (!token && req.cookies && req.cookies.token) {
         token = req.cookies.token;
-        console.log('🔐 AUTH MIDDLEWARE - Token from cookies:', token.substring(0, 20) + '...');
     }
     
     if (!token) {
-        console.log('❌ AUTH MIDDLEWARE - No token found, redirecting to login');
+        // Only log if it's not a public route (to reduce noise)
+        const publicRoutes = ['/static', '/uploads', '/terms', '/privacy', '/user-agreement', '/favicon.ico', '/health', '/test', '/tools', '/'];
+        const isPublicRoute = publicRoutes.some(route => req.path.startsWith(route) || req.path === route);
+        
+        if (!isPublicRoute) {
+            // Don't log - too noisy
+        }
         // For dashboard routes, redirect to login instead of JSON error
         if (req.path.startsWith('/dashboard')) {
             return res.redirect('/landing-two');
         }
+        // For public routes, don't require auth
+        if (isPublicRoute) {
+            return next(); // Skip auth for public routes
+        }
         return res.status(401).json({ error: 'Access token required' });
     }
     
-    console.log('🔐 AUTH MIDDLEWARE - Verifying token...');
     jwt.verify(token, process.env.JWT_SECRET || 'tangent-secret-key', (err, user) => {
         if (err) {
-            console.log('❌ AUTH MIDDLEWARE - Token verification failed:', err.message);
+            console.error('❌ AUTH - Token verification failed:', err.message);
             // For dashboard routes, redirect to login instead of JSON error
             if (req.path.startsWith('/dashboard')) {
                 return res.redirect('/landing-two');
             }
             return res.status(403).json({ error: 'Invalid token' });
         }
-        console.log('✅ AUTH MIDDLEWARE - Token verified successfully for user:', user.email);
+        // Only log successful auth for important routes (reduce noise)
+        if (req.path.startsWith('/api/admin') || req.path.startsWith('/dashboard/admin')) {
+            console.log('✅ AUTH - Admin access:', user.email);
+        }
         req.user = user;
         next();
     });
@@ -876,6 +883,60 @@ const requireRole = (roles) => {
 // Serve only specific files, not the entire src directory to avoid React conflicts
 app.use('/static', express.static('public'));
 app.use('/uploads', express.static('uploads'));
+
+// ================================
+// LEGAL DOCUMENTS
+// ================================
+// Terms of Service
+app.get('/terms', (req, res) => {
+    const fs = require('fs');
+    const path = require('path');
+    const termsPath = path.join(__dirname, 'legal', 'terms-of-service.html');
+    try {
+        if (!fs.existsSync(termsPath)) {
+            return res.status(404).send('Terms of Service file not found');
+        }
+        const html = fs.readFileSync(termsPath, 'utf8');
+        res.send(html);
+    } catch (error) {
+        console.error('[ERROR] Error reading Terms file:', error.message);
+        res.status(500).send('Error loading Terms of Service: ' + error.message);
+    }
+});
+
+// Privacy Policy
+app.get('/privacy', (req, res) => {
+    const fs = require('fs');
+    const path = require('path');
+    const privacyPath = path.join(__dirname, 'legal', 'privacy-policy.html');
+    try {
+        if (!fs.existsSync(privacyPath)) {
+            return res.status(404).send('Privacy Policy file not found');
+        }
+        const html = fs.readFileSync(privacyPath, 'utf8');
+        res.send(html);
+    } catch (error) {
+        console.error('[ERROR] Error reading Privacy file:', error.message);
+        res.status(500).send('Error loading Privacy Policy: ' + error.message);
+    }
+});
+
+// User Agreement
+app.get('/user-agreement', (req, res) => {
+    const fs = require('fs');
+    const path = require('path');
+    const agreementPath = path.join(__dirname, 'legal', 'user-agreement.html');
+    try {
+        if (!fs.existsSync(agreementPath)) {
+            return res.status(404).send('User Agreement file not found');
+        }
+        const html = fs.readFileSync(agreementPath, 'utf8');
+        res.send(html);
+    } catch (error) {
+        console.error('[ERROR] Error reading User Agreement file:', error.message);
+        res.status(500).send('Error loading User Agreement: ' + error.message);
+    }
+});
 
 // Block access to problematic React files that cause console errors
 app.get('*.jsx', (req, res) => {
@@ -2761,6 +2822,18 @@ app.get('/', (req, res) => {
       <p style="color: #888888; font-size: 1rem; margin-bottom: 15px;">Team members & new users</p>
       <a href="/landing-two" style="color: #ffffff; text-decoration: none; font-size: 1rem; padding: 12px 24px; border: 2px solid #ffffff; border-radius: 8px; transition: all 0.3s; font-weight: 500;" onmouseover="this.style.background='#ffffff'; this.style.color='#000000'; this.style.transform='translateY(-2px)'" onmouseout="this.style.background='transparent'; this.style.color='#ffffff'; this.style.transform='translateY(0)'">Team Portal</a>
             </div>
+            
+    <!-- Footer -->
+    <div style="margin-top: 80px; padding: 40px 20px; border-top: 1px solid #333333; background: rgba(255, 255, 255, 0.02);">
+      <div style="max-width: 1400px; margin: 0 auto; text-align: center;">
+        <p style="color: #888888; font-size: 0.9rem; margin-bottom: 20px;">© ${new Date().getFullYear()} ${brandName}. All rights reserved.</p>
+        <div style="display: flex; justify-content: center; gap: 30px; flex-wrap: wrap;">
+          <a href="/terms" style="color: #cccccc; text-decoration: none; font-size: 0.9rem; transition: color 0.3s;" onmouseover="this.style.color='#ffffff'" onmouseout="this.style.color='#cccccc'">Terms of Service</a>
+          <a href="/privacy" style="color: #cccccc; text-decoration: none; font-size: 0.9rem; transition: color 0.3s;" onmouseover="this.style.color='#ffffff'" onmouseout="this.style.color='#cccccc'">Privacy Policy</a>
+          <a href="/user-agreement" style="color: #cccccc; text-decoration: none; font-size: 0.9rem; transition: color 0.3s;" onmouseover="this.style.color='#ffffff'" onmouseout="this.style.color='#cccccc'">User Agreement</a>
+        </div>
+      </div>
+    </div>
         </div>
     </body>
 </html>`);
@@ -3098,6 +3171,70 @@ app.get('/tools/credit-report', (req, res) => {
     </div>
     
     <script>
+        // Auto-populate form from KYC data if available
+        async function loadKYCData() {
+            try {
+                // Get auth token from localStorage or cookie
+                let token = localStorage.getItem('token');
+                if (!token) {
+                    const cookieToken = document.cookie.split('; ').find(function(row) { return row.startsWith('token='); });
+                    if (cookieToken) {
+                        token = cookieToken.split('=')[1];
+                    }
+                }
+                
+                if (!token) {
+                    console.log('No auth token found, skipping KYC auto-populate');
+                    return;
+                }
+                
+                const response = await fetch('/api/kyc/extract-company-info', {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': 'Bearer ' + token,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const result = await response.json();
+                
+                if (result.success && result.data) {
+                    const data = result.data;
+                    
+                    // Populate form fields if data is available
+                    if (data.companyName) {
+                        document.querySelector('input[name="companyName"]').value = data.companyName;
+                    }
+                    if (data.registrationNumber) {
+                        document.querySelector('input[name="registrationNumber"]').value = data.registrationNumber;
+                    }
+                    if (data.country) {
+                        document.querySelector('input[name="country"]').value = data.country;
+                    }
+                    if (data.address) {
+                        document.querySelector('textarea[name="address"]').value = data.address;
+                    }
+                    
+                    // Show notification if data was loaded
+                    if (data.confidence > 0.5) {
+                        const infoBox = document.querySelector('.info-box');
+                        if (infoBox) {
+                            infoBox.innerHTML += '<p style="color: #06b6d4; margin-top: 15px; font-size: 0.9rem;">✓ Form pre-populated from your KYC documents</p>';
+                        }
+                    }
+                } else {
+                    console.log('No KYC data available or extraction failed:', result.message);
+                }
+            } catch (error) {
+                console.log('Error loading KYC data (non-critical):', error.message);
+                // Don't show error to user - this is optional functionality
+            }
+        }
+        
+        // Load KYC data when page loads
+        window.addEventListener('DOMContentLoaded', loadKYCData);
+        
+        // Form submission
         document.getElementById('creditForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             
@@ -7607,6 +7744,91 @@ app.get('/api/kyc/status', authenticateToken, (req, res) => {
     } catch (error) {
         console.error('KYC status error:', error);
         res.status(500).json({ error: 'Failed to get KYC status' });
+    }
+});
+
+// Extract Company Info from KYC Documents for Credit Report
+app.get('/api/kyc/extract-company-info', authenticateToken, async (req, res) => {
+    try {
+        const kycData = database.kyc.get(req.user.userId);
+        
+        if (!kycData || !kycData.documents) {
+            return res.json({
+                success: false,
+                message: 'No KYC documents found. Please complete KYC first.'
+            });
+        }
+        
+        // Check if KYC extractor is available
+        let kycExtractor;
+        try {
+            kycExtractor = require('./lib/kyc-document-extractor');
+        } catch (error) {
+            console.warn('KYC extractor not available:', error.message);
+            return res.json({
+                success: false,
+                message: 'KYC extraction not available in this environment'
+            });
+        }
+        
+        // Get document paths from KYC data
+        const documentPaths = [];
+        for (const [docType, files] of Object.entries(kycData.documents)) {
+            if (Array.isArray(files) && files.length > 0) {
+                for (const file of files) {
+                    if (file.path && require('fs').existsSync(file.path)) {
+                        documentPaths.push(file.path);
+                    }
+                }
+            }
+        }
+        
+        if (documentPaths.length === 0) {
+            return res.json({
+                success: false,
+                message: 'No KYC documents found on disk. Documents may have been moved or deleted.'
+            });
+        }
+        
+        // Extract company info from documents
+        try {
+            const extracted = await kycExtractor.extractCompanyInfoFromKYC(documentPaths);
+            const formatted = kycExtractor.formatForCreditReportForm(extracted);
+            
+            // Also include company name from KYC data if available
+            if (kycData.companyName && !formatted.companyName) {
+                formatted.companyName = kycData.companyName;
+            }
+            
+            res.json({
+                success: true,
+                data: formatted,
+                confidence: extracted.confidence.overall,
+                message: 'Company information extracted from KYC documents'
+            });
+        } catch (extractionError) {
+            console.error('KYC extraction error:', extractionError);
+            // Fallback: return basic info from KYC data
+            res.json({
+                success: true,
+                data: {
+                    companyName: kycData.companyName || null,
+                    registrationNumber: null,
+                    country: null,
+                    address: null,
+                    confidence: 0.5
+                },
+                confidence: 0.5,
+                message: 'Using basic company information from KYC data (document extraction failed)'
+            });
+        }
+        
+    } catch (error) {
+        console.error('KYC company info extraction error:', error);
+        res.status(500).json({ 
+            success: false,
+            error: 'Failed to extract company information from KYC documents' 
+        });
     }
 });
 
@@ -19610,11 +19832,27 @@ app.use((err, req, res, next) => {
 // 404 handler - catch all unmatched routes (must be LAST)
 // Note: Admin routes must be defined BEFORE this handler
 app.use('*', (req, res) => {
-    console.log(`🔍 404 - Route not found: ${req.method} ${req.originalUrl}`);
+    // Only log 404s for important routes (not static files, favicon, etc.)
+    const path = req.originalUrl || req.path;
+    const shouldLog = !path.startsWith('/static') && 
+                     !path.startsWith('/uploads') && 
+                     !path.includes('favicon') && 
+                     !path.includes('.ico') && 
+                     !path.includes('.png') && 
+                     !path.includes('.jpg') && 
+                     !path.includes('.css') && 
+                     !path.includes('.js') &&
+                     !path.startsWith('/_next') &&
+                     path !== '/favicon.ico';
+    
+    if (shouldLog) {
+        console.log(`🔍 404 - Route not found: ${req.method} ${path}`);
+    }
+    
     res.status(404).json({
         error: 'Route not found',
         success: false,
-        path: req.originalUrl,
+        path: path,
         method: req.method
     });
 });
