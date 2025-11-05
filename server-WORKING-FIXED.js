@@ -24,6 +24,9 @@ const storageService = require('./lib/storage-service');
 // Email service
 const emailService = require('./lib/email-service');
 
+// PDF Contract Extractor
+const contractExtractor = require('./lib/contract-extractor');
+
 // TANGENT-BRIDGE-v4 Credit Risk Integration - Production Safe
 let creditIntegration = null;
 let creditServiceAvailable = false;
@@ -2535,9 +2538,8 @@ async function getPayPalAccessToken() {
 // BRAND DETECTION MIDDLEWARE
 // ================================
 app.use((req, res, next) => {
-    // Detect brand based on host header
-    const host = req.get('host') || req.headers.host || '';
-    req.brand = host.includes('traidefi.ai') ? 'traidefi' : 'tangent';
+    // Always use traidefi branding regardless of URL
+    req.brand = 'traidefi';
     next();
 });
 
@@ -9121,6 +9123,65 @@ app.post('/api/contracts/:id/documents', authenticateToken, upload.array('docume
     }
 });
 
+// Extract Contract Terms from PDF
+app.post('/api/contracts/extract-from-pdf', authenticateToken, upload.single('pdfFile'), async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ error: 'No PDF file uploaded' });
+        }
+
+        // Check if file is PDF
+        if (!req.file.mimetype.includes('pdf') && !req.file.originalname.toLowerCase().endsWith('.pdf')) {
+            return res.status(400).json({ error: 'File must be a PDF' });
+        }
+
+        // Extract contract data from PDF
+        const extracted = await contractExtractor.extractContractFromPDF(req.file.path);
+        
+        // Format extracted data for contract creation form
+        const formatted = contractExtractor.formatForContractCreation(
+            extracted,
+            req.body.userRole || (req.user && req.user.role) || 'buyer',
+            (req.user && req.user.email) || ''
+        );
+
+        // Clean up uploaded file
+        try {
+            await fs.promises.unlink(req.file.path);
+        } catch (cleanupError) {
+            console.warn('Failed to cleanup PDF file:', cleanupError);
+        }
+
+        res.json({
+            success: true,
+            extracted: formatted,
+            confidence: extracted.confidence,
+            metadata: {
+                pages: extracted.pages,
+                extractedAt: extracted.extractedAt,
+                rawTextPreview: extracted.rawText
+            }
+        });
+
+    } catch (error) {
+        console.error('PDF extraction error:', error);
+        
+        // Clean up uploaded file on error
+        if (req.file && req.file.path) {
+            try {
+                await fs.promises.unlink(req.file.path);
+            } catch (cleanupError) {
+                console.warn('Failed to cleanup PDF file on error:', cleanupError);
+            }
+        }
+        
+        res.status(500).json({ 
+            error: 'PDF extraction failed', 
+            message: error.message 
+        });
+    }
+});
+
 // Release Payment
 app.post('/api/contracts/:id/release-payment', authenticateToken, (req, res) => {
     try {
@@ -10012,6 +10073,35 @@ app.get('/create-contract', authenticateToken, (req, res) => {
         <p style="color: #888888; font-size: 0.9rem; margin-top: 0.5rem; text-align: center;">You must select your role before the counterparty email fields will appear</p>
       </div>
 
+      <!-- PDF Contract Upload Section -->
+      <div class="contract-section" style="background: #1a1a1a; border: 2px dashed #ffffff; padding: 2rem; margin-bottom: 2rem; border-radius: 12px; text-align: center;">
+        <h3 style="color: #ffffff; margin-bottom: 1rem;">📄 Upload Existing Contract PDF (Optional)</h3>
+        <p style="color: #888888; margin-bottom: 1.5rem; font-size: 0.9rem;">Upload a PDF contract and we'll automatically extract the contract terms for you</p>
+        <div style="margin-bottom: 1rem;">
+          <input type="file" id="pdfFileInput" accept=".pdf" style="display: none;" onchange="handlePDFUpload(event)">
+          <button type="button" class="btn" onclick="document.getElementById('pdfFileInput').click()" style="background: #2563eb; color: white; padding: 0.75rem 2rem;">
+            Choose PDF File
+          </button>
+          <span id="pdfFileName" style="color: #888888; margin-left: 1rem;"></span>
+        </div>
+        <div id="pdfUploadStatus" style="display: none; margin-top: 1rem;">
+          <div style="color: #06b6d4; margin-bottom: 0.5rem;">Extracting contract data...</div>
+          <div style="width: 100%; background: #0a0a0a; border-radius: 4px; overflow: hidden;">
+            <div id="pdfProgressBar" style="height: 6px; background: #06b6d4; width: 0%; transition: width 0.3s;"></div>
+          </div>
+        </div>
+        <div id="pdfExtractedData" style="display: none; margin-top: 1.5rem; padding: 1rem; background: #0a0a0a; border-radius: 8px; text-align: left;">
+          <h4 style="color: #06b6d4; margin-bottom: 1rem;">✅ Contract Data Extracted</h4>
+          <p style="color: #888888; font-size: 0.9rem; margin-bottom: 1rem;">Review and edit the extracted data below, then fill in any remaining fields.</p>
+          <button type="button" class="btn" onclick="useExtractedData()" style="background: #10b981; color: white; width: 100%; margin-bottom: 0.5rem;">
+            Use Extracted Data
+          </button>
+          <button type="button" class="btn btn-secondary" onclick="clearExtractedData()" style="width: 100%;">
+            Clear & Start Fresh
+          </button>
+        </div>
+      </div>
+
       <div class="contract-section">
         <h2 style="color: #ffffff; margin-bottom: 2rem;">Contract Details</h2>
         <form id="contractForm">
@@ -10576,6 +10666,181 @@ app.get('/create-contract', authenticateToken, (req, res) => {
         const pricePerUnit = parseFloat(document.getElementById('pricePerUnit').value) || 0;
         const total = quantity * pricePerUnit;
         document.getElementById('totalValue').value = total.toFixed(2);
+      }
+      
+      // PDF Upload and Extraction Functions
+      let extractedContractData = null;
+      
+      async function handlePDFUpload(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        
+        if (!file.name.toLowerCase().endsWith('.pdf')) {
+          alert('Please upload a PDF file');
+          return;
+        }
+        
+        // Show file name
+        document.getElementById('pdfFileName').textContent = file.name;
+        
+        // Show upload status
+        const uploadStatus = document.getElementById('pdfUploadStatus');
+        const progressBar = document.getElementById('pdfProgressBar');
+        uploadStatus.style.display = 'block';
+        progressBar.style.width = '30%';
+        
+        try {
+          const formData = new FormData();
+          formData.append('pdfFile', file);
+          formData.append('userRole', document.getElementById('contractRole').value || 'buyer');
+          
+          const token = localStorage.getItem('token');
+          if (!token) {
+            alert('Please login first');
+            window.location.href = '/landing-two';
+            return;
+          }
+          
+          progressBar.style.width = '60%';
+          
+          const response = await fetch('/api/contracts/extract-from-pdf', {
+            method: 'POST',
+            headers: {
+              'Authorization': 'Bearer ' + token
+            },
+            body: formData
+          });
+          
+          progressBar.style.width = '90%';
+          
+          if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'PDF extraction failed');
+          }
+          
+          const result = await response.json();
+          
+          if (result.success && result.extracted) {
+            extractedContractData = result.extracted;
+            progressBar.style.width = '100%';
+            
+            // Show extracted data section
+            setTimeout(() => {
+              uploadStatus.style.display = 'none';
+              document.getElementById('pdfExtractedData').style.display = 'block';
+            }, 500);
+          } else {
+            throw new Error('Failed to extract contract data');
+          }
+          
+        } catch (error) {
+          console.error('PDF extraction error:', error);
+          uploadStatus.style.display = 'none';
+          alert('Failed to extract contract data: ' + error.message);
+          document.getElementById('pdfFileName').textContent = '';
+        }
+      }
+      
+      function useExtractedData() {
+        if (!extractedContractData) {
+          alert('No extracted data available');
+          return;
+        }
+        
+        // Populate form fields with extracted data
+        if (extractedContractData.productDetails) {
+          // Try to match product to dropdown
+          const productSelect = document.getElementById('productDetails');
+          const productLower = extractedContractData.productDetails.toLowerCase();
+          for (let option of productSelect.options) {
+            if (option.text.toLowerCase().includes(productLower) || productLower.includes(option.value)) {
+              productSelect.value = option.value;
+              break;
+            }
+          }
+          // If no match and it's "other", set to other
+          if (productSelect.value === '' && productLower.includes('other')) {
+            productSelect.value = 'other';
+            document.getElementById('customProductName').value = extractedContractData.productDetails;
+          }
+          updateCommodityInfo();
+        }
+        
+        if (extractedContractData.quantity) {
+          document.getElementById('quantity').value = extractedContractData.quantity;
+        }
+        
+        if (extractedContractData.unit) {
+          const unitSelect = document.getElementById('unit');
+          for (let option of unitSelect.options) {
+            if (option.value.toLowerCase() === extractedContractData.unit.toLowerCase() || 
+                option.text.toLowerCase().includes(extractedContractData.unit.toLowerCase())) {
+              unitSelect.value = option.value;
+              break;
+            }
+          }
+        }
+        
+        if (extractedContractData.pricePerUnit) {
+          document.getElementById('pricePerUnit').value = extractedContractData.pricePerUnit;
+        }
+        
+        if (extractedContractData.totalValue) {
+          document.getElementById('totalValue').value = extractedContractData.totalValue;
+        } else {
+          calculateTotal();
+        }
+        
+        if (extractedContractData.deliveryDate) {
+          const deliveryDate = new Date(extractedContractData.deliveryDate);
+          if (!isNaN(deliveryDate.getTime())) {
+            const month = (deliveryDate.getMonth() + 1).toString().padStart(2, '0');
+            const year = deliveryDate.getFullYear();
+            document.getElementById('deliveryMonth').value = month;
+            document.getElementById('deliveryYear').value = year;
+          }
+        }
+        
+        if (extractedContractData.origin) {
+          document.getElementById('origin').value = extractedContractData.origin;
+        }
+        
+        if (extractedContractData.destination) {
+          document.getElementById('destination').value = extractedContractData.destination;
+        }
+        
+        if (extractedContractData.specifications) {
+          document.getElementById('specifications').value = extractedContractData.specifications;
+        }
+        
+        if (extractedContractData.paymentTerms) {
+          const paymentTermsSelect = document.getElementById('paymentTerms');
+          const paymentLower = extractedContractData.paymentTerms.toLowerCase();
+          for (let option of paymentTermsSelect.options) {
+            if (option.text.toLowerCase().includes(paymentLower) || paymentLower.includes(option.value)) {
+              paymentTermsSelect.value = option.value;
+              break;
+            }
+          }
+        }
+        
+        // Set counterparty email if extracted
+        const role = document.getElementById('contractRole').value;
+        if (role && extractedContractData.counterpartyEmail) {
+          document.getElementById('counterpartyEmail').value = extractedContractData.counterpartyEmail;
+        }
+        
+        // Hide extracted data section
+        document.getElementById('pdfExtractedData').style.display = 'none';
+        
+        alert('Contract data populated! Please review and edit any fields as needed.');
+      }
+      
+      function clearExtractedData() {
+        extractedContractData = null;
+        document.getElementById('pdfExtractedData').style.display = 'none';
+        document.getElementById('pdfFileName').textContent = '';
+        document.getElementById('pdfFileInput').value = '';
       }
       
       document.getElementById('contractForm').addEventListener('submit', async (e) => {
