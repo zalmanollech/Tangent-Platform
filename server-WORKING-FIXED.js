@@ -24,8 +24,14 @@ const storageService = require('./lib/storage-service');
 // Email service
 const emailService = require('./lib/email-service');
 
-// PDF Contract Extractor
-const contractExtractor = require('./lib/contract-extractor');
+// PDF Contract Extractor (optional - lazy-loaded internally)
+let contractExtractor;
+try {
+    contractExtractor = require('./lib/contract-extractor');
+} catch (error) {
+    console.warn('PDF extraction module not available:', error.message);
+    contractExtractor = null;
+}
 
 // TANGENT-BRIDGE-v4 Credit Risk Integration - Production Safe
 let creditIntegration = null;
@@ -4132,20 +4138,38 @@ app.get('/admin/reports/credit/:id', async (req, res) => {
     </div>
     
     <div class="report-card">
-        <h3 style="color: #06b6d4; margin-bottom: 20px;">📋 Input Data</h3>
+        <h3 style="color: #06b6d4; margin-bottom: 20px;">📋 Company Information</h3>
         <div class="info-grid">
             <div class="info-item">
                 <div class="info-label">Company Name</div>
                 <div class="info-value">${inputData.companyName || inputData.company_name || 'N/A'}</div>
             </div>
             <div class="info-item">
-                <div class="info-label">Country</div>
+                <div class="info-label">Registration Number</div>
+                <div class="info-value">${inputData.registrationNumber || inputData.registration_number || 'N/A'}</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Country of Establishment</div>
                 <div class="info-value">${inputData.country || 'N/A'}</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Address</div>
+                <div class="info-value">${inputData.address || 'N/A'}</div>
             </div>
             <div class="info-item">
                 <div class="info-label">Sector/Commodity</div>
                 <div class="info-value">${inputData.sector || inputData.sector_commodity || 'N/A'}</div>
             </div>
+            <div class="info-item">
+                <div class="info-label">Role</div>
+                <div class="info-value">${(inputData.role || 'N/A').toUpperCase()}</div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="report-card">
+        <h3 style="color: #06b6d4; margin-bottom: 20px;">💼 Trade Details</h3>
+        <div class="info-grid">
             <div class="info-item">
                 <div class="info-label">Trade Value</div>
                 <div class="info-value">$${inputData.tradeValue || inputData.trade_value || 'N/A'}</div>
@@ -4154,12 +4178,91 @@ app.get('/admin/reports/credit/:id', async (req, res) => {
                 <div class="info-label">Tenor</div>
                 <div class="info-value">${inputData.tenor || 'N/A'} days</div>
             </div>
+        </div>
+    </div>
+    
+    ${factors?.scoreBreakdown ? `
+    <div class="report-card">
+        <h3 style="color: #06b6d4; margin-bottom: 20px;">📊 Score Breakdown - How the Score Was Calculated</h3>
+        <div class="info-grid">
             <div class="info-item">
-                <div class="info-label">Role</div>
-                <div class="info-value">${(inputData.role || 'N/A').toUpperCase()}</div>
+                <div class="info-label">Base Score</div>
+                <div class="info-value">${factors.scoreBreakdown.baseScore}</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Country Adjustment</div>
+                <div class="info-value" style="color: ${factors.scoreBreakdown.countryAdjustment >= 0 ? '#10b981' : '#ef4444'}">
+                    ${factors.scoreBreakdown.countryAdjustment >= 0 ? '+' : ''}${factors.scoreBreakdown.countryAdjustment}
+                </div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Sector Adjustment</div>
+                <div class="info-value" style="color: ${factors.scoreBreakdown.sectorAdjustment >= 0 ? '#10b981' : '#ef4444'}">
+                    ${factors.scoreBreakdown.sectorAdjustment >= 0 ? '+' : ''}${factors.scoreBreakdown.sectorAdjustment}
+                </div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Trade Value Adjustment</div>
+                <div class="info-value" style="color: ${factors.scoreBreakdown.tradeValueAdjustment >= 0 ? '#10b981' : '#ef4444'}">
+                    ${factors.scoreBreakdown.tradeValueAdjustment >= 0 ? '+' : ''}${factors.scoreBreakdown.tradeValueAdjustment}
+                </div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Tenor Adjustment</div>
+                <div class="info-value" style="color: ${factors.scoreBreakdown.tenorAdjustment >= 0 ? '#10b981' : '#ef4444'}">
+                    ${factors.scoreBreakdown.tenorAdjustment >= 0 ? '+' : ''}${factors.scoreBreakdown.tenorAdjustment}
+                </div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Role Adjustment</div>
+                <div class="info-value" style="color: ${factors.scoreBreakdown.roleAdjustment >= 0 ? '#10b981' : '#ef4444'}">
+                    ${factors.scoreBreakdown.roleAdjustment >= 0 ? '+' : ''}${factors.scoreBreakdown.roleAdjustment}
+                </div>
+            </div>
+            <div class="info-item" style="grid-column: 1 / -1; background: #1e293b; border: 2px solid ${riskBandColor};">
+                <div class="info-label">Final Credit Score</div>
+                <div class="info-value" style="font-size: 1.5rem; color: ${riskBandColor};">${factors.scoreBreakdown.finalScore}</div>
             </div>
         </div>
     </div>
+    ` : ''}
+    
+    ${factors?.confidenceLevels ? `
+    <div class="report-card">
+        <h3 style="color: #06b6d4; margin-bottom: 20px;">🎯 Confidence Levels</h3>
+        <p style="color: #94a3b8; margin-bottom: 20px;">Confidence levels indicate how reliable each component of the score is based on data quality and company identification strength.</p>
+        <div class="info-grid">
+            <div class="info-item">
+                <div class="info-label">Base Score Confidence</div>
+                <div class="info-value">${(factors.confidenceLevels.baseScore * 100).toFixed(0)}%</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Country Data Confidence</div>
+                <div class="info-value">${(factors.confidenceLevels.country * 100).toFixed(0)}%</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Sector Data Confidence</div>
+                <div class="info-value">${(factors.confidenceLevels.sector * 100).toFixed(0)}%</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Trade Value Confidence</div>
+                <div class="info-value">${(factors.confidenceLevels.tradeValue * 100).toFixed(0)}%</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Tenor Confidence</div>
+                <div class="info-value">${(factors.confidenceLevels.tenor * 100).toFixed(0)}%</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Role Confidence</div>
+                <div class="info-value">${(factors.confidenceLevels.role * 100).toFixed(0)}%</div>
+            </div>
+            <div class="info-item" style="grid-column: 1 / -1; background: #1e293b; border: 2px solid #06b6d4;">
+                <div class="info-label">Overall Confidence</div>
+                <div class="info-value" style="font-size: 1.3rem; color: #06b6d4;">${(factors.confidenceLevels.overall * 100).toFixed(0)}%</div>
+            </div>
+        </div>
+    </div>
+    ` : ''}
     
     <div class="report-card">
         <h3 style="color: #06b6d4; margin-bottom: 20px;">🔍 Risk Factors</h3>
@@ -4870,20 +4973,38 @@ app.get('/my-reports/credit/:id', async (req, res) => {
     </div>
     
     <div class="report-card">
-        <h3 style="color: #06b6d4; margin-bottom: 20px;">📋 Input Data</h3>
+        <h3 style="color: #06b6d4; margin-bottom: 20px;">📋 Company Information</h3>
         <div class="info-grid">
             <div class="info-item">
                 <div class="info-label">Company Name</div>
                 <div class="info-value">${inputData.companyName || inputData.company_name || 'N/A'}</div>
             </div>
             <div class="info-item">
-                <div class="info-label">Country</div>
+                <div class="info-label">Registration Number</div>
+                <div class="info-value">${inputData.registrationNumber || inputData.registration_number || 'N/A'}</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Country of Establishment</div>
                 <div class="info-value">${inputData.country || 'N/A'}</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Address</div>
+                <div class="info-value">${inputData.address || 'N/A'}</div>
             </div>
             <div class="info-item">
                 <div class="info-label">Sector/Commodity</div>
                 <div class="info-value">${inputData.sector || inputData.sector_commodity || 'N/A'}</div>
             </div>
+            <div class="info-item">
+                <div class="info-label">Role</div>
+                <div class="info-value">${(inputData.role || 'N/A').toUpperCase()}</div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="report-card">
+        <h3 style="color: #06b6d4; margin-bottom: 20px;">💼 Trade Details</h3>
+        <div class="info-grid">
             <div class="info-item">
                 <div class="info-label">Trade Value</div>
                 <div class="info-value">$${inputData.tradeValue || inputData.trade_value || 'N/A'}</div>
@@ -4892,12 +5013,91 @@ app.get('/my-reports/credit/:id', async (req, res) => {
                 <div class="info-label">Tenor</div>
                 <div class="info-value">${inputData.tenor || 'N/A'} days</div>
             </div>
+        </div>
+    </div>
+    
+    ${factors?.scoreBreakdown ? `
+    <div class="report-card">
+        <h3 style="color: #06b6d4; margin-bottom: 20px;">📊 Score Breakdown - How the Score Was Calculated</h3>
+        <div class="info-grid">
             <div class="info-item">
-                <div class="info-label">Role</div>
-                <div class="info-value">${(inputData.role || 'N/A').toUpperCase()}</div>
+                <div class="info-label">Base Score</div>
+                <div class="info-value">${factors.scoreBreakdown.baseScore}</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Country Adjustment</div>
+                <div class="info-value" style="color: ${factors.scoreBreakdown.countryAdjustment >= 0 ? '#10b981' : '#ef4444'}">
+                    ${factors.scoreBreakdown.countryAdjustment >= 0 ? '+' : ''}${factors.scoreBreakdown.countryAdjustment}
+                </div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Sector Adjustment</div>
+                <div class="info-value" style="color: ${factors.scoreBreakdown.sectorAdjustment >= 0 ? '#10b981' : '#ef4444'}">
+                    ${factors.scoreBreakdown.sectorAdjustment >= 0 ? '+' : ''}${factors.scoreBreakdown.sectorAdjustment}
+                </div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Trade Value Adjustment</div>
+                <div class="info-value" style="color: ${factors.scoreBreakdown.tradeValueAdjustment >= 0 ? '#10b981' : '#ef4444'}">
+                    ${factors.scoreBreakdown.tradeValueAdjustment >= 0 ? '+' : ''}${factors.scoreBreakdown.tradeValueAdjustment}
+                </div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Tenor Adjustment</div>
+                <div class="info-value" style="color: ${factors.scoreBreakdown.tenorAdjustment >= 0 ? '#10b981' : '#ef4444'}">
+                    ${factors.scoreBreakdown.tenorAdjustment >= 0 ? '+' : ''}${factors.scoreBreakdown.tenorAdjustment}
+                </div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Role Adjustment</div>
+                <div class="info-value" style="color: ${factors.scoreBreakdown.roleAdjustment >= 0 ? '#10b981' : '#ef4444'}">
+                    ${factors.scoreBreakdown.roleAdjustment >= 0 ? '+' : ''}${factors.scoreBreakdown.roleAdjustment}
+                </div>
+            </div>
+            <div class="info-item" style="grid-column: 1 / -1; background: #1e293b; border: 2px solid ${riskBandColor};">
+                <div class="info-label">Final Credit Score</div>
+                <div class="info-value" style="font-size: 1.5rem; color: ${riskBandColor};">${factors.scoreBreakdown.finalScore}</div>
             </div>
         </div>
     </div>
+    ` : ''}
+    
+    ${factors?.confidenceLevels ? `
+    <div class="report-card">
+        <h3 style="color: #06b6d4; margin-bottom: 20px;">🎯 Confidence Levels</h3>
+        <p style="color: #94a3b8; margin-bottom: 20px;">Confidence levels indicate how reliable each component of the score is based on data quality and company identification strength.</p>
+        <div class="info-grid">
+            <div class="info-item">
+                <div class="info-label">Base Score Confidence</div>
+                <div class="info-value">${(factors.confidenceLevels.baseScore * 100).toFixed(0)}%</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Country Data Confidence</div>
+                <div class="info-value">${(factors.confidenceLevels.country * 100).toFixed(0)}%</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Sector Data Confidence</div>
+                <div class="info-value">${(factors.confidenceLevels.sector * 100).toFixed(0)}%</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Trade Value Confidence</div>
+                <div class="info-value">${(factors.confidenceLevels.tradeValue * 100).toFixed(0)}%</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Tenor Confidence</div>
+                <div class="info-value">${(factors.confidenceLevels.tenor * 100).toFixed(0)}%</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Role Confidence</div>
+                <div class="info-value">${(factors.confidenceLevels.role * 100).toFixed(0)}%</div>
+            </div>
+            <div class="info-item" style="grid-column: 1 / -1; background: #1e293b; border: 2px solid #06b6d4;">
+                <div class="info-label">Overall Confidence</div>
+                <div class="info-value" style="font-size: 1.3rem; color: #06b6d4;">${(factors.confidenceLevels.overall * 100).toFixed(0)}%</div>
+            </div>
+        </div>
+    </div>
+    ` : ''}
     
     <div class="report-card">
         <h3 style="color: #06b6d4; margin-bottom: 20px;">🔍 Risk Factors</h3>
@@ -9126,6 +9326,13 @@ app.post('/api/contracts/:id/documents', authenticateToken, upload.array('docume
 // Extract Contract Terms from PDF
 app.post('/api/contracts/extract-from-pdf', authenticateToken, upload.single('pdfFile'), async (req, res) => {
     try {
+        if (!contractExtractor) {
+            return res.status(503).json({ 
+                error: 'PDF extraction is not available in this environment',
+                message: 'PDF parsing service is temporarily unavailable'
+            });
+        }
+
         if (!req.file) {
             return res.status(400).json({ error: 'No PDF file uploaded' });
         }
