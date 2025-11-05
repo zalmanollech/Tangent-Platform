@@ -2542,12 +2542,9 @@ app.use((req, res, next) => {
 });
 
 app.get('/', (req, res) => {
-  // Use brand for conditional rendering
-  const isTraidefi = req.brand === 'traidefi';
-  const brandName = isTraidefi ? 'Traidefi' : 'Tangent Protocol';
-  const brandSubtitle = isTraidefi 
-    ? 'Trade Credit Reports & Insurance Premium Calculator'
-    : 'Advanced Trading Platform & TGT Stablecoin';
+  // Always show Traidefi branding on both URLs
+  const brandName = 'Traidefi';
+  const brandSubtitle = 'Advanced Trading Platform & TGT Stablecoin';
   
   res.send(`<!DOCTYPE html>
     <html lang="en">
@@ -2699,72 +2696,7 @@ app.get('/', (req, res) => {
       <p class="subtitle">${brandSubtitle}</p>
             </div>
             
-    ${isTraidefi ? `
-    <!-- TRAIDEFI LANDING: Tools Focus -->
-    <div class="main-content" style="grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));">
-      <!-- Tools Section -->
-      <div class="platform-section" style="cursor: pointer;" onclick="window.location.href='/tools'">
-        <h2>🛠️ Trade Tools</h2>
-        <p class="section-description">
-          Access professional-grade trade credit reports and insurance premium calculators.
-        </p>
-        <div class="features-list">
-          <ul>
-            <li>Credit Report Generator ($150/report)</li>
-            <li>Insurance Premium Calculator ($50/quote)</li>
-            <li>Instant PDF downloads</li>
-            <li>Secure payment processing</li>
-          </ul>
-        </div>
-        <button class="btn" style="margin-top: 20px;" onclick="event.stopPropagation(); window.location.href='/tools'">Access Tools</button>
-      </div>
-      
-      <!-- Algorithm Section (Future) -->
-      <div class="tgt-section" style="opacity: 0.7;">
-        <h2>📊 Trade Algorithm</h2>
-        <p class="section-description">
-          Big Data Trade Algorithm - Coming Soon
-        </p>
-        <div class="features-list">
-          <ul>
-            <li>Algorithmic buy/sell recommendations</li>
-            <li>Price band forecasting</li>
-            <li>Delivery window optimization</li>
-            <li>Risk scenario analysis</li>
-          </ul>
-        </div>
-        <button class="btn secondary" style="margin-top: 20px;" disabled>Coming Soon</button>
-      </div>
-      
-      <!-- Protocol Section -->
-      <div class="platform-section" style="opacity: 0.7;">
-        <h2>🔗 traidefi</h2>
-        <p class="section-description">
-          Full trading platform with blockchain integration (separate microsite).
-        </p>
-        <div class="features-list">
-          <ul>
-            <li>Complete trading platform</li>
-            <li>TGT Stablecoin integration</li>
-            <li>Contract management</li>
-            <li>Multi-role dashboards</li>
-          </ul>
-        </div>
-        <button class="btn secondary" style="margin-top: 20px;" onclick="window.location.href='https://tangent-protocol-url.com'">Learn More</button>
-      </div>
-    </div>
-    
-    <!-- traidefi CTA Section -->
-    <div class="registration-section">
-      <h3>Access Trade Credit & Insurance Tools</h3>
-      <p>Get instant trade credit reports and insurance premium quotes</p>
-      <div style="margin: 30px 0;">
-        <button class="btn" onclick="window.location.href='/tools'">Get Started</button>
-        <button class="btn secondary" onclick="window.location.href='/auth/register'">Register Account</button>
-      </div>
-    </div>
-    ` : `
-    <!-- TANGENT LANDING: Platform/TGT Focus -->
+    <!-- TRAIDEFI LANDING: Platform/TGT Focus (Two-block layout) - Same for both URLs -->
     <div class="main-content">
       <!-- Platform Section -->
       <div class="platform-section">
@@ -2803,9 +2735,9 @@ app.get('/', (req, res) => {
       </div>
     </div>
     
-    <!-- Tangent CTA Section -->
+    <!-- Traidefi CTA Section -->
     <div class="registration-section">
-      <h3>Get Started with traidefi</h3>
+      <h3>Get Started with Traidefi</h3>
       <p>Join the future of trading and discover the power of TGT stablecoin</p>
       <div style="margin: 30px 0;">
         <button class="btn" onclick="window.location.href='/register'">Register Interest (Early Access)</button>
@@ -2815,7 +2747,6 @@ app.get('/', (req, res) => {
         <a href="/tools" style="color: #888888; text-decoration: none; font-size: 1rem;">Access Trade Tools →</a>
       </div>
     </div>
-    `}
             
     <!-- Team Access Section -->
     <div style="text-align: center; margin-top: 40px; padding: 30px; border-top: 1px solid #333333; background: rgba(255, 255, 255, 0.05);">
