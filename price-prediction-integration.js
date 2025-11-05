@@ -111,6 +111,8 @@ function generateMockForecast(commodity) {
     const basePrice = basePrices[commodity] || 200.0;
     const forecasts = [];
     const today = new Date();
+    const monthNames = ["January", "February", "March", "April", "May", "June",
+                        "July", "August", "September", "October", "November", "December"];
     
     for (let i = 1; i <= 6; i++) {
         const futureDate = new Date(today);
@@ -133,41 +135,52 @@ function generateMockForecast(commodity) {
     const avgPrice = forecasts.reduce((sum, f) => sum + f.price, 0) / forecasts.length;
     const signal = avgPrice > basePrice ? 'BUY' : (avgPrice < basePrice * 0.95 ? 'SELL' : 'HOLD');
     
-    // Find best buying month
+    // Find best buying month(s) - format as MONTH (not quarter)
     const bestBuy = forecasts.reduce((best, f) => f.price < best.price ? f : best);
-    const quarter = Math.floor((today.getMonth() + bestBuy.month - 1) / 3) + 1;
-    const year = new Date(today.getFullYear(), today.getMonth() + bestBuy.month, 1).getFullYear();
+    const bestBuyDate = new Date(today);
+    bestBuyDate.setMonth(today.getMonth() + bestBuy.month);
+    const monthName = monthNames[bestBuyDate.getMonth()];
+    const year = bestBuyDate.getFullYear();
+    
+    // Calculate savings percentage
+    const savingsPct = parseFloat(((basePrice - bestBuy.price) / basePrice * 100).toFixed(2));
     
     return {
+        success: true,
         commodity: commodity,
         date: today.toISOString(),
         forecast: forecasts,
         signal: signal,
         signal_strength: 0.65,
         recommended_delivery: [{
-            period: `FOB Q${quarter}-${year}`,
+            period: `FOB ${monthName} ${year}`,
             price: bestBuy.price,
-            savings_pct: ((basePrice - bestBuy.price) / basePrice * 100).toFixed(2),
+            savings_pct: savingsPct,
             month: bestBuy.month,
-            recommendation: 'BUY'
+            month_name: monthName,
+            year: year,
+            recommendation: savingsPct > 3 ? 'STRONG BUY' : 'BUY'
         }],
         countries: ['USA', 'Brazil', 'Argentina'],
         factors: {
-            price_change_pct: ((avgPrice - basePrice) / basePrice * 100).toFixed(2),
+            price_change_pct: parseFloat(((avgPrice - basePrice) / basePrice * 100).toFixed(2)),
             forecast_range: `$${Math.min(...forecasts.map(f => f.price)).toFixed(2)} - $${Math.max(...forecasts.map(f => f.price)).toFixed(2)}`,
-            avg_price: avgPrice.toFixed(2),
-            current_price: basePrice.toFixed(2),
-            best_buy_price: bestBuy.price.toFixed(2),
+            avg_price: parseFloat(avgPrice.toFixed(2)),
+            current_price: parseFloat(basePrice.toFixed(2)),
+            best_buy_price: parseFloat(bestBuy.price.toFixed(2)),
             volatility: '8.0'
         },
-        news_insights: ['Mock data - service unavailable']
+        news_insights: ['Mock data - service unavailable. Using simulated forecast based on historical patterns.']
     };
 }
 
 module.exports = {
     checkPricePredictionServiceHealth,
     getPriceForecast,
-    getBatchForecasts
+    getBatchForecasts,
+    generateMockForecast
 };
+
+
 
 
