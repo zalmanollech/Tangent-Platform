@@ -24,9 +24,6 @@ const storageService = require('./lib/storage-service');
 // Email service
 const emailService = require('./lib/email-service');
 
-// Contract extraction service
-const contractExtractor = require('./lib/contract-extractor');
-
 // TANGENT-BRIDGE-v4 Credit Risk Integration - Production Safe
 let creditIntegration = null;
 let creditServiceAvailable = false;
@@ -36,11 +33,6 @@ let creditServiceProcess = null; // For auto-start functionality
 let insuranceIntegration = null;
 let insuranceServiceAvailable = false;
 let insuranceServiceProcess = null; // For auto-start functionality
-
-// Price Prediction Integration - Production Safe
-let pricePredictionIntegration = null;
-let pricePredictionServiceAvailable = false;
-let pricePredictionServiceProcess = null; // For auto-start functionality
 
 // Function to auto-start credit service
 function startCreditService() {
@@ -201,66 +193,6 @@ function startInsuranceService() {
     }
 }
 
-// Function to auto-start price prediction service
-function startPricePredictionService() {
-    try {
-        const pricePredictionServicePath = path.join(__dirname, 'price-prediction-service', 'main.py');
-        const isWindows = process.platform === 'win32';
-        
-        console.log('[INFO] Auto-starting Price Prediction Service...');
-        
-        if (isWindows) {
-            pricePredictionServiceProcess = spawn('python', ['main.py'], {
-                cwd: path.join(__dirname, 'price-prediction-service'),
-                shell: true,
-                stdio: 'pipe'
-            });
-        } else {
-            pricePredictionServiceProcess = spawn('python3', ['main.py'], {
-                cwd: path.join(__dirname, 'price-prediction-service'),
-                shell: true,
-                stdio: 'pipe'
-            });
-        }
-        
-        pricePredictionServiceProcess.stdout.on('data', (data) => {
-            const output = data.toString().trim();
-            if (output) {
-                console.log(`[INFO] Price Prediction Service: ${output}`);
-            }
-        });
-        
-        pricePredictionServiceProcess.stderr.on('data', (data) => {
-            const error = data.toString().trim();
-            if (error && !error.includes('INFO:') && !error.includes('Application startup') && !error.includes('only one usage')) {
-                console.warn(`[WARN] Price Prediction Service: ${error}`);
-            }
-        });
-        
-        pricePredictionServiceProcess.on('error', (error) => {
-            if (error.code === 'ENOENT') {
-                console.warn('[WARN] Python not found. Price prediction service must be started manually: cd price-prediction-service && python main.py');
-            } else {
-                console.warn('[WARN] Failed to start price prediction service:', error.message);
-            }
-            pricePredictionServiceProcess = null;
-        });
-        
-        pricePredictionServiceProcess.on('exit', (code) => {
-            if (code !== 0 && code !== null && code !== 1) {
-                console.warn(`[WARN] Price prediction service exited with code ${code}`);
-            }
-            pricePredictionServiceProcess = null;
-        });
-        
-        console.log('[INFO] Price prediction service startup initiated');
-        
-    } catch (error) {
-        console.warn('[WARN] Could not auto-start price prediction service:', error.message);
-        console.log('   To start manually: cd price-prediction-service && python main.py');
-    }
-}
-
 // Load Insurance Integration
 try {
     insuranceIntegration = require('./insurance-integration');
@@ -288,34 +220,6 @@ try {
         console.log('[INFO] Continuing without insurance quotes');
         insuranceIntegration = null;
     }
-
-// Load Price Prediction Integration
-try {
-    pricePredictionIntegration = require('./price-prediction-integration');
-    console.log('[INFO] Price Prediction Integration loaded successfully');
-    
-    // Auto-start the Python service
-    startPricePredictionService();
-    
-    // Wait a bit for service to start, then check health
-    setTimeout(async () => {
-        try {
-            const status = await pricePredictionIntegration.checkPricePredictionServiceHealth();
-            pricePredictionServiceAvailable = status.status === 'healthy';
-            console.log(pricePredictionServiceAvailable ? 
-                '[INFO] Price prediction service verified and available' : 
-                '[WARN] Price prediction service not healthy');
-        } catch (error) {
-            console.warn('[WARN] Price prediction service health check failed:', error.message);
-            console.log('[INFO] The service may still be starting. It will be available shortly.');
-            pricePredictionServiceAvailable = false;
-        }
-    }, 5000);
-} catch (error) {
-    console.warn('[WARN] Price prediction integration not available:', error.message);
-    console.log('[INFO] Continuing without price predictions');
-    pricePredictionIntegration = null;
-}
 
 console.log('[INFO] Starting traidefi Complete Production Platform...');
 
@@ -1737,7 +1641,6 @@ app.get('/dashboard/authenticated', (req, res) => {
                 <button class="btn secondary" onclick="navigateAdmin('/admin/auction')">Auction Board</button>
                 <button class="btn secondary" onclick="navigateAdmin('/admin/kyc-reports')">KYC Reports</button>
                 <button class="btn secondary" onclick="navigateAdmin('/admin/credit-assessments')">Credit Risk Assessments</button>
-                <button class="btn secondary" onclick="window.open('/price-prediction-demo?token=' + localStorage.getItem('token'), '_blank')" style="background: #f59e0b; font-weight: bold; border: 2px solid #d97706;">📊 Price Prediction Algorithm</button>
                 <button class="btn secondary" onclick="navigateAdmin('/admin/ofac-management')">OFAC Screening</button>
                 <button class="btn secondary" onclick="navigateAdmin('/admin/blockchain')">Blockchain</button>
                 <button class="btn secondary" onclick="navigateAdmin('/admin/fees')">Manage Fees</button>
@@ -2279,16 +2182,18 @@ app.get('/signin', (req, res) => {
                         console.log('🔍 KYC status:', data.user.kycStatus);
                         console.log('🔍 Verified:', data.user.verified);
                         
-                        // Calculate redirect URL (without token in URL) - all go to /dashboard
-                        const redirectUrl = '/dashboard';
+                        // Get redirect URL from query parameter, or default to /dashboard
+                        const urlParams = new URLSearchParams(window.location.search);
+                        const redirectPath = urlParams.get('redirect');
+                        const redirectUrl = redirectPath || '/dashboard';
                         
                         console.log('🎯 Redirect URL will be:', redirectUrl);
                         console.log('🎯 Token stored in localStorage');
                         
-                        // Redirect based on role and KYC status
+                        // Redirect to the requested page or dashboard
                         setTimeout(() => {
                             console.log('🚀 Now redirecting to:', redirectUrl);
-                            window.location.href = redirectUrl;
+                            window.location.href = redirectUrl + '?token=' + encodeURIComponent(data.token);
                         }, 1500);
                     } else {
                         messageDiv.className = 'message error';
@@ -2629,24 +2534,20 @@ async function getPayPalAccessToken() {
 // ================================
 // BRAND DETECTION MIDDLEWARE
 // ================================
-// ALWAYS USE TRAIDEFI - Both tangent-protocol.com and traidefi.ai should show "Traidefi"
 app.use((req, res, next) => {
-    // ALWAYS set brand to traidefi regardless of URL
-    // Both tangent-protocol.com and traidefi.ai should show "Traidefi" branding
-    req.brand = 'traidefi';
-    
-    // Debug logging (optional - can remove in production)
-    const host = req.get('host') || req.headers.host || req.headers['x-forwarded-host'] || '';
-    if (req.path === '/' || req.path === '') {
-        console.log(`[BRAND] Path: ${req.path}, Host: ${host}, Brand: ${req.brand} (always traidefi)`);
-    }
+    // Detect brand based on host header
+    const host = req.get('host') || req.headers.host || '';
+    req.brand = host.includes('traidefi.ai') ? 'traidefi' : 'tangent';
     next();
 });
 
 app.get('/', (req, res) => {
-  // Always use Traidefi branding - both URLs should show Traidefi
-  const brandName = 'Traidefi'; // Always Traidefi
-  const brandSubtitle = 'Advanced Trading Platform & TGT Stablecoin';
+  // Use brand for conditional rendering
+  const isTraidefi = req.brand === 'traidefi';
+  const brandName = isTraidefi ? 'Traidefi' : 'Tangent Protocol';
+  const brandSubtitle = isTraidefi 
+    ? 'Trade Credit Reports & Insurance Premium Calculator'
+    : 'Advanced Trading Platform & TGT Stablecoin';
   
   res.send(`<!DOCTYPE html>
     <html lang="en">
@@ -2798,7 +2699,72 @@ app.get('/', (req, res) => {
       <p class="subtitle">${brandSubtitle}</p>
             </div>
             
-    <!-- TRAIDEFI LANDING: Always show Traidefi branding for both URLs -->
+    ${isTraidefi ? `
+    <!-- TRAIDEFI LANDING: Tools Focus -->
+    <div class="main-content" style="grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));">
+      <!-- Tools Section -->
+      <div class="platform-section" style="cursor: pointer;" onclick="window.location.href='/tools'">
+        <h2>🛠️ Trade Tools</h2>
+        <p class="section-description">
+          Access professional-grade trade credit reports and insurance premium calculators.
+        </p>
+        <div class="features-list">
+          <ul>
+            <li>Credit Report Generator ($150/report)</li>
+            <li>Insurance Premium Calculator ($50/quote)</li>
+            <li>Instant PDF downloads</li>
+            <li>Secure payment processing</li>
+          </ul>
+        </div>
+        <button class="btn" style="margin-top: 20px;" onclick="event.stopPropagation(); window.location.href='/tools'">Access Tools</button>
+      </div>
+      
+      <!-- Algorithm Section (Future) -->
+      <div class="tgt-section" style="opacity: 0.7;">
+        <h2>📊 Trade Algorithm</h2>
+        <p class="section-description">
+          Big Data Trade Algorithm - Coming Soon
+        </p>
+        <div class="features-list">
+          <ul>
+            <li>Algorithmic buy/sell recommendations</li>
+            <li>Price band forecasting</li>
+            <li>Delivery window optimization</li>
+            <li>Risk scenario analysis</li>
+          </ul>
+        </div>
+        <button class="btn secondary" style="margin-top: 20px;" disabled>Coming Soon</button>
+      </div>
+      
+      <!-- Protocol Section -->
+      <div class="platform-section" style="opacity: 0.7;">
+        <h2>🔗 traidefi</h2>
+        <p class="section-description">
+          Full trading platform with blockchain integration (separate microsite).
+        </p>
+        <div class="features-list">
+          <ul>
+            <li>Complete trading platform</li>
+            <li>TGT Stablecoin integration</li>
+            <li>Contract management</li>
+            <li>Multi-role dashboards</li>
+          </ul>
+        </div>
+        <button class="btn secondary" style="margin-top: 20px;" onclick="window.location.href='https://tangent-protocol-url.com'">Learn More</button>
+      </div>
+    </div>
+    
+    <!-- traidefi CTA Section -->
+    <div class="registration-section">
+      <h3>Access Trade Credit & Insurance Tools</h3>
+      <p>Get instant trade credit reports and insurance premium quotes</p>
+      <div style="margin: 30px 0;">
+        <button class="btn" onclick="window.location.href='/tools'">Get Started</button>
+        <button class="btn secondary" onclick="window.location.href='/auth/register'">Register Account</button>
+      </div>
+    </div>
+    ` : `
+    <!-- TANGENT LANDING: Platform/TGT Focus -->
     <div class="main-content">
       <!-- Platform Section -->
       <div class="platform-section">
@@ -2837,18 +2803,19 @@ app.get('/', (req, res) => {
       </div>
     </div>
     
-    <!-- Traidefi CTA Section -->
+    <!-- Tangent CTA Section -->
     <div class="registration-section">
-      <h3>Get Started with Traidefi</h3>
+      <h3>Get Started with traidefi</h3>
       <p>Join the future of trading and discover the power of TGT stablecoin</p>
       <div style="margin: 30px 0;">
         <button class="btn" onclick="window.location.href='/register'">Register Interest (Early Access)</button>
         <button class="btn secondary" onclick="window.location.href='/landing-two'">Team Portal</button>
       </div>
       <div style="margin-top: 20px;">
-        <a href="/tools" style="color: #888888; text-decoration: none; font-size: 1rem;">Access Credit & Insurance Tools →</a>
+        <a href="/tools" style="color: #888888; text-decoration: none; font-size: 1rem;">Access Trade Tools →</a>
       </div>
     </div>
+    `}
             
     <!-- Team Access Section -->
     <div style="text-align: center; margin-top: 40px; padding: 30px; border-top: 1px solid #333333; background: rgba(255, 255, 255, 0.05);">
@@ -2990,15 +2957,6 @@ app.get('/tools', (req, res) => {
                 </div>
                 <button class="btn">Get Insurance Quote</button>
             </div>
-            
-            <div class="tool-card" onclick="window.location.href='/price-prediction-demo'">
-                <h2>📊 Price Prediction Algorithm</h2>
-                <div class="price">Free</div>
-                <div class="description">
-                    Get 6-month price forecasts for agricultural commodities (wheat, soy, corn, sugar, coffee) with buy/sell signals, delivery period recommendations, and best buy locations based on GDELT historical news analysis.
-                </div>
-                <button class="btn">View Price Forecasts</button>
-            </div>
         </div>
         
         <div style="text-align: center;">
@@ -3123,24 +3081,12 @@ app.get('/tools/credit-report', (req, res) => {
         <div class="form-card">
             <div class="info-box">
                 <p><strong>What you'll get:</strong> Algorithmic trade-specific credit score (0-100), detailed risk factors, downloadable PDF report.</p>
-                <p style="margin-top: 10px; color: #f59e0b;"><strong>⚠️ Important:</strong> For accurate results, provide the company's registration number or tax ID. Without it, the system cannot uniquely identify the company and may match the wrong entity. The report will show data source reliability and confidence levels.</p>
             </div>
             
             <form id="creditForm">
                 <div class="form-group">
                     <label>Company Name *</label>
-                    <input type="text" name="companyName" required placeholder="Enter full legal company name">
-                    <small style="color: #666; font-size: 0.85rem; display: block; margin-top: 5px;">⚠️ Use exact legal name to avoid matching wrong company</small>
-                </div>
-                <div class="form-group">
-                    <label>Company Registration Number / Tax ID</label>
-                    <input type="text" name="registrationNumber" placeholder="Enter registration number or tax ID (recommended)">
-                    <small style="color: #666; font-size: 0.85rem; display: block; margin-top: 5px;">Helps uniquely identify the company (e.g., EIN, VAT, Company Number)</small>
-                </div>
-                <div class="form-group">
-                    <label>Company Address</label>
-                    <input type="text" name="address" placeholder="Enter company address (recommended)">
-                    <small style="color: #666; font-size: 0.85rem; display: block; margin-top: 5px;">Improves company matching accuracy</small>
+                    <input type="text" name="companyName" required placeholder="Enter company name">
                 </div>
                 <div class="form-group">
                     <label>Country *</label>
@@ -3172,73 +3118,12 @@ app.get('/tools/credit-report', (req, res) => {
                         <option value="supplier">Supplier</option>
                     </select>
                 </div>
-                
-                <!-- Deal Structure Section (Optional - for deal-specific scoring) -->
-                <div style="margin-top: 40px; padding-top: 30px; border-top: 2px solid #333333;">
-                    <h3 style="color: #ffffff; margin-bottom: 15px; font-size: 1.3rem;">📋 Deal Structure (Optional)</h3>
-                    <p style="color: #888888; font-size: 0.9rem; margin-bottom: 20px;">Provide deal structure details to get a deal-specific risk score that accounts for collateral and payment protection.</p>
-                    
-                    <div class="form-group">
-                        <label>Deposit Percentage (%)</label>
-                        <input type="number" name="depositPercentage" placeholder="e.g., 30" min="0" max="100" step="5">
-                        <small style="color: #666; font-size: 0.85rem; display: block; margin-top: 5px;">Percentage of trade value paid upfront as deposit</small>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label>Payment Terms</label>
-                        <select name="paymentTerms">
-                            <option value="">Select payment terms (optional)</option>
-                            <option value="cash_on_delivery">Cash on Delivery (COD)</option>
-                            <option value="payment_against_documents">Payment Against Documents (PAD)</option>
-                            <option value="document_control_with_auction">Payment Against Documents + Auction Protection</option>
-                            <option value="letter_of_credit">Letter of Credit (LC)</option>
-                            <option value="bank_guarantee">Bank Guarantee</option>
-                            <option value="open_account">Open Account</option>
-                        </select>
-                        <small style="color: #666; font-size: 0.85rem; display: block; margin-top: 5px;">Payment terms affect risk score</small>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label>Merchandise Collateral Type</label>
-                        <select name="merchandiseCollateral">
-                            <option value="">Select collateral type (optional)</option>
-                            <option value="liquid">Liquid (easily sellable)</option>
-                            <option value="tradable">Tradable (standard commodity)</option>
-                            <option value="perishable">Perishable</option>
-                            <option value="specialized">Specialized (limited market)</option>
-                            <option value="none">No merchandise collateral</option>
-                        </select>
-                        <small style="color: #666; font-size: 0.85rem; display: block; margin-top: 5px;">Type of merchandise affects collateral value</small>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label style="display: flex; align-items: center; gap: 10px;">
-                            <input type="checkbox" name="auctionAvailable" value="true" style="width: auto;">
-                            <span>Auction Protection Available</span>
-                        </label>
-                        <small style="color: #666; font-size: 0.85rem; display: block; margin-top: 5px;">Check if documents/goods can be sold at auction if payment fails</small>
-                    </div>
-                </div>
-                
-                <div class="form-group" style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #333333;">
-                    <label style="display: flex; align-items: flex-start; gap: 10px; cursor: pointer;">
-                        <input type="checkbox" id="termsCheckbox" required style="width: auto; margin-top: 4px; cursor: pointer;">
-                        <span style="color: #cccccc; font-size: 0.9rem;">I agree to the <a href="/terms" target="_blank" style="color: #ffffff; text-decoration: underline;">Terms of Service</a> and <a href="/privacy" target="_blank" style="color: #ffffff; text-decoration: underline;">Privacy Policy</a></span>
-                    </label>
-                </div>
-                
                 <button type="submit" class="btn">Continue to Payment</button>
             </form>
         </div>
         
         <div style="text-align: center; margin-top: 30px;">
             <a href="/tools" style="color: #888888; text-decoration: none;">← Back to Tools</a>
-        </div>
-        
-        <div style="text-align: center; margin-top: 40px; padding-top: 20px; border-top: 1px solid #333333;">
-            <a href="/terms" style="color: #888888; text-decoration: none; margin: 0 10px; font-size: 0.9rem;">Terms of Service</a>
-            <span style="color: #888888;">|</span>
-            <a href="/privacy" style="color: #888888; text-decoration: none; margin: 0 10px; font-size: 0.9rem;">Privacy Policy</a>
         </div>
     </div>
     
@@ -3248,13 +3133,6 @@ app.get('/tools/credit-report', (req, res) => {
             
             const formData = new FormData(e.target);
             const data = Object.fromEntries(formData);
-            
-            // Handle checkbox value
-            if (data.auctionAvailable === 'true') {
-                data.auctionAvailable = true;
-            } else {
-                data.auctionAvailable = false;
-            }
             
             try {
                 const response = await fetch('/api/paypal/create-order', {
@@ -3423,26 +3301,12 @@ app.get('/tools/insurance-quote', (req, res) => {
                     <input type="number" name="counterpartyScore" placeholder="Enter score (0-100) or leave blank for estimate" min="0" max="100">
                     <small style="color: #888888; font-size: 0.9rem;">If unknown, we'll use an estimated score</small>
                 </div>
-                
-                <div class="form-group" style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #333333;">
-                    <label style="display: flex; align-items: flex-start; gap: 10px; cursor: pointer;">
-                        <input type="checkbox" id="termsCheckboxInsurance" required style="width: auto; margin-top: 4px; cursor: pointer;">
-                        <span style="color: #cccccc; font-size: 0.9rem;">I agree to the <a href="/terms" target="_blank" style="color: #ffffff; text-decoration: underline;">Terms of Service</a> and <a href="/privacy" target="_blank" style="color: #ffffff; text-decoration: underline;">Privacy Policy</a></span>
-                    </label>
-                </div>
-                
                 <button type="submit" class="btn">Continue to Payment</button>
             </form>
         </div>
         
         <div style="text-align: center; margin-top: 30px;">
             <a href="/tools" style="color: #888888; text-decoration: none;">← Back to Tools</a>
-        </div>
-        
-        <div style="text-align: center; margin-top: 40px; padding-top: 20px; border-top: 1px solid #333333;">
-            <a href="/terms" style="color: #888888; text-decoration: none; margin: 0 10px; font-size: 0.9rem;">Terms of Service</a>
-            <span style="color: #888888;">|</span>
-            <a href="/privacy" style="color: #888888; text-decoration: none; margin: 0 10px; font-size: 0.9rem;">Privacy Policy</a>
         </div>
     </div>
     
@@ -3481,330 +3345,6 @@ app.get('/tools/insurance-quote', (req, res) => {
 });
 
 // ================================
-// LEGAL PAGES
-// ================================
-
-// Terms of Service
-app.get('/terms', (req, res) => {
-    const isTraidefi = req.brand === 'traidefi';
-    const brandName = isTraidefi ? 'Traidefi' : 'Tangent Protocol';
-    
-    res.send(`<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Terms of Service - ${brandName}</title>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background: #000000;
-            color: #ffffff;
-            min-height: 100vh;
-            padding: 40px 20px;
-            line-height: 1.6;
-        }
-        .container {
-            max-width: 900px;
-            margin: 0 auto;
-        }
-        .header {
-            text-align: center;
-            margin-bottom: 40px;
-            padding-bottom: 20px;
-            border-bottom: 2px solid #333333;
-        }
-        h1 {
-            font-size: 2.5rem;
-            font-weight: 700;
-            margin-bottom: 10px;
-            color: #ffffff;
-        }
-        .last-updated {
-            color: #888888;
-            font-size: 0.9rem;
-        }
-        .content {
-            background: #1a1a1a;
-            border: 1px solid #333333;
-            border-radius: 20px;
-            padding: 40px;
-            margin-bottom: 30px;
-        }
-        h2 {
-            font-size: 1.5rem;
-            font-weight: 600;
-            margin-top: 30px;
-            margin-bottom: 15px;
-            color: #ffffff;
-        }
-        h2:first-child {
-            margin-top: 0;
-        }
-        p {
-            margin-bottom: 15px;
-            color: #cccccc;
-        }
-        ul {
-            margin-left: 20px;
-            margin-bottom: 15px;
-        }
-        li {
-            margin-bottom: 10px;
-            color: #cccccc;
-        }
-        .footer {
-            text-align: center;
-            margin-top: 40px;
-            padding-top: 20px;
-            border-top: 1px solid #333333;
-        }
-        .footer a {
-            color: #888888;
-            text-decoration: none;
-            margin: 0 15px;
-        }
-        .footer a:hover {
-            color: #ffffff;
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <h1>Terms of Service</h1>
-            <p class="last-updated">Last Updated: November 4, 2025</p>
-        </div>
-        
-        <div class="content">
-            <h2>1. Acceptance of Terms</h2>
-            <p>By accessing and using ${brandName} services, you accept and agree to be bound by the terms and provision of this agreement. If you do not agree to these terms, please do not use our services.</p>
-            
-            <h2>2. Services Description</h2>
-            <p>${brandName} provides the following services:</p>
-            <ul>
-                <li><strong>Credit Report Generation:</strong> Algorithmic trade-specific credit scoring service ($150 per report)</li>
-                <li><strong>Insurance Premium Quotes:</strong> Actuarial model for premium range estimation ($50 per quote)</li>
-            </ul>
-            <p>All services are provided "as is" and are based on available data and algorithms at the time of generation.</p>
-            
-            <h2>3. Payment Terms</h2>
-            <p>All payments must be made in full before services are rendered. We accept payments through PayPal. Payments are non-refundable once services have been generated, except as required by law.</p>
-            
-            <h2>4. Use of Services</h2>
-            <p>You agree to:</p>
-            <ul>
-                <li>Provide accurate and complete information when using our services</li>
-                <li>Use services only for lawful purposes</li>
-                <li>Not attempt to reverse engineer or copy our algorithms</li>
-                <li>Not share or resell reports without authorization</li>
-            </ul>
-            
-            <h2>5. Accuracy and Reliability</h2>
-            <p>While we strive for accuracy, credit reports and insurance quotes are based on available data and algorithmic models. Results should be used as guidance and not as the sole basis for financial decisions. We do not guarantee the accuracy or reliability of any report or quote.</p>
-            
-            <h2>6. Limitation of Liability</h2>
-            <p>${brandName} shall not be liable for any indirect, incidental, special, consequential, or punitive damages resulting from your use or inability to use our services. Our total liability shall not exceed the amount you paid for the specific service.</p>
-            
-            <h2>7. Intellectual Property</h2>
-            <p>All content, algorithms, and materials provided by ${brandName} are protected by intellectual property laws. You may not reproduce, distribute, or create derivative works without our express written permission.</p>
-            
-            <h2>8. Data Privacy</h2>
-            <p>Your use of our services is also governed by our Privacy Policy. Please review our Privacy Policy to understand how we collect and use your information.</p>
-            
-            <h2>9. Modifications to Terms</h2>
-            <p>We reserve the right to modify these terms at any time. Continued use of our services after changes constitutes acceptance of the new terms.</p>
-            
-            <h2>10. Contact Information</h2>
-            <p>If you have questions about these Terms of Service, please contact us at:</p>
-            <p>Email: support@${isTraidefi ? 'traidefi.ai' : 'tangent-protocol.com'}</p>
-        </div>
-        
-        <div class="footer">
-            <a href="/">Home</a>
-            <a href="/terms">Terms of Service</a>
-            <a href="/privacy">Privacy Policy</a>
-        </div>
-    </div>
-</body>
-</html>`);
-});
-
-// Privacy Policy
-app.get('/privacy', (req, res) => {
-    const isTraidefi = req.brand === 'traidefi';
-    const brandName = isTraidefi ? 'Traidefi' : 'Tangent Protocol';
-    
-    res.send(`<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Privacy Policy - ${brandName}</title>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background: #000000;
-            color: #ffffff;
-            min-height: 100vh;
-            padding: 40px 20px;
-            line-height: 1.6;
-        }
-        .container {
-            max-width: 900px;
-            margin: 0 auto;
-        }
-        .header {
-            text-align: center;
-            margin-bottom: 40px;
-            padding-bottom: 20px;
-            border-bottom: 2px solid #333333;
-        }
-        h1 {
-            font-size: 2.5rem;
-            font-weight: 700;
-            margin-bottom: 10px;
-            color: #ffffff;
-        }
-        .last-updated {
-            color: #888888;
-            font-size: 0.9rem;
-        }
-        .content {
-            background: #1a1a1a;
-            border: 1px solid #333333;
-            border-radius: 20px;
-            padding: 40px;
-            margin-bottom: 30px;
-        }
-        h2 {
-            font-size: 1.5rem;
-            font-weight: 600;
-            margin-top: 30px;
-            margin-bottom: 15px;
-            color: #ffffff;
-        }
-        h2:first-child {
-            margin-top: 0;
-        }
-        p {
-            margin-bottom: 15px;
-            color: #cccccc;
-        }
-        ul {
-            margin-left: 20px;
-            margin-bottom: 15px;
-        }
-        li {
-            margin-bottom: 10px;
-            color: #cccccc;
-        }
-        .footer {
-            text-align: center;
-            margin-top: 40px;
-            padding-top: 20px;
-            border-top: 1px solid #333333;
-        }
-        .footer a {
-            color: #888888;
-            text-decoration: none;
-            margin: 0 15px;
-        }
-        .footer a:hover {
-            color: #ffffff;
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <h1>Privacy Policy</h1>
-            <p class="last-updated">Last Updated: November 4, 2025</p>
-        </div>
-        
-        <div class="content">
-            <h2>1. Information We Collect</h2>
-            <p>We collect information that you provide directly to us, including:</p>
-            <ul>
-                <li><strong>Account Information:</strong> Email address, password (encrypted), and account preferences</li>
-                <li><strong>Payment Information:</strong> Payment details processed through PayPal (we do not store credit card information)</li>
-                <li><strong>Service Information:</strong> Data provided when using our services (company names, trade values, sector information, etc.)</li>
-                <li><strong>Usage Data:</strong> Information about how you use our services, including IP address, browser type, and access times</li>
-            </ul>
-            
-            <h2>2. How We Use Your Information</h2>
-            <p>We use the information we collect to:</p>
-            <ul>
-                <li>Provide, maintain, and improve our services</li>
-                <li>Process payments and generate reports/quotes</li>
-                <li>Send you service-related notifications and updates</li>
-                <li>Respond to your inquiries and provide customer support</li>
-                <li>Monitor and analyze usage patterns</li>
-                <li>Detect and prevent fraud or abuse</li>
-            </ul>
-            
-            <h2>3. Information Sharing</h2>
-            <p>We do not sell, trade, or rent your personal information to third parties. We may share your information only in the following circumstances:</p>
-            <ul>
-                <li><strong>Service Providers:</strong> With trusted third-party service providers who assist us in operating our services (e.g., payment processors, email services)</li>
-                <li><strong>Legal Requirements:</strong> When required by law or to protect our rights and safety</li>
-                <li><strong>Business Transfers:</strong> In connection with a merger, acquisition, or sale of assets</li>
-            </ul>
-            
-            <h2>4. Data Security</h2>
-            <p>We implement appropriate technical and organizational measures to protect your personal information, including:</p>
-            <ul>
-                <li>Encryption of sensitive data in transit and at rest</li>
-                <li>Secure password hashing (bcrypt)</li>
-                <li>Regular security assessments and updates</li>
-                <li>Access controls and authentication mechanisms</li>
-            </ul>
-            <p>However, no method of transmission over the Internet is 100% secure, and we cannot guarantee absolute security.</p>
-            
-            <h2>5. Data Retention</h2>
-            <p>We retain your personal information for as long as necessary to provide our services and comply with legal obligations. Generated reports and quotes are stored in our database for your access and our records.</p>
-            
-            <h2>6. Your Rights</h2>
-            <p>You have the right to:</p>
-            <ul>
-                <li>Access your personal information</li>
-                <li>Correct inaccurate information</li>
-                <li>Request deletion of your information</li>
-                <li>Opt out of marketing communications</li>
-                <li>Request a copy of your data</li>
-            </ul>
-            <p>To exercise these rights, please contact us at support@${isTraidefi ? 'traidefi.ai' : 'tangent-protocol.com'}</p>
-            
-            <h2>7. Cookies and Tracking</h2>
-            <p>We use cookies and similar tracking technologies to improve your experience, analyze usage, and assist with our marketing efforts. You can control cookies through your browser settings.</p>
-            
-            <h2>8. Third-Party Services</h2>
-            <p>Our services may contain links to third-party websites or services. We are not responsible for the privacy practices of these third parties. We encourage you to review their privacy policies.</p>
-            
-            <h2>9. Children's Privacy</h2>
-            <p>Our services are not intended for individuals under the age of 18. We do not knowingly collect personal information from children.</p>
-            
-            <h2>10. Changes to This Policy</h2>
-            <p>We may update this Privacy Policy from time to time. We will notify you of any changes by posting the new policy on this page and updating the "Last Updated" date.</p>
-            
-            <h2>11. Contact Us</h2>
-            <p>If you have questions about this Privacy Policy, please contact us at:</p>
-            <p>Email: support@${isTraidefi ? 'traidefi.ai' : 'tangent-protocol.com'}</p>
-        </div>
-        
-        <div class="footer">
-            <a href="/">Home</a>
-            <a href="/terms">Terms of Service</a>
-            <a href="/privacy">Privacy Policy</a>
-        </div>
-    </div>
-</body>
-</html>`);
-});
-
-// ================================
 // PAYPAL PAYMENT ROUTES
 // ================================
 
@@ -3827,19 +3367,14 @@ app.post('/api/paypal/create-order', express.json(), async (req, res) => {
             ? 'Traidefi Credit Report' 
             : 'Traidefi Insurance Premium Quote';
         
-        // Use BASE_URL if set, otherwise use current host
-        const baseUrl = process.env.BASE_URL || `${req.protocol}://${req.get('host')}`;
-        // Ensure BASE_URL doesn't end with slash
-        const cleanBaseUrl = baseUrl.replace(/\/$/, '');
-        
         const orderData = {
             intent: 'CAPTURE',
             application_context: {
                 brand_name: 'Traidefi',
                 landing_page: 'BILLING',
                 user_action: 'PAY_NOW',
-                return_url: `${cleanBaseUrl}/api/paypal/success?product=${product}`,
-                cancel_url: `${cleanBaseUrl}/tools/${product === 'credit-report' ? 'credit-report' : 'insurance-quote'}`
+                return_url: `${req.protocol}://${req.get('host')}/api/paypal/success?product=${product}`,
+                cancel_url: `${req.protocol}://${req.get('host')}/tools/${product === 'credit-report' ? 'credit-report' : 'insurance-quote'}`
             },
             purchase_units: [{
                 reference_id: `traidefi-${product}-${Date.now()}`,
@@ -3847,9 +3382,6 @@ app.post('/api/paypal/create-order', express.json(), async (req, res) => {
                 amount: {
                     currency_code: currencyCode,
                     value: amount.toString()
-                },
-                payment_method: {
-                    payee_preferred: 'UNRESTRICTED'  // Enable guest checkout (credit card without PayPal account)
                 }
             }]
         };
@@ -3896,42 +3428,29 @@ app.get('/api/paypal/success', async (req, res) => {
     try {
         const { token, product } = req.query;
         
-        console.log('[INFO] PayPal success callback received:', { token, product, query: req.query });
-        
         if (!token) {
-            console.error('[ERROR] Missing payment token in PayPal success callback');
             return res.status(400).send('Missing payment token');
         }
         
         const paypalAuth = await getPayPalAccessToken();
         if (!paypalAuth) {
-            console.error('[ERROR] PayPal not configured - missing credentials');
             return res.status(500).send('PayPal not configured');
         }
         
         // Capture the payment
-        console.log('[INFO] Capturing PayPal payment for order:', token);
-        let captureResponse;
-        try {
-            captureResponse = await axios.post(
-                `${paypalAuth.baseUrl}/v2/checkout/orders/${token}/capture`,
-                {},
-                {
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${paypalAuth.accessToken}`,
-                        'Prefer': 'return=representation'
-                    }
+        const captureResponse = await axios.post(
+            `${paypalAuth.baseUrl}/v2/checkout/orders/${token}/capture`,
+            {},
+            {
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${paypalAuth.accessToken}`,
+                    'Prefer': 'return=representation'
                 }
-            );
-        } catch (captureError) {
-            console.error('[ERROR] PayPal capture error:', captureError.response?.data || captureError.message);
-            console.error('[ERROR] Capture error details:', JSON.stringify(captureError.response?.data, null, 2));
-            throw captureError;
-        }
+            }
+        );
         
         const capture = captureResponse.data;
-        console.log('[INFO] PayPal payment captured successfully:', { status: capture.status, orderId: capture.id });
         
         if (capture.status === 'COMPLETED') {
             // Payment successful - store purchase in database
@@ -4042,18 +3561,14 @@ app.get('/api/paypal/success', async (req, res) => {
                             if (payerEmail) {
                                 (async () => {
                                     try {
-                                        const emailSent = await emailService.sendReportReadyEmail(
+                                        await emailService.sendReportReadyEmail(
                                             payerEmail,
                                             'credit-report',
                                             savedReport.id,
                                             pdfUrl,
                                             { score: report.score }
                                         );
-                                        if (emailSent) {
-                                            console.log('[INFO] Report ready email sent successfully to:', payerEmail);
-                                        } else {
-                                            console.error('[ERROR] Report ready email failed to send to:', payerEmail);
-                                        }
+                                        console.log('[INFO] Report ready email sent to:', payerEmail);
                                     } catch (emailError) {
                                         console.error('[ERROR] Failed to send report ready email:', emailError.message);
                                     }
@@ -4108,18 +3623,14 @@ app.get('/api/paypal/success', async (req, res) => {
                             if (payerEmail) {
                                 (async () => {
                                     try {
-                                        const emailSent = await emailService.sendReportReadyEmail(
+                                        await emailService.sendReportReadyEmail(
                                             payerEmail,
                                             'insurance-quote',
                                             savedQuote.id,
                                             pdfUrl,
                                             { premiumMin: quote.premiumMin, premiumMax: quote.premiumMax }
                                         );
-                                        if (emailSent) {
-                                            console.log('[INFO] Quote ready email sent successfully to:', payerEmail);
-                                        } else {
-                                            console.error('[ERROR] Quote ready email failed to send to:', payerEmail);
-                                        }
+                                        console.log('[INFO] Quote ready email sent to:', payerEmail);
                                     } catch (emailError) {
                                         console.error('[ERROR] Failed to send quote ready email:', emailError.message);
                                     }
@@ -4249,19 +3760,12 @@ app.get('/api/paypal/success', async (req, res) => {
 </body>
 </html>`);
         } else {
-            console.warn('[WARN] PayPal payment not completed, status:', capture.status);
             res.status(400).send('Payment not completed');
         }
         
     } catch (error) {
-        console.error('[ERROR] PayPal success handler error:', error);
-        console.error('[ERROR] Error stack:', error.stack);
-        console.error('[ERROR] Error details:', JSON.stringify({
-            message: error.message,
-            response: error.response?.data,
-            status: error.response?.status
-        }, null, 2));
-        res.status(500).send(`Error processing payment: ${error.message || 'Unknown error'}. Please check Railway logs for details.`);
+        console.error('[ERROR] PayPal capture error:', error);
+        res.status(500).send('Error processing payment');
     }
 });
 
@@ -8632,175 +8136,9 @@ app.get('/api/admin/insurance-status', authenticateToken, requireRole(['admin'])
     }
 });
 
-// ==================== PRICE PREDICTION API ENDPOINTS ====================
-
-// Get Price Forecast for a Commodity (Today's Forecast)
-// Note: authenticateToken is optional - can be used with or without auth for testing
-app.post('/api/price-prediction/forecast', async (req, res) => {
-    try {
-        const { commodity, date } = req.body;
-        
-        if (!commodity) {
-            return res.status(400).json({ error: 'Commodity is required (wheat, soy, corn, sugar, coffee)' });
-        }
-        
-        // Validate commodity
-        const validCommodities = ['wheat', 'soy', 'corn', 'sugar', 'coffee'];
-        if (!validCommodities.includes(commodity.toLowerCase())) {
-            return res.status(400).json({ 
-                error: `Invalid commodity. Must be one of: ${validCommodities.join(', ')}` 
-            });
-        }
-        
-        if (!pricePredictionIntegration) {
-            // Return mock data if service is not available
-            console.warn('[WARN] Price prediction service not available, returning mock data');
-            const mockData = pricePredictionIntegration?.generateMockForecast || 
-                require('./price-prediction-integration').generateMockForecast;
-            return res.json({
-                success: false,
-                data: typeof mockData === 'function' ? mockData(commodity) : mockData,
-                warning: 'Price prediction service unavailable, showing mock data'
-            });
-        }
-        
-        const forecast = await pricePredictionIntegration.getPriceForecast(commodity.toLowerCase(), date);
-        
-        if (!forecast.success) {
-            return res.status(500).json({ 
-                error: 'Failed to get price forecast',
-                details: forecast.error 
-            });
-        }
-        
-        res.json(forecast.data);
-    } catch (error) {
-        console.error('Price forecast error:', error);
-        res.status(500).json({ error: 'Failed to get price forecast', details: error.message });
-    }
-});
-
-// Get Batch Forecasts for Multiple Commodities
-app.post('/api/price-prediction/forecast/batch', authenticateToken, async (req, res) => {
-    try {
-        const { commodities } = req.body;
-        
-        if (!commodities || !Array.isArray(commodities) || commodities.length === 0) {
-            return res.status(400).json({ error: 'Commodities array is required' });
-        }
-        
-        if (!pricePredictionIntegration) {
-            return res.status(400).json({ error: 'Price prediction service not available' });
-        }
-        
-        const forecasts = await pricePredictionIntegration.getBatchForecasts(commodities);
-        
-        if (!forecasts.success) {
-            return res.status(500).json({ 
-                error: 'Failed to get batch forecasts',
-                details: forecasts.error 
-            });
-        }
-        
-        res.json(forecasts.data);
-    } catch (error) {
-        console.error('Batch forecast error:', error);
-        res.status(500).json({ error: 'Failed to get batch forecasts', details: error.message });
-    }
-});
-
-// Get Price Prediction Service Status
-app.get('/api/admin/price-prediction-status', authenticateToken, requireRole(['admin']), async (req, res) => {
-    try {
-        if (!pricePredictionIntegration) {
-            return res.json({ status: 'disabled' });
-        }
-        
-        const healthStatus = await pricePredictionIntegration.checkPricePredictionServiceHealth();
-        res.json({
-            ...healthStatus,
-            service_available: pricePredictionServiceAvailable
-        });
-    } catch (error) {
-        console.error('Price prediction status error:', error);
-        res.status(500).json({ error: 'Failed to get price prediction status' });
-    }
-});
-
-// Price Prediction Dashboard Page (with authentication)
-app.get('/price-prediction', authenticateToken, (req, res) => {
-    const pricePredictionHtml = fs.readFileSync(path.join(__dirname, 'public', 'price-prediction.html'), 'utf8');
-    res.send(pricePredictionHtml);
-});
-
-// Price Prediction Demo Page (no authentication required for testing)
-app.get('/price-prediction-demo', (req, res) => {
-    try {
-        const pricePredictionHtml = fs.readFileSync(path.join(__dirname, 'public', 'price-prediction.html'), 'utf8');
-        res.send(pricePredictionHtml);
-    } catch (error) {
-        console.error('Error loading price prediction page:', error);
-        res.status(500).send('<html><body><h1>Price Prediction Dashboard</h1><p>Error loading page. Please contact support.</p></body></html>');
-    }
-});
-
 // ================================
 // CONTRACT MANAGEMENT ROUTES
 // ================================
-
-// Extract Contract from PDF
-app.post('/api/contracts/extract-from-pdf', authenticateToken, upload.single('contractPdf'), async (req, res) => {
-    try {
-        if (!req.file) {
-            return res.status(400).json({ 
-                success: false, 
-                error: 'No PDF file uploaded' 
-            });
-        }
-        
-        if (req.file.mimetype !== 'application/pdf') {
-            return res.status(400).json({ 
-                success: false, 
-                error: 'File must be a PDF' 
-            });
-        }
-        
-        console.log('📄 Extracting contract from PDF:', req.file.filename);
-        
-        // Extract contract data from PDF
-        const extracted = await contractExtractor.extractContractFromPDF(req.file.path);
-        
-        // Format for contract creation
-        const formatted = contractExtractor.formatForContractCreation(
-            extracted, 
-            req.user.role,
-            req.user.email
-        );
-        
-        // Add extraction metadata
-        formatted.extractionMetadata = {
-            extractedAt: extracted.extractedAt,
-            confidence: extracted.confidence,
-            pages: extracted.pages,
-            rawTextPreview: extracted.rawText,
-            pdfFileName: req.file.originalname
-        };
-        
-        res.json({
-            success: true,
-            extracted: formatted,
-            message: 'Contract extracted successfully'
-        });
-        
-    } catch (error) {
-        console.error('PDF extraction error:', error);
-        res.status(500).json({ 
-            success: false, 
-            error: 'Failed to extract contract from PDF',
-            details: error.message 
-        });
-    }
-});
 
 // Create Contract
 app.post('/api/contracts/create', authenticateToken, async (req, res) => {
@@ -10743,33 +10081,7 @@ app.get('/create-contract', authenticateToken, (req, res) => {
         <p style="color: #888888; font-size: 0.9rem; margin-top: 0.5rem; text-align: center;">You must select your role before the counterparty email fields will appear</p>
       </div>
 
-      <!-- PDF Upload Option -->
-      <div class="contract-section" style="background: #1a1a1a; padding: 2rem; border-radius: 12px; margin-bottom: 2rem; border: 2px solid #06b6d4;">
-        <h2 style="color: #06b6d4; margin-bottom: 1rem; text-align: center;">📄 Option: Upload Contract PDF</h2>
-        <p style="color: #888888; margin-bottom: 1.5rem; text-align: center;">Upload a PDF contract and we'll automatically extract the details for you</p>
-        
-        <div style="display: flex; gap: 1rem; margin-bottom: 1rem;">
-          <button type="button" onclick="toggleUploadMode()" id="uploadModeBtn" style="flex: 1; padding: 12px; background: #06b6d4; color: #000; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
-            Upload PDF Contract
-          </button>
-          <button type="button" onclick="toggleUploadMode()" id="manualModeBtn" style="flex: 1; padding: 12px; background: #333333; color: #fff; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
-            Fill Manually
-          </button>
-        </div>
-        
-        <div id="pdfUploadSection" style="display: none;">
-          <div style="border: 2px dashed #06b6d4; border-radius: 8px; padding: 2rem; text-align: center; background: #0a0a0a;">
-            <input type="file" id="contractPdf" accept=".pdf" style="display: none;" onchange="handlePdfUpload(event)">
-            <label for="contractPdf" style="display: inline-block; padding: 12px 24px; background: #06b6d4; color: #000; border-radius: 8px; cursor: pointer; font-weight: 600;">
-              📎 Choose PDF File
-            </label>
-            <p id="pdfFileName" style="color: #888888; margin-top: 1rem; display: none;"></p>
-            <div id="pdfUploadStatus" style="margin-top: 1rem;"></div>
-          </div>
-        </div>
-      </div>
-
-      <div class="contract-section" id="manualFormSection">
+      <div class="contract-section">
         <h2 style="color: #ffffff; margin-bottom: 2rem;">Contract Details</h2>
         <form id="contractForm">
           <div class="form-group">
@@ -11463,150 +10775,6 @@ app.get('/create-contract', authenticateToken, (req, res) => {
           alert('Network error: ' + error.message + '. Please check your connection and try again.');
         }
       });
-      
-      // PDF Upload Functions
-      let extractedContractData = null;
-      
-      function toggleUploadMode() {
-        const uploadBtn = document.getElementById('uploadModeBtn');
-        const manualBtn = document.getElementById('manualModeBtn');
-        const pdfSection = document.getElementById('pdfUploadSection');
-        const manualSection = document.getElementById('manualFormSection');
-        
-        if (uploadBtn.style.background === '#06b6d4') {
-          // Switch to manual mode
-          uploadBtn.style.background = '#333333';
-          uploadBtn.style.color = '#fff';
-          manualBtn.style.background = '#06b6d4';
-          manualBtn.style.color = '#000';
-          pdfSection.style.display = 'none';
-          manualSection.style.display = 'block';
-        } else {
-          // Switch to upload mode
-          uploadBtn.style.background = '#06b6d4';
-          uploadBtn.style.color = '#000';
-          manualBtn.style.background = '#333333';
-          manualBtn.style.color = '#fff';
-          pdfSection.style.display = 'block';
-          manualSection.style.display = 'none';
-        }
-      }
-      
-      async function handlePdfUpload(event) {
-        const file = event.target.files[0];
-        if (!file) return;
-        
-        if (file.type !== 'application/pdf') {
-          alert('Please upload a PDF file');
-          return;
-        }
-        
-        const statusDiv = document.getElementById('pdfUploadStatus');
-        const fileNameP = document.getElementById('pdfFileName');
-        
-        fileNameP.textContent = '📄 ' + file.name;
-        fileNameP.style.display = 'block';
-        statusDiv.innerHTML = '<p style="color: #06b6d4;">⏳ Extracting contract data...</p>';
-        
-        try {
-          const formData = new FormData();
-          formData.append('contractPdf', file);
-          
-          const token = localStorage.getItem('token');
-          const response = await fetch('/api/contracts/extract-from-pdf', {
-            method: 'POST',
-            headers: {
-              'Authorization': 'Bearer ' + token
-            },
-            body: formData
-          });
-          
-          const data = await response.json();
-          
-          if (response.ok && data.success) {
-            extractedContractData = data.extracted;
-            statusDiv.innerHTML = '<p style="color: #10b981;">✅ Contract extracted successfully! Review and edit below.</p>';
-            
-            // Populate form with extracted data
-            populateFormFromExtracted(extractedContractData);
-            
-            // Switch to manual mode to show the form
-            toggleUploadMode();
-            
-          } else {
-            statusDiv.innerHTML = '<p style="color: #ef4444;">❌ Extraction failed: ' + (data.error || 'Unknown error') + '</p>';
-          }
-        } catch (error) {
-          console.error('PDF extraction error:', error);
-          statusDiv.innerHTML = '<p style="color: #ef4444;">❌ Error: ' + error.message + '</p>';
-        }
-      }
-      
-      function populateFormFromExtracted(data) {
-        // Fill form fields with extracted data
-        if (data.productDetails) {
-          const productSelect = document.getElementById('productDetails');
-          // Try to match product or set custom
-          if (data.productDetails.toLowerCase().includes('wheat')) {
-            productSelect.value = 'wheat';
-          } else if (data.productDetails.toLowerCase().includes('corn')) {
-            productSelect.value = 'corn';
-          } else if (data.productDetails.toLowerCase().includes('soy')) {
-            productSelect.value = 'soybeans';
-          } else {
-            productSelect.value = 'other';
-            document.getElementById('customProductName').value = data.productDetails;
-            document.getElementById('customProductField').style.display = 'block';
-          }
-          updateCommodityInfo();
-        }
-        
-        if (data.quantity) document.getElementById('quantity').value = data.quantity;
-        if (data.unit) document.getElementById('unit').value = data.unit;
-        if (data.pricePerUnit) document.getElementById('pricePerUnit').value = data.pricePerUnit;
-        if (data.totalValue) document.getElementById('totalValue').value = data.totalValue;
-        if (data.deliveryDate) {
-          const date = new Date(data.deliveryDate);
-          if (!isNaN(date.getTime())) {
-            document.getElementById('deliveryMonth').value = String(date.getMonth() + 1).padStart(2, '0');
-            document.getElementById('deliveryYear').value = date.getFullYear();
-          }
-        }
-        if (data.paymentTerms) document.getElementById('paymentTerms').value = data.paymentTerms;
-        if (data.origin) document.getElementById('origin').value = data.origin;
-        if (data.destination) document.getElementById('destination').value = data.destination;
-        if (data.specifications) document.getElementById('specifications').value = data.specifications;
-        
-        // Set counterparty email
-        if (data.counterpartyEmail) {
-          document.getElementById('counterpartyEmail').value = data.counterpartyEmail;
-        }
-        
-        // For traders, set supplier email
-        if (data.contractRole === 'trader' && data.supplierEmail) {
-          const supplierField = document.getElementById('supplierEmail');
-          if (supplierField) {
-            supplierField.value = data.supplierEmail;
-          }
-        }
-        
-        // Show confidence scores
-        if (data.extractionMetadata && data.extractionMetadata.confidence) {
-          const conf = data.extractionMetadata.confidence;
-          let confidenceMsg = 'Extraction Confidence: ';
-          const scores = [];
-          if (conf.productDetails) scores.push('Product: ' + Math.round(conf.productDetails * 100) + '%');
-          if (conf.quantity) scores.push('Quantity: ' + Math.round(conf.quantity * 100) + '%');
-          if (conf.price) scores.push('Price: ' + Math.round(conf.price * 100) + '%');
-          confidenceMsg += scores.join(', ');
-          
-          const statusDiv = document.getElementById('pdfUploadStatus');
-          statusDiv.innerHTML += '<p style="color: #f59e0b; font-size: 0.9rem; margin-top: 0.5rem;">' + confidenceMsg + '</p>';
-          statusDiv.innerHTML += '<p style="color: #888888; font-size: 0.85rem; margin-top: 0.5rem;">⚠️ Please review all fields and correct any errors before submitting</p>';
-        }
-        
-        calculateTotal();
-      }
     </script>
   </body>
   </html>
