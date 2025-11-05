@@ -2626,53 +2626,23 @@ async function getPayPalAccessToken() {
 // ================================
 // BRAND DETECTION MIDDLEWARE
 // ================================
+// ALWAYS USE TRAIDEFI - Both tangent-protocol.com and traidefi.ai should show "Traidefi"
 app.use((req, res, next) => {
-    // Detect brand based on host header, referer, origin, or query parameter
+    // ALWAYS set brand to traidefi regardless of URL
+    // Both tangent-protocol.com and traidefi.ai should show "Traidefi" branding
+    req.brand = 'traidefi';
+    
+    // Debug logging (optional - can remove in production)
     const host = req.get('host') || req.headers.host || req.headers['x-forwarded-host'] || '';
-    const referer = req.get('referer') || req.headers.referer || '';
-    const origin = req.get('origin') || req.headers.origin || '';
-    const fullUrl = host + referer + origin;
-    const hostLower = host.toLowerCase();
-    const fullUrlLower = fullUrl.toLowerCase();
-    
-    // More explicit domain matching for traidefi.ai
-    // Check host header, referer, origin, or any combination
-    const isTraidefiDomain = hostLower === 'traidefi.ai' || 
-                             hostLower === 'www.traidefi.ai' ||
-                             hostLower.includes('traidefi.ai') ||
-                             hostLower.includes('traidefi') ||
-                             hostLower.startsWith('traidefi') ||
-                             fullUrlLower.includes('traidefi.ai') ||
-                             fullUrlLower.includes('traidefi');
-    
-    const isLocalhost = hostLower.includes('localhost') || hostLower.includes('127.0.0.1');
-    const isTraidefiParam = req.query.brand === 'traidefi'; // For local testing: ?brand=traidefi
-    const isTangentParam = req.query.brand === 'tangent'; // Allow override: ?brand=tangent
-    
-    // Prioritize Traidefi: check domain first, then localhost, then query param
-    // Default to Traidefi if domain matches or if localhost
-    if (isTraidefiDomain || isTraidefiParam) {
-        req.brand = 'traidefi';
-    } else if (isLocalhost && !isTangentParam) {
-        req.brand = 'traidefi';
-    } else if (isTangentParam || hostLower.includes('tangent-protocol.com')) {
-        req.brand = 'tangent';
-    } else {
-        // Default to Traidefi for unknown domains (safer default)
-        req.brand = 'traidefi';
-    }
-    
-    // Enhanced debug logging for all requests to root
     if (req.path === '/' || req.path === '') {
-        console.log(`[BRAND] Path: ${req.path}, Host: ${host}, Lower: ${hostLower}, IsTraidefiDomain: ${isTraidefiDomain}, Brand: ${req.brand}, Referer: ${referer}, Origin: ${origin}`);
+        console.log(`[BRAND] Path: ${req.path}, Host: ${host}, Brand: ${req.brand} (always traidefi)`);
     }
     next();
 });
 
 app.get('/', (req, res) => {
-  // Use brand for conditional rendering
-  const isTraidefi = req.brand === 'traidefi';
-  const brandName = isTraidefi ? 'Traidefi' : 'Tangent Protocol';
+  // Always use Traidefi branding - both URLs should show Traidefi
+  const brandName = 'Traidefi'; // Always Traidefi
   const brandSubtitle = 'Advanced Trading Platform & TGT Stablecoin';
   
   res.send(`<!DOCTYPE html>
@@ -2825,8 +2795,7 @@ app.get('/', (req, res) => {
       <p class="subtitle">${brandSubtitle}</p>
             </div>
             
-    ${isTraidefi ? `
-    <!-- TRAIDEFI LANDING: Same design as Tangent, just with Traidefi name -->
+    <!-- TRAIDEFI LANDING: Always show Traidefi branding for both URLs -->
     <div class="main-content">
       <!-- Platform Section -->
       <div class="platform-section">
@@ -2877,59 +2846,6 @@ app.get('/', (req, res) => {
         <a href="/tools" style="color: #888888; text-decoration: none; font-size: 1rem;">Access Credit & Insurance Tools →</a>
       </div>
     </div>
-    ` : `
-    <!-- TANGENT LANDING: Platform/TGT Focus -->
-    <div class="main-content">
-      <!-- Platform Section -->
-      <div class="platform-section">
-        <h2>Trading Platform</h2>
-        <p class="section-description">
-          Experience next-generation trading with institutional-grade tools, real-time analytics, and seamless execution.
-        </p>
-        <div class="features-list">
-          <ul>
-            <li>Real-time market data and analytics</li>
-            <li>Advanced order types and execution</li>
-            <li>Comprehensive risk management</li>
-            <li>Portfolio analytics and reporting</li>
-            <li>Multi-asset trading support</li>
-            <li>Institutional-grade security</li>
-          </ul>
-        </div>
-      </div>
-      
-      <!-- TGT Stablecoin Section -->
-      <div class="tgt-section">
-        <h2>TGT Stablecoin</h2>
-        <p class="section-description">
-          Discover the benefits of our innovative TGT stablecoin - designed for stability, transparency, and seamless integration.
-        </p>
-        <div class="features-list">
-          <ul>
-            <li>Advanced price stability mechanisms</li>
-            <li>Transparent reserve management</li>
-            <li>Ultra-low transaction costs</li>
-            <li>Seamless DeFi integration</li>
-            <li>Regulatory compliance ready</li>
-            <li>Fast settlement times</li>
-          </ul>
-        </div>
-      </div>
-    </div>
-    
-    <!-- Tangent CTA Section -->
-    <div class="registration-section">
-      <h3>Get Started with Tangent Protocol</h3>
-      <p>Join the future of trading and discover the power of TGT stablecoin</p>
-      <div style="margin: 30px 0;">
-        <button class="btn" onclick="window.location.href='/register'">Register Interest (Early Access)</button>
-        <button class="btn secondary" onclick="window.location.href='/landing-two'">Team Portal</button>
-      </div>
-      <div style="margin-top: 20px;">
-        <a href="/tools" style="color: #888888; text-decoration: none; font-size: 1rem;">Access Credit & Insurance Tools →</a>
-      </div>
-    </div>
-    `}
             
     <!-- Team Access Section -->
     <div style="text-align: center; margin-top: 40px; padding: 30px; border-top: 1px solid #333333; background: rgba(255, 255, 255, 0.05);">
