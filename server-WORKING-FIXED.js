@@ -19883,17 +19883,14 @@ const server = app.listen(PORT, '0.0.0.0', (err) => {
 });
 
 server.on('error', (err) => {
-    console.error('❌ Server error:', err);
     if (err.code === 'EADDRINUSE') {
-        console.error(`❌ Port ${PORT} is already in use - trying alternative port`);
-        // Try alternative port instead of crashing
-        const altPort = PORT + 1;
-        server.listen(altPort, () => {
-            console.log(`✅ Server running on alternative port ${altPort}`);
-        });
+        console.error(`❌ Port ${PORT} is already in use`);
+        console.error('❌ Please stop the existing server or use a different port');
+        console.error('❌ To stop existing server: Press Ctrl+C in the terminal running the server');
+        process.exit(1); // Exit instead of looping
     } else {
-        console.error('❌ Server error (non-port related):', err.message);
-        // Don't exit - keep trying to recover
+        console.error('❌ Server error:', err.message);
+        // Don't exit for other errors - let the server handle them
     }
 });
 
