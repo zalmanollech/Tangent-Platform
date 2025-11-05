@@ -24,6 +24,9 @@ const storageService = require('./lib/storage-service');
 // Email service
 const emailService = require('./lib/email-service');
 
+// Contract extraction service
+const contractExtractor = require('./lib/contract-extractor');
+
 // TANGENT-BRIDGE-v4 Credit Risk Integration - Production Safe
 let creditIntegration = null;
 let creditServiceAvailable = false;
@@ -3120,12 +3123,24 @@ app.get('/tools/credit-report', (req, res) => {
         <div class="form-card">
             <div class="info-box">
                 <p><strong>What you'll get:</strong> Algorithmic trade-specific credit score (0-100), detailed risk factors, downloadable PDF report.</p>
+                <p style="margin-top: 10px; color: #f59e0b;"><strong>⚠️ Important:</strong> For accurate results, provide the company's registration number or tax ID. Without it, the system cannot uniquely identify the company and may match the wrong entity. The report will show data source reliability and confidence levels.</p>
             </div>
             
             <form id="creditForm">
                 <div class="form-group">
                     <label>Company Name *</label>
-                    <input type="text" name="companyName" required placeholder="Enter company name">
+                    <input type="text" name="companyName" required placeholder="Enter full legal company name">
+                    <small style="color: #666; font-size: 0.85rem; display: block; margin-top: 5px;">⚠️ Use exact legal name to avoid matching wrong company</small>
+                </div>
+                <div class="form-group">
+                    <label>Company Registration Number / Tax ID</label>
+                    <input type="text" name="registrationNumber" placeholder="Enter registration number or tax ID (recommended)">
+                    <small style="color: #666; font-size: 0.85rem; display: block; margin-top: 5px;">Helps uniquely identify the company (e.g., EIN, VAT, Company Number)</small>
+                </div>
+                <div class="form-group">
+                    <label>Company Address</label>
+                    <input type="text" name="address" placeholder="Enter company address (recommended)">
+                    <small style="color: #666; font-size: 0.85rem; display: block; margin-top: 5px;">Improves company matching accuracy</small>
                 </div>
                 <div class="form-group">
                     <label>Country *</label>
@@ -8733,6 +8748,60 @@ app.get('/price-prediction-demo', (req, res) => {
 // CONTRACT MANAGEMENT ROUTES
 // ================================
 
+// Extract Contract from PDF
+app.post('/api/contracts/extract-from-pdf', authenticateToken, upload.single('contractPdf'), async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ 
+                success: false, 
+                error: 'No PDF file uploaded' 
+            });
+        }
+        
+        if (req.file.mimetype !== 'application/pdf') {
+            return res.status(400).json({ 
+                success: false, 
+                error: 'File must be a PDF' 
+            });
+        }
+        
+        console.log('📄 Extracting contract from PDF:', req.file.filename);
+        
+        // Extract contract data from PDF
+        const extracted = await contractExtractor.extractContractFromPDF(req.file.path);
+        
+        // Format for contract creation
+        const formatted = contractExtractor.formatForContractCreation(
+            extracted, 
+            req.user.role,
+            req.user.email
+        );
+        
+        // Add extraction metadata
+        formatted.extractionMetadata = {
+            extractedAt: extracted.extractedAt,
+            confidence: extracted.confidence,
+            pages: extracted.pages,
+            rawTextPreview: extracted.rawText,
+            pdfFileName: req.file.originalname
+        };
+        
+        res.json({
+            success: true,
+            extracted: formatted,
+            message: 'Contract extracted successfully'
+        });
+        
+    } catch (error) {
+        console.error('PDF extraction error:', error);
+        res.status(500).json({ 
+            success: false, 
+            error: 'Failed to extract contract from PDF',
+            details: error.message 
+        });
+    }
+});
+
 // Create Contract
 app.post('/api/contracts/create', authenticateToken, async (req, res) => {
     try {
@@ -10674,7 +10743,33 @@ app.get('/create-contract', authenticateToken, (req, res) => {
         <p style="color: #888888; font-size: 0.9rem; margin-top: 0.5rem; text-align: center;">You must select your role before the counterparty email fields will appear</p>
       </div>
 
-      <div class="contract-section">
+      <!-- PDF Upload Option -->
+      <div class="contract-section" style="background: #1a1a1a; padding: 2rem; border-radius: 12px; margin-bottom: 2rem; border: 2px solid #06b6d4;">
+        <h2 style="color: #06b6d4; margin-bottom: 1rem; text-align: center;">📄 Option: Upload Contract PDF</h2>
+        <p style="color: #888888; margin-bottom: 1.5rem; text-align: center;">Upload a PDF contract and we'll automatically extract the details for you</p>
+        
+        <div style="display: flex; gap: 1rem; margin-bottom: 1rem;">
+          <button type="button" onclick="toggleUploadMode()" id="uploadModeBtn" style="flex: 1; padding: 12px; background: #06b6d4; color: #000; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
+            Upload PDF Contract
+          </button>
+          <button type="button" onclick="toggleUploadMode()" id="manualModeBtn" style="flex: 1; padding: 12px; background: #333333; color: #fff; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
+            Fill Manually
+          </button>
+        </div>
+        
+        <div id="pdfUploadSection" style="display: none;">
+          <div style="border: 2px dashed #06b6d4; border-radius: 8px; padding: 2rem; text-align: center; background: #0a0a0a;">
+            <input type="file" id="contractPdf" accept=".pdf" style="display: none;" onchange="handlePdfUpload(event)">
+            <label for="contractPdf" style="display: inline-block; padding: 12px 24px; background: #06b6d4; color: #000; border-radius: 8px; cursor: pointer; font-weight: 600;">
+              📎 Choose PDF File
+            </label>
+            <p id="pdfFileName" style="color: #888888; margin-top: 1rem; display: none;"></p>
+            <div id="pdfUploadStatus" style="margin-top: 1rem;"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="contract-section" id="manualFormSection">
         <h2 style="color: #ffffff; margin-bottom: 2rem;">Contract Details</h2>
         <form id="contractForm">
           <div class="form-group">
@@ -11368,6 +11463,150 @@ app.get('/create-contract', authenticateToken, (req, res) => {
           alert('Network error: ' + error.message + '. Please check your connection and try again.');
         }
       });
+      
+      // PDF Upload Functions
+      let extractedContractData = null;
+      
+      function toggleUploadMode() {
+        const uploadBtn = document.getElementById('uploadModeBtn');
+        const manualBtn = document.getElementById('manualModeBtn');
+        const pdfSection = document.getElementById('pdfUploadSection');
+        const manualSection = document.getElementById('manualFormSection');
+        
+        if (uploadBtn.style.background === '#06b6d4') {
+          // Switch to manual mode
+          uploadBtn.style.background = '#333333';
+          uploadBtn.style.color = '#fff';
+          manualBtn.style.background = '#06b6d4';
+          manualBtn.style.color = '#000';
+          pdfSection.style.display = 'none';
+          manualSection.style.display = 'block';
+        } else {
+          // Switch to upload mode
+          uploadBtn.style.background = '#06b6d4';
+          uploadBtn.style.color = '#000';
+          manualBtn.style.background = '#333333';
+          manualBtn.style.color = '#fff';
+          pdfSection.style.display = 'block';
+          manualSection.style.display = 'none';
+        }
+      }
+      
+      async function handlePdfUpload(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        
+        if (file.type !== 'application/pdf') {
+          alert('Please upload a PDF file');
+          return;
+        }
+        
+        const statusDiv = document.getElementById('pdfUploadStatus');
+        const fileNameP = document.getElementById('pdfFileName');
+        
+        fileNameP.textContent = '📄 ' + file.name;
+        fileNameP.style.display = 'block';
+        statusDiv.innerHTML = '<p style="color: #06b6d4;">⏳ Extracting contract data...</p>';
+        
+        try {
+          const formData = new FormData();
+          formData.append('contractPdf', file);
+          
+          const token = localStorage.getItem('token');
+          const response = await fetch('/api/contracts/extract-from-pdf', {
+            method: 'POST',
+            headers: {
+              'Authorization': 'Bearer ' + token
+            },
+            body: formData
+          });
+          
+          const data = await response.json();
+          
+          if (response.ok && data.success) {
+            extractedContractData = data.extracted;
+            statusDiv.innerHTML = '<p style="color: #10b981;">✅ Contract extracted successfully! Review and edit below.</p>';
+            
+            // Populate form with extracted data
+            populateFormFromExtracted(extractedContractData);
+            
+            // Switch to manual mode to show the form
+            toggleUploadMode();
+            
+          } else {
+            statusDiv.innerHTML = '<p style="color: #ef4444;">❌ Extraction failed: ' + (data.error || 'Unknown error') + '</p>';
+          }
+        } catch (error) {
+          console.error('PDF extraction error:', error);
+          statusDiv.innerHTML = '<p style="color: #ef4444;">❌ Error: ' + error.message + '</p>';
+        }
+      }
+      
+      function populateFormFromExtracted(data) {
+        // Fill form fields with extracted data
+        if (data.productDetails) {
+          const productSelect = document.getElementById('productDetails');
+          // Try to match product or set custom
+          if (data.productDetails.toLowerCase().includes('wheat')) {
+            productSelect.value = 'wheat';
+          } else if (data.productDetails.toLowerCase().includes('corn')) {
+            productSelect.value = 'corn';
+          } else if (data.productDetails.toLowerCase().includes('soy')) {
+            productSelect.value = 'soybeans';
+          } else {
+            productSelect.value = 'other';
+            document.getElementById('customProductName').value = data.productDetails;
+            document.getElementById('customProductField').style.display = 'block';
+          }
+          updateCommodityInfo();
+        }
+        
+        if (data.quantity) document.getElementById('quantity').value = data.quantity;
+        if (data.unit) document.getElementById('unit').value = data.unit;
+        if (data.pricePerUnit) document.getElementById('pricePerUnit').value = data.pricePerUnit;
+        if (data.totalValue) document.getElementById('totalValue').value = data.totalValue;
+        if (data.deliveryDate) {
+          const date = new Date(data.deliveryDate);
+          if (!isNaN(date.getTime())) {
+            document.getElementById('deliveryMonth').value = String(date.getMonth() + 1).padStart(2, '0');
+            document.getElementById('deliveryYear').value = date.getFullYear();
+          }
+        }
+        if (data.paymentTerms) document.getElementById('paymentTerms').value = data.paymentTerms;
+        if (data.origin) document.getElementById('origin').value = data.origin;
+        if (data.destination) document.getElementById('destination').value = data.destination;
+        if (data.specifications) document.getElementById('specifications').value = data.specifications;
+        
+        // Set counterparty email
+        if (data.counterpartyEmail) {
+          document.getElementById('counterpartyEmail').value = data.counterpartyEmail;
+        }
+        
+        // For traders, set supplier email
+        if (data.contractRole === 'trader' && data.supplierEmail) {
+          const supplierField = document.getElementById('supplierEmail');
+          if (supplierField) {
+            supplierField.value = data.supplierEmail;
+          }
+        }
+        
+        // Show confidence scores
+        if (data.extractionMetadata && data.extractionMetadata.confidence) {
+          const conf = data.extractionMetadata.confidence;
+          let confidenceMsg = 'Extraction Confidence: ';
+          const scores = [];
+          if (conf.productDetails) scores.push('Product: ' + Math.round(conf.productDetails * 100) + '%');
+          if (conf.quantity) scores.push('Quantity: ' + Math.round(conf.quantity * 100) + '%');
+          if (conf.price) scores.push('Price: ' + Math.round(conf.price * 100) + '%');
+          confidenceMsg += scores.join(', ');
+          
+          const statusDiv = document.getElementById('pdfUploadStatus');
+          statusDiv.innerHTML += '<p style="color: #f59e0b; font-size: 0.9rem; margin-top: 0.5rem;">' + confidenceMsg + '</p>';
+          statusDiv.innerHTML += '<p style="color: #888888; font-size: 0.85rem; margin-top: 0.5rem;">⚠️ Please review all fields and correct any errors before submitting</p>';
+        }
+        
+        calculateTotal();
+      }
     </script>
   </body>
   </html>
