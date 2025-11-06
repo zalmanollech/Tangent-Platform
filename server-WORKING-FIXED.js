@@ -385,6 +385,8 @@ const database = {
     pendingContracts: new Map(), // Contracts waiting for counterparty KYC
     notifications: new Map(), // User notifications
     complianceReports: new Map(), // KYC compliance reports
+    auditLogs: new Map(), // Audit trail system
+    sessions: new Map(), // Session management
     admin: {
         fees: { tradingFee: 0.5, platformFee: 1.0 },
         interestRates: { deposit: 2.5, lending: 5.0 },
@@ -392,6 +394,193 @@ const database = {
         basisPoints: 100
     }
 };
+
+// Audit Trail System
+function logAuditEvent(action, userId, details = {}) {
+    const logId = `audit-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const auditLog = {
+        id: logId,
+        action,
+        userId: userId || 'system',
+        timestamp: new Date().toISOString(),
+        details,
+        ip: details.ip || 'unknown',
+        userAgent: details.userAgent || 'unknown'
+    };
+    
+    database.auditLogs.set(logId, auditLog);
+    
+    // Keep only last 10,000 audit logs in memory (older logs should be archived)
+    if (database.auditLogs.size > 10000) {
+        const firstKey = database.auditLogs.keys().next().value;
+        database.auditLogs.delete(firstKey);
+    }
+    
+    return auditLog;
+}
+
+// Session Management System
+function createSession(userId, token, req) {
+    const sessionId = `session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const session = {
+        id: sessionId,
+        userId,
+        token,
+        createdAt: new Date().toISOString(),
+        lastActivity: new Date().toISOString(),
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // 24 hours
+        ip: req.ip || req.connection?.remoteAddress || 'unknown',
+        userAgent: req.headers['user-agent'] || 'unknown',
+        active: true
+    };
+    
+    database.sessions.set(sessionId, session);
+    
+    // Clean up expired sessions periodically
+    cleanupExpiredSessions();
+    
+    return session;
+}
+
+function updateSessionActivity(sessionId) {
+    const session = database.sessions.get(sessionId);
+    if (session) {
+        session.lastActivity = new Date().toISOString();
+        database.sessions.set(sessionId, session);
+    }
+}
+
+function terminateSession(sessionId, userId) {
+    const session = database.sessions.get(sessionId);
+    if (session && (session.userId === userId || userId === 'admin')) {
+        session.active = false;
+        session.terminatedAt = new Date().toISOString();
+        database.sessions.set(sessionId, session);
+        logAuditEvent('session_terminated', userId, { sessionId });
+        return true;
+    }
+    return false;
+}
+
+function getActiveSessions(userId) {
+    const now = new Date();
+    const activeSessions = [];
+    
+    for (const [sessionId, session] of database.sessions.entries()) {
+        if (session.userId === userId && session.active) {
+            const expiresAt = new Date(session.expiresAt);
+            if (expiresAt > now) {
+                activeSessions.push(session);
+            } else {
+                // Session expired, mark as inactive
+                session.active = false;
+                session.expiredAt = new Date().toISOString();
+            }
+    }
+    }
+    
+    return activeSessions;
+}
+
+function cleanupExpiredSessions() {
+    const now = new Date();
+    let cleaned = 0;
+    
+    for (const [sessionId, session] of database.sessions.entries()) {
+        const expiresAt = new Date(session.expiresAt);
+        if (expiresAt < now) {
+            session.active = false;
+            session.expiredAt = new Date().toISOString();
+            cleaned++;
+        }
+    }
+    
+    if (cleaned > 0) {
+        console.log(`[INFO] Cleaned up ${cleaned} expired sessions`);
+    }
+}
+
+// Automated Backup System
+function createBackup() {
+    const backupDir = path.join(__dirname, 'backups');
+    if (!fs.existsSync(backupDir)) {
+        fs.mkdirSync(backupDir, { recursive: true });
+    }
+    
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const backupFile = path.join(backupDir, `backup-${timestamp}.json`);
+    
+    const backup = {
+        timestamp: new Date().toISOString(),
+        version: '1.0.0',
+        data: {
+            users: Array.from(database.users.entries()),
+            contracts: Array.from(database.contracts.entries()),
+            kyc: Array.from(database.kyc.entries()),
+            wallets: Array.from(database.wallets.entries()),
+            auctions: Array.from(database.auctions.entries()),
+            transactions: Array.from(database.transactions.entries()),
+            documents: Array.from(database.documents.entries()),
+            pendingContracts: Array.from(database.pendingContracts.entries()),
+            notifications: Array.from(database.notifications.entries()),
+            complianceReports: Array.from(database.complianceReports.entries()),
+            auditLogs: Array.from(database.auditLogs.entries()).slice(-1000), // Last 1000 audit logs
+            sessions: Array.from(database.sessions.entries()),
+            admin: database.admin
+        }
+    };
+    
+    try {
+        fs.writeFileSync(backupFile, JSON.stringify(backup, null, 2));
+        logAuditEvent('backup_created', 'system', { backupFile });
+        console.log(`[INFO] Backup created: ${backupFile}`);
+        
+        // Keep only last 10 backups
+        cleanupOldBackups(backupDir, 10);
+        
+        return { success: true, file: backupFile, timestamp };
+    } catch (error) {
+        console.error('[ERROR] Failed to create backup:', error);
+        logAuditEvent('backup_failed', 'system', { error: error.message });
+        return { success: false, error: error.message };
+    }
+}
+
+function cleanupOldBackups(backupDir, maxBackups = 10) {
+    try {
+        const files = fs.readdirSync(backupDir)
+            .filter(file => file.startsWith('backup-') && file.endsWith('.json'))
+            .map(file => ({
+                name: file,
+                path: path.join(backupDir, file),
+                time: fs.statSync(path.join(backupDir, file)).mtime.getTime()
+            }))
+            .sort((a, b) => b.time - a.time);
+        
+        if (files.length > maxBackups) {
+            const toDelete = files.slice(maxBackups);
+            for (const file of toDelete) {
+                fs.unlinkSync(file.path);
+                console.log(`[INFO] Deleted old backup: ${file.name}`);
+            }
+        }
+    } catch (error) {
+        console.error('[ERROR] Failed to cleanup old backups:', error);
+    }
+}
+
+// Schedule automated backups (every 6 hours)
+function scheduleBackups() {
+    // Create initial backup
+    createBackup();
+    
+    // Schedule backups every 6 hours
+    setInterval(() => {
+        createBackup();
+    }, 6 * 60 * 60 * 1000);
+    
+    console.log('[INFO] Automated backup system initialized (backups every 6 hours)');
+}
 
 // Initialize Pool Wallet System
 function initializePoolWallet() {
@@ -579,6 +768,7 @@ database.contracts.set('contract_test_003', {
 
 // Initialize pool wallet system
 initializePoolWallet();
+scheduleBackups(); // Initialize automated backup system
 
 // Create TGT wallets for test users
 database.wallets.set('buyer-001', {
@@ -703,7 +893,7 @@ async function sendContractNotificationEmail(toEmail, contractData, notification
                 subject = `Contract Activated - Deposit Received - ${contractData.productDetails}`;
                 htmlContent = `
                     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                        <h2 style="color: #10b981;">✅ Contract Activated!</h2>
+                        <h2 style="color: #ffffff;">Contract Activated</h2>
                         <p>Great news! The buyer has paid the deposit and your contract is now active. You can proceed with shipping preparations.</p>
                         
                         <div style="background: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
@@ -859,6 +1049,12 @@ const authenticateToken = (req, res, next) => {
             }
             return res.status(403).json({ error: 'Invalid token' });
         }
+        
+        // Update session activity if session exists
+        if (user.sessionId) {
+            updateSessionActivity(user.sessionId);
+        }
+        
         // Only log successful auth for important routes (reduce noise)
         if (req.path.startsWith('/api/admin') || req.path.startsWith('/dashboard/admin')) {
             console.log('✅ AUTH - Admin access:', user.email);
@@ -1042,21 +1238,21 @@ function getFullKYCPageHTML(userEmail, token) {
             
             <div class="company-type-selector">
                 <div class="company-card" onclick="selectCompanyType('listed', this)">
-                    <h3>🏢 Listed Company</h3>
+                    <h3>Listed Company</h3>
                     <p><strong>Public/Traded Company</strong><br><br>
                     Your company is publicly traded on a stock exchange. You'll need to provide your stock symbol and contact information for verification.</p>
                 </div>
                 <div class="company-card" onclick="selectCompanyType('private', this)">
-                    <h3>🏠 Private Company</h3>
+                    <h3>Private Company</h3>
                     <p><strong>Privately Held Company</strong><br><br>
-                    Your company is privately owned. You'll need to upload incorporation documents, financial statements, and bylaws for verification.</p>
+                    Your company is privately owned. You'll need to upload incorporation documents, latest audited financial statements, and optionally company bylaws for verification.</p>
                 </div>
             </div>
         </div>
 
         <!-- Step 2: Listed Company Information -->
         <div class="step" id="listedCompanyStep">
-            <h2>📈 Listed Company Verification</h2>
+            <h2>Listed Company Verification</h2>
             <form id="listedForm">
                 <div class="form-group">
                     <label for="companyName">Company Name *</label>
@@ -1114,7 +1310,7 @@ function getFullKYCPageHTML(userEmail, token) {
 
         <!-- Step 3: Private Company Information -->
         <div class="step" id="privateCompanyStep">
-            <h2>🏠 Private Company Verification</h2>
+            <h2>Private Company Verification</h2>
             <form id="privateForm">
                 <div class="form-group">
                     <label for="privateCompanyName">Company Name *</label>
@@ -1150,14 +1346,14 @@ function getFullKYCPageHTML(userEmail, token) {
                     </div>
                     
                     <div class="file-upload" id="financialsUpload" style="margin-bottom: 15px;">
-                        <p><strong>Latest Financial Statements</strong> - Most recent audited financials</p>
+                        <p><strong>Latest Audited Financial Statements *</strong> - Most recent audited financials (Required for private companies only)</p>
                         <button type="button" class="upload-btn" onclick="document.getElementById('financialsFile').click()">Choose File</button>
                         <input type="file" id="financialsFile" accept=".pdf,.jpg,.jpeg,.png" onchange="handleFileUpload(this, 'financials')">
                         <div id="financialsFiles" class="file-list"></div>
                     </div>
                     
                     <div class="file-upload" id="bylawsUpload">
-                        <p><strong>Company Bylaws</strong> - Corporate governance documents</p>
+                        <p><strong>Company Bylaws (Optional)</strong> - Corporate governance documents</p>
                         <button type="button" class="upload-btn" onclick="document.getElementById('bylawsFile').click()">Choose File</button>
                         <input type="file" id="bylawsFile" accept=".pdf,.jpg,.jpeg,.png" onchange="handleFileUpload(this, 'bylaws')">
                         <div id="bylawsFiles" class="file-list"></div>
@@ -1173,14 +1369,14 @@ function getFullKYCPageHTML(userEmail, token) {
         <div class="step" id="verificationStep">
             <div class="checking-status">
                 <div class="spinner"></div>
-                <h2>🔍 Running Compliance Checks</h2>
+                <h2>Running Compliance Checks</h2>
                 <p id="checkingMessage">Verifying your information against compliance databases...</p>
                 <ul style="text-align: left; margin: 20px 0; max-width: 600px; margin-left: auto; margin-right: auto;">
-                    <li id="check1" style="margin: 10px 0;">⏳ Sanctions database check...</li>
-                    <li id="check2" style="margin: 10px 0;">⏳ Anti-money laundering verification...</li>
-                    <li id="check3" style="margin: 10px 0;">⏳ Credit information review...</li>
-                    <li id="check4" style="margin: 10px 0;">⏳ Document authenticity verification...</li>
-                    <li id="check5" style="margin: 10px 0;">⏳ Final compliance assessment...</li>
+                    <li id="check1" style="margin: 10px 0;">Sanctions database check...</li>
+                    <li id="check2" style="margin: 10px 0;">Anti-money laundering verification...</li>
+                    <li id="check3" style="margin: 10px 0;">Credit information review...</li>
+                    <li id="check4" style="margin: 10px 0;">Document authenticity verification...</li>
+                    <li id="check5" style="margin: 10px 0;">Final compliance assessment...</li>
                 </ul>
             </div>
         </div>
@@ -1188,18 +1384,18 @@ function getFullKYCPageHTML(userEmail, token) {
     </div>
 
     <script>
-        console.log('✅ KYC Script loaded successfully');
+        console.log('KYC Script loaded successfully');
         
         // Get the token from the URL parameter or localStorage
         const urlParams = new URLSearchParams(window.location.search);
         const token = urlParams.get('token') || localStorage.getItem('token') || '${token}';
-        console.log('🔑 Token available for KYC:', token ? 'Yes' : 'No');
+                console.log('Token available for KYC:', token ? 'Yes' : 'No');
         
         let currentCompanyType = '';
         const uploadedFiles = {};
 
         function selectCompanyType(type, element) {
-            console.log('🏢 Company type selected:', type);
+            console.log('Company type selected:', type);
             currentCompanyType = type;
             
             // Update visual selection
@@ -1210,12 +1406,12 @@ function getFullKYCPageHTML(userEmail, token) {
             // Mark the clicked card as selected
             if (element) {
                 element.classList.add('selected');
-                console.log('✅ Card selected visually');
+                console.log('Card selected visually');
             }
             
             // Show appropriate form after delay
             setTimeout(() => {
-                console.log('🔄 Transitioning to', type, 'company form');
+                console.log('Transitioning to', type, 'company form');
                 if (type === 'listed') {
                     goToStep('listedCompanyStep');
                 } else {
@@ -1256,7 +1452,7 @@ function getFullKYCPageHTML(userEmail, token) {
                 const validationResult = validateFileRealTime(file, category);
                 
                 if (!validationResult.isValid) {
-                    alert('❌ File Validation Error:\\n' + validationResult.errors.join('\\n'));
+                    alert('File Validation Error:\\n' + validationResult.errors.join('\\n'));
                     input.value = ''; // Clear the input
                     return;
                 }
@@ -1302,7 +1498,7 @@ function getFullKYCPageHTML(userEmail, token) {
             
             // Success message
             if (result.isValid) {
-                result.successMessage = \`✅ \${category.charAt(0).toUpperCase() + category.slice(1)} document validated successfully (\${Math.round(file.size / 1024)}KB)\`;
+                result.successMessage = \`\${category.charAt(0).toUpperCase() + category.slice(1)} document validated successfully (\${Math.round(file.size / 1024)}KB)\`;
             }
             
             return result;
@@ -1323,12 +1519,12 @@ function getFullKYCPageHTML(userEmail, token) {
                             // Show validation status
                             let validationStatus = '';
                             if (validationResult && validationResult.successMessage) {
-                                validationStatus = \`<div class="validation-success" style="color: #10b981; font-size: 0.9em; margin-top: 5px;">\${validationResult.successMessage}</div>\`;
+                                validationStatus = \`<div class="validation-success" style="color: #ffffff; font-size: 0.9em; margin-top: 5px;">\${validationResult.successMessage}</div>\`;
                             }
                             
                             fileItem.innerHTML = \`
                                 <div class="file-info" style="display: flex; justify-content: space-between; align-items: center;">
-                                    <span class="file-name">📎 \${file.name} (\${(file.size / 1024 / 1024).toFixed(2)} MB)</span>
+                                    <span class="file-name">\${file.name} (\${(file.size / 1024 / 1024).toFixed(2)} MB)</span>
                                     <button type="button" class="remove-file" onclick="removeFile('\${category}', \${index})" style="background: #dc2626; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer;">Remove</button>
                                 </div>
                                 \${validationStatus}
@@ -1383,8 +1579,9 @@ function getFullKYCPageHTML(userEmail, token) {
         async function submitPrivateCompany() {
             const form = document.getElementById('privateForm');
             
-            // Validate required documents for private company
-            const requiredDocs = ['passport', 'incorporation', 'financials', 'bylaws'];
+            // Validate required documents for private company (bylaws is optional)
+            const requiredDocs = ['passport', 'incorporation', 'financials'];
+            const optionalDocs = ['bylaws'];
             const validationErrors = [];
             
             requiredDocs.forEach(docType => {
@@ -1394,7 +1591,7 @@ function getFullKYCPageHTML(userEmail, token) {
             });
             
             if (validationErrors.length > 0) {
-                alert('❌ Document Validation Failed:\\n\\n' + validationErrors.join('\\n') + '\\n\\nPrivate companies must upload all 4 required documents before submitting.');
+                alert('Document Validation Failed:\\n\\n' + validationErrors.join('\\n') + '\\n\\nPrivate companies must upload passport, incorporation documents, and latest audited financial statements. Bylaws are optional.');
                 return;
             }
             
@@ -1428,7 +1625,7 @@ function getFullKYCPageHTML(userEmail, token) {
                 
                 if (response.ok) {
                     const result = await response.json();
-                    console.log('✅ KYC submission successful:', result);
+                    console.log('KYC submission successful:', result);
                     
                     // Start compliance checks simulation AFTER successful submission
                     await simulateComplianceChecks();
@@ -1439,7 +1636,7 @@ function getFullKYCPageHTML(userEmail, token) {
                     }, 1000);
                 } else {
                     const error = await response.json();
-                    console.error('❌ KYC submission failed:', error);
+                    console.error('KYC submission failed:', error);
                     
                     // Handle document validation errors specifically
                     if (error.validationErrors && error.validationErrors.length > 0) {
@@ -1473,8 +1670,8 @@ function getFullKYCPageHTML(userEmail, token) {
             for (let i = 0; i < checks.length; i++) {
                 await new Promise(resolve => setTimeout(resolve, 1500));
                 const checkElement = document.getElementById(checks[i]);
-                checkElement.innerHTML = '✅ ' + checkElement.textContent.replace('⏳ ', '').replace('...', ' - Clear');
-                checkElement.style.color = '#10b981';
+                checkElement.innerHTML = checkElement.textContent.replace('⏳ ', '').replace('...', ' - Clear');
+                checkElement.style.color = '#ffffff';
             }
             
             // After all checks, show completion directly (no wallet check)
@@ -1489,18 +1686,18 @@ function getFullKYCPageHTML(userEmail, token) {
             
             // Show completion message
             const completionHTML = \`
-                <div style="text-align: center; padding: 40px; background: #064e3b; border-radius: 12px; border: 2px solid #10b981;">
-                    <h2 style="color: #10b981; margin-bottom: 20px;">🎉 KYC Verification Complete!</h2>
-                    <p style="color: #f8fafc; margin-bottom: 30px; font-size: 1.1em;">
+                <div style="text-align: center; padding: 40px; background: #1a1a1a; border-radius: 12px; border: 2px solid #ffffff;">
+                    <h2 style="color: #ffffff; margin-bottom: 20px;">KYC Verification Complete</h2>
+                    <p style="color: #ffffff; margin-bottom: 30px; font-size: 1.1em;">
                         Your verification has been successfully completed. All compliance checks have passed.
                     </p>
-                    <div style="background: rgba(16, 185, 129, 0.1); padding: 20px; border-radius: 8px; margin: 20px 0;">
-                        <p style="color: #10b981; margin: 0; font-weight: 600;">
-                            ✅ Next Step: Set up your TGT wallet for trading and payments
+                    <div style="background: rgba(255, 255, 255, 0.1); padding: 20px; border-radius: 8px; margin: 20px 0;">
+                        <p style="color: #ffffff; margin: 0; font-weight: 600;">
+                            Next Step: Set up your TGT wallet for trading and payments
                         </p>
                     </div>
-                    <button type="button" class="btn" onclick="completeKYC()" style="background: #10b981; font-size: 1.1em; padding: 15px 30px;">
-                        🚀 Continue to Wallet Setup
+                    <button type="button" class="btn" onclick="completeKYC()" style="background: #ffffff; color: #000000; font-size: 1.1em; padding: 15px 30px;">
+                        Continue to Wallet Setup
                     </button>
                 </div>
             \`;
@@ -2167,7 +2364,7 @@ app.get('/signin', (req, res) => {
             * { margin: 0; padding: 0; box-sizing: border-box; }
             body { 
                 font-family: 'Arial', sans-serif; 
-                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                background: #000000;
                 min-height: 100vh;
                 display: flex;
                 align-items: center;
@@ -2304,7 +2501,7 @@ app.get('/signup', (req, res) => {
             * { margin: 0; padding: 0; box-sizing: border-box; }
             body { 
                 font-family: 'Arial', sans-serif; 
-                background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+                background: #000000;
                 min-height: 100vh;
                 display: flex;
                 align-items: center;
@@ -2323,11 +2520,11 @@ app.get('/signup', (req, res) => {
             .form-group { margin-bottom: 1.5rem; }
             label { display: block; margin-bottom: 0.5rem; color: #333; font-weight: 600; }
             input, select { width: 100%; padding: 12px; border: 2px solid #e5e5e5; border-radius: 8px; font-size: 1rem; }
-            input:focus, select:focus { outline: none; border-color: #f5576c; }
-            .btn { width: 100%; padding: 15px; background: #f5576c; color: white; border: none; border-radius: 8px; font-size: 1.1rem; font-weight: 600; cursor: pointer; margin-top: 1rem; }
-            .btn:hover { background: #e14e63; }
+            input:focus, select:focus { outline: none; border-color: #ffffff; }
+            .btn { width: 100%; padding: 15px; background: #ffffff; color: #000000; border: none; border-radius: 8px; font-size: 1.1rem; font-weight: 600; cursor: pointer; margin-top: 1rem; }
+            .btn:hover { background: #cccccc; }
             .links { text-align: center; margin-top: 2rem; }
-            .links a { color: #f5576c; text-decoration: none; }
+            .links a { color: #ffffff; text-decoration: none; }
             .message { padding: 1rem; margin-bottom: 1rem; border-radius: 8px; display: none; }
             .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
             .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
@@ -2356,6 +2553,68 @@ app.get('/signup', (req, res) => {
             .step.current {
                 background: #2196f3;
                 color: white;
+            }
+            .checkbox-group {
+                display: flex;
+                align-items: flex-start;
+                gap: 0.5rem;
+                margin-top: 1rem;
+            }
+            .checkbox-group input[type="checkbox"] {
+                margin-top: 0.25rem;
+                transform: scale(1.2);
+                cursor: pointer;
+            }
+            .checkbox-group label {
+                font-size: 0.9rem;
+                line-height: 1.5;
+                cursor: pointer;
+            }
+            .checkbox-group a {
+                color: #ffffff;
+                text-decoration: underline;
+            }
+            .password-strength {
+                margin-bottom: 0.5rem;
+            }
+            .strength-bar {
+                display: flex;
+                align-items: center;
+                gap: 0.5rem;
+                margin-bottom: 0.5rem;
+            }
+            .strength-fill {
+                flex: 1;
+                height: 6px;
+                background: #e5e5e5;
+                border-radius: 3px;
+                overflow: hidden;
+            }
+            .strength-fill div {
+                height: 100%;
+                width: 0%;
+                transition: all 0.3s;
+                background: #ef4444;
+            }
+            .strength-text {
+                font-size: 0.85rem;
+                color: #666;
+                font-weight: 600;
+                min-width: 50px;
+            }
+            .password-requirements {
+                margin-top: 0.5rem;
+                font-size: 0.85rem;
+                color: #666;
+            }
+            .password-requirements div {
+                margin-bottom: 0.25rem;
+            }
+            .password-requirements .valid {
+                color: #ffffff;
+            }
+            .password-requirements .invalid {
+                color: #ef4444;
             }
         </style>
     </head>
@@ -2390,10 +2649,10 @@ app.get('/signup', (req, res) => {
                     <label for="role">Your Role *</label>
                     <select id="role" required>
                         <option value="">Select your trading role</option>
-                        <option value="buyer">🛒 Buyer - Purchase commodities</option>
-                        <option value="supplier">🏭 Supplier - Sell commodities</option>
-                        <option value="trader">📈 Trader - Facilitate trades</option>
-                        <option value="insurer">🛡️ Insurer - Provide insurance</option>
+                        <option value="buyer">Buyer - Purchase commodities</option>
+                        <option value="supplier">Supplier - Sell commodities</option>
+                        <option value="trader">Trader - Facilitate trades</option>
+                        <option value="insurer">Insurer - Provide insurance</option>
                     </select>
                 </div>
                 <div class="form-group">
@@ -2404,12 +2663,42 @@ app.get('/signup', (req, res) => {
                     <label for="companyType">Company Type *</label>
                     <select id="companyType" required>
                         <option value="">Select company type</option>
-                        <option value="listed">🏢 Listed Company (Publicly traded)</option>
-                        <option value="private">🏠 Private Company</option>
-                        <option value="individual">👤 Individual Trader</option>
+                        <option value="listed">Listed Company (Publicly traded)</option>
+                        <option value="private">Private Company</option>
+                        <option value="individual">Individual Trader</option>
                     </select>
                 </div>
-                <button type="submit" class="btn">🚀 Create Account & Continue to KYC</button>
+                
+                <div class="form-group" style="margin-top: 2rem;">
+                    <div id="passwordStrength" style="margin-bottom: 0.5rem; display: none;">
+                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <div id="strengthBar" style="flex: 1; height: 6px; background: #e5e5e5; border-radius: 3px; overflow: hidden;">
+                                <div id="strengthFill" style="height: 100%; width: 0%; transition: all 0.3s; background: #ef4444;"></div>
+                            </div>
+                            <span id="strengthText" style="font-size: 0.85rem; color: #666; font-weight: 600;">Weak</span>
+                        </div>
+                        <div id="passwordRequirements" style="margin-top: 0.5rem; font-size: 0.85rem; color: #666;">
+                            <div id="reqLength" style="color: #ef4444;">• At least 8 characters</div>
+                            <div id="reqUppercase" style="color: #ef4444;">• One uppercase letter</div>
+                            <div id="reqLowercase" style="color: #ef4444;">• One lowercase letter</div>
+                            <div id="reqNumber" style="color: #ef4444;">• One number</div>
+                            <div id="reqSpecial" style="color: #ef4444;">• One special character</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="form-group" style="margin-top: 1.5rem;">
+                    <label style="display: flex; align-items: flex-start; gap: 0.5rem; cursor: pointer;">
+                        <input type="checkbox" id="acceptTerms" required style="margin-top: 0.25rem; transform: scale(1.2); cursor: pointer;">
+                        <span style="font-size: 0.9rem; line-height: 1.5;">
+                            I agree to the <a href="/terms" target="_blank" style="color: #ffffff; text-decoration: underline;">Terms of Service</a>, 
+                            <a href="/privacy" target="_blank" style="color: #ffffff; text-decoration: underline;">Privacy Policy</a>, 
+                            and <a href="/user-agreement" target="_blank" style="color: #ffffff; text-decoration: underline;">User Agreement</a> *
+                        </span>
+                    </label>
+                </div>
+                
+                <button type="submit" class="btn" id="submitBtn">Create Account & Continue to KYC</button>
             </form>
             
             <div class="links">
@@ -2421,17 +2710,42 @@ app.get('/signup', (req, res) => {
         <script>
             console.log('✅ Signup page loaded');
             
-            // Handle form submission
-            document.getElementById('signupForm').addEventListener('submit', async (e) => {
+            // Handle form submission - prevent default form submission
+            const form = document.getElementById('signupForm');
+            if (!form) {
+                console.error('❌ Form not found!');
+            } else {
+                console.log('✅ Form found, attaching event listener');
+            }
+            
+            form.addEventListener('submit', async (e) => {
                 e.preventDefault();
+                e.stopPropagation();
+                console.log('📝 Form submission intercepted');
+                
+                // Check terms acceptance
+                const acceptTerms = document.getElementById('acceptTerms').checked;
+                if (!acceptTerms) {
+                    showMessage('You must agree to the Terms of Service, Privacy Policy, and User Agreement to continue', 'error');
+                    return;
+                }
                 
                 const formData = {
                     email: document.getElementById('email').value,
                     password: document.getElementById('password').value,
                     role: document.getElementById('role').value,
                     companyName: document.getElementById('companyName').value,
-                    companyType: document.getElementById('companyType').value
+                    companyType: document.getElementById('companyType').value,
+                    acceptTerms: true,
+                    termsAcceptedAt: new Date().toISOString()
                 };
+                
+                // Validate password strength
+                const passwordStrength = checkPasswordStrength(formData.password);
+                if (passwordStrength.score < 3) {
+                    showMessage('Password is too weak. Please use a stronger password.', 'error');
+                    return;
+                }
                 
                 // Validate all required fields
                 if (!formData.email || !formData.password || !formData.role || !formData.companyName || !formData.companyType) {
@@ -2448,30 +2762,62 @@ app.get('/signup', (req, res) => {
                         body: JSON.stringify(formData)
                     });
                     
-                    const data = await response.json();
+                    console.log('📡 Registration response status:', response.status);
                     
-                    if (response.ok) {
+                    const data = await response.json();
+                    console.log('📊 Registration response data:', data);
+                    
+                    if (response.ok && data.success) {
                         // Store user data
                         localStorage.setItem('token', data.token);
                         localStorage.setItem('user', JSON.stringify(data.user));
                         
+                        console.log('✅ Registration successful!');
+                        console.log('🔑 Token:', data.token);
+                        console.log('👤 User:', data.user);
+                        console.log('📍 Redirect URL:', data.redirectUrl);
+                        
                         showMessage('Account created successfully! Redirecting...', 'success');
                         
-                        // Redirect based on role
+                        // Redirect based on server response or default behavior
                         setTimeout(() => {
-                            if (data.user.role === 'insurer') {
-                                window.location.href = '/dashboard/insurer?token=' + encodeURIComponent(data.token);
+                            // Use redirectUrl from server response if available, otherwise use deployed version's default
+                            let redirectUrl;
+                            if (data.redirectUrl) {
+                                // Server specifies redirect (e.g., to KYC for workflow)
+                                redirectUrl = data.redirectUrl;
                             } else {
-                                window.location.href = '/dashboard/authenticated?role=' + data.user.role + '&token=' + encodeURIComponent(data.token);
+                                // Default behavior (matching deployed version)
+                                if (data.user.role === 'insurer') {
+                                    redirectUrl = '/dashboard/insurer';
+                                } else {
+                                    redirectUrl = '/dashboard/authenticated?role=' + data.user.role;
+                                }
                             }
+                            
+                            // Add token to URL
+                            const fullUrl = redirectUrl + (redirectUrl.includes('?') ? '&' : '?') + 'token=' + encodeURIComponent(data.token);
+                            console.log('🚀 Redirecting to:', fullUrl);
+                            window.location.href = fullUrl;
                         }, 1500);
                     } else {
-                        showMessage('Registration failed: ' + (data.error || 'Unknown error'), 'error');
+                        // Show error message
+                        const errorMsg = data.error || 'Unknown error';
+                        showMessage('Registration failed: ' + errorMsg, 'error');
+                        console.error('Registration failed:', data);
                     }
                 } catch (error) {
-                    console.error('Registration error:', error);
-                    showMessage('Network error. Please try again.', 'error');
+                    console.error('❌ Registration error:', error);
+                    console.error('Error details:', error.message, error.stack);
+                    showMessage('Network error: ' + error.message + '. Please check console for details.', 'error');
                 }
+            });
+            
+            // Also handle button click as backup
+            document.getElementById('submitBtn').addEventListener('click', function(e) {
+                e.preventDefault();
+                console.log('🔘 Submit button clicked');
+                form.dispatchEvent(new Event('submit'));
             });
             
             // Show message function
@@ -2487,6 +2833,85 @@ app.get('/signup', (req, res) => {
                     }, 5000);
                 }
             }
+            
+            // Password strength checker
+            function checkPasswordStrength(password) {
+                // Check for special characters using a simple test
+                const hasSpecial = /[^a-zA-Z0-9]/.test(password);
+                const requirements = {
+                    length: password.length >= 8,
+                    uppercase: /[A-Z]/.test(password),
+                    lowercase: /[a-z]/.test(password),
+                    number: /[0-9]/.test(password),
+                    special: hasSpecial
+                };
+                
+                let score = 0;
+                if (requirements.length) score++;
+                if (requirements.uppercase) score++;
+                if (requirements.lowercase) score++;
+                if (requirements.number) score++;
+                if (requirements.special) score++;
+                
+                return { score, requirements };
+            }
+            
+            // Update password strength meter
+            const passwordInput = document.getElementById('password');
+            const strengthDiv = document.getElementById('passwordStrength');
+            const strengthFill = document.getElementById('strengthFill');
+            const strengthText = document.getElementById('strengthText');
+            const reqLength = document.getElementById('reqLength');
+            const reqUppercase = document.getElementById('reqUppercase');
+            const reqLowercase = document.getElementById('reqLowercase');
+            const reqNumber = document.getElementById('reqNumber');
+            const reqSpecial = document.getElementById('reqSpecial');
+            
+            passwordInput.addEventListener('input', function() {
+                const password = this.value;
+                if (password.length === 0) {
+                    strengthDiv.style.display = 'none';
+                    return;
+                }
+                
+                strengthDiv.style.display = 'block';
+                const strength = checkPasswordStrength(password);
+                
+                // Update strength bar
+                const percentage = (strength.score / 5) * 100;
+                strengthFill.style.width = percentage + '%';
+                
+                // Update strength text and color
+                let color = '#ef4444';
+                let text = 'Weak';
+                if (strength.score >= 4) {
+                    color = '#ffffff';
+                    text = 'Strong';
+                } else if (strength.score >= 3) {
+                    color = '#eab308';
+                    text = 'Medium';
+                }
+                strengthFill.style.background = color;
+                strengthText.textContent = text;
+                strengthText.style.color = color;
+                
+                // Update requirements
+                reqLength.className = strength.requirements.length ? 'valid' : 'invalid';
+                reqUppercase.className = strength.requirements.uppercase ? 'valid' : 'invalid';
+                reqLowercase.className = strength.requirements.lowercase ? 'valid' : 'invalid';
+                reqNumber.className = strength.requirements.number ? 'valid' : 'invalid';
+                reqSpecial.className = strength.requirements.special ? 'valid' : 'invalid';
+                
+                // Update submit button
+                const submitBtn = document.getElementById('submitBtn');
+                if (strength.score < 3) {
+                    submitBtn.style.opacity = '0.6';
+                    submitBtn.style.cursor = 'not-allowed';
+                } else {
+                    submitBtn.style.opacity = '1';
+                    submitBtn.style.cursor = 'pointer';
+                }
+            });
             
             // Update company type options based on role selection
             const roleSelect = document.getElementById('role');
@@ -3097,7 +3522,7 @@ app.get('/tools/credit-report', (req, res) => {
             
             <form id="creditForm">
                 <div style="background: rgba(255, 255, 255, 0.03); border: 1px solid #333; border-radius: 12px; padding: 20px; margin-bottom: 30px;">
-                    <h3 style="color: #06b6d4; margin-bottom: 15px; font-size: 1.2rem;">Company Identification Information</h3>
+                    <h3 style="color: #ffffff; margin-bottom: 15px; font-size: 1.2rem;">Company Identification Information</h3>
                     <p style="color: #888; font-size: 0.9rem; margin-bottom: 20px; line-height: 1.5;">
                         <strong>Important:</strong> To ensure we check the correct company, please provide accurate company identification details. 
                         The more information you provide, the more reliable the credit report will be.
@@ -3133,7 +3558,7 @@ app.get('/tools/credit-report', (req, res) => {
                 </div>
                 
                 <div style="background: rgba(255, 255, 255, 0.03); border: 1px solid #333; border-radius: 12px; padding: 20px; margin-bottom: 30px; margin-top: 30px;">
-                    <h3 style="color: #06b6d4; margin-bottom: 15px; font-size: 1.2rem;">Trade Details</h3>
+                    <h3 style="color: #ffffff; margin-bottom: 15px; font-size: 1.2rem;">Trade Details</h3>
                 </div>
                 
                 <div class="form-group">
@@ -3219,7 +3644,7 @@ app.get('/tools/credit-report', (req, res) => {
                     if (data.confidence > 0.5) {
                         const infoBox = document.querySelector('.info-box');
                         if (infoBox) {
-                            infoBox.innerHTML += '<p style="color: #06b6d4; margin-top: 15px; font-size: 0.9rem;">✓ Form pre-populated from your KYC documents</p>';
+                            infoBox.innerHTML += '<p style="color: #ffffff; margin-top: 15px; font-size: 0.9rem;">Form pre-populated from your KYC documents</p>';
                         }
                     }
                 } else {
@@ -3761,7 +4186,7 @@ app.get('/api/paypal/success', async (req, res) => {
             // Show success page with purchase details
             const purchaseDetails = purchaseRecord ? `
                 <div style="background: #0f172a; border: 1px solid #334155; border-radius: 12px; padding: 20px; margin: 20px 0; text-align: left;">
-                    <h3 style="color: #06b6d4; margin-bottom: 15px;">📋 Purchase Details</h3>
+                    <h3 style="color: #ffffff; margin-bottom: 15px;">Purchase Details</h3>
                     <div style="margin-bottom: 10px;">
                         <span style="color: #94a3b8;">Order ID:</span>
                         <span style="color: #ffffff; font-weight: 600;">${purchaseRecord.paypal_order_id || 'N/A'}</span>
@@ -3772,11 +4197,11 @@ app.get('/api/paypal/success', async (req, res) => {
                     </div>
                     <div style="margin-bottom: 10px;">
                         <span style="color: #94a3b8;">Amount:</span>
-                        <span style="color: #10b981; font-weight: 600;">${purchaseRecord.currency} ${purchaseRecord.amount}</span>
+                        <span style="color: #ffffff; font-weight: 600;">${purchaseRecord.currency} ${purchaseRecord.amount}</span>
                     </div>
                     <div style="margin-bottom: 10px;">
                         <span style="color: #94a3b8;">Status:</span>
-                        <span style="color: #10b981; font-weight: 600; text-transform: uppercase;">${purchaseRecord.status}</span>
+                        <span style="color: #ffffff; font-weight: 600; text-transform: uppercase;">${purchaseRecord.status}</span>
                     </div>
                     <div style="margin-bottom: 10px;">
                         <span style="color: #94a3b8;">Purchase ID:</span>
@@ -3922,17 +4347,17 @@ app.get('/admin/purchases', async (req, res) => {
                const purchasesHtml = purchasesWithReports.map(p => {
                    let viewLink = '';
                    if (p.reportId) {
-                       viewLink = `<a href="/admin/reports/credit/${p.reportId}" style="color: #06b6d4; text-decoration: none; font-weight: 600; margin-right: 10px;">📄 View Report</a>`;
+                       viewLink = `<a href="/admin/reports/credit/${p.reportId}" style="color: #ffffff; text-decoration: none; font-weight: 600; margin-right: 10px;">View Report</a>`;
                        if (p.pdfUrl) {
-                           viewLink += `<a href="${p.pdfUrl}" target="_blank" style="color: #10b981; text-decoration: none; font-weight: 600;">📥 PDF</a>`;
+                           viewLink += `<a href="${p.pdfUrl}" target="_blank" style="color: #ffffff; text-decoration: none; font-weight: 600;">PDF</a>`;
                        }
                    } else if (p.quoteId) {
-                       viewLink = `<a href="/admin/reports/insurance/${p.quoteId}" style="color: #06b6d4; text-decoration: none; font-weight: 600; margin-right: 10px;">📄 View Quote</a>`;
+                       viewLink = `<a href="/admin/reports/insurance/${p.quoteId}" style="color: #ffffff; text-decoration: none; font-weight: 600; margin-right: 10px;">View Quote</a>`;
                        if (p.pdfUrl) {
-                           viewLink += `<a href="${p.pdfUrl}" target="_blank" style="color: #10b981; text-decoration: none; font-weight: 600;">📥 PDF</a>`;
+                           viewLink += `<a href="${p.pdfUrl}" target="_blank" style="color: #ffffff; text-decoration: none; font-weight: 600;">PDF</a>`;
                        }
                    } else {
-                       viewLink = '<span style="color: #666;">⏳ Generating...</span>';
+                       viewLink = '<span style="color: #666;">Generating...</span>';
                    }
             
             return `
@@ -5969,7 +6394,7 @@ app.get('/wallet-setup', authenticateToken, (req, res) => {
             .metamask-section {
                 text-align: center;
                 padding: 2rem;
-                background: linear-gradient(135deg, #f59e0b, #f97316);
+                background: #000000;
                 border-radius: 12px;
                 margin-top: 1rem;
             }
@@ -6213,7 +6638,7 @@ app.get('/landing-two', (req, res) => {
             * { margin: 0; padding: 0; box-sizing: border-box; }
             body { 
                 font-family: 'Arial', sans-serif; 
-                background: linear-gradient(45deg, #1e3c72 0%, #2a5298 100%);
+                background: #000000;
                 min-height: 100vh;
                 display: flex;
                 align-items: center;
@@ -6260,7 +6685,7 @@ app.get('/landing-two', (req, res) => {
                 overflow: hidden;
             }
             .btn-signin {
-                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                background: #000000;
                 color: white;
                 box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
             }
@@ -6269,7 +6694,7 @@ app.get('/landing-two', (req, res) => {
                 box-shadow: 0 12px 35px rgba(102, 126, 234, 0.4);
             }
             .btn-signup {
-                background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+                background: #000000;
                 color: white;
                 box-shadow: 0 8px 25px rgba(245, 87, 108, 0.3);
             }
@@ -6278,7 +6703,7 @@ app.get('/landing-two', (req, res) => {
                 box-shadow: 0 12px 35px rgba(245, 87, 108, 0.4);
             }
             .btn-demo {
-                background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+                background: #000000;
                 color: white;
                 box-shadow: 0 8px 25px rgba(245, 158, 11, 0.3);
             }
@@ -6434,7 +6859,7 @@ const requireDemoPassword = (req, res, next) => {
                 box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
             }
             .btn {
-                background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+                background: #000000;
                 color: white;
                 padding: 1rem 2rem;
                 border: none;
@@ -7001,13 +7426,47 @@ app.post('/api/register-interest', (req, res) => {
 // ================================
 
 // Register Handler (shared logic)
+// Password validation function
+function validatePassword(password) {
+    const requirements = {
+        length: password.length >= 8,
+        uppercase: /[A-Z]/.test(password),
+        lowercase: /[a-z]/.test(password),
+        number: /[0-9]/.test(password),
+        special: /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)
+    };
+    
+    let score = 0;
+    if (requirements.length) score++;
+    if (requirements.uppercase) score++;
+    if (requirements.lowercase) score++;
+    if (requirements.number) score++;
+    if (requirements.special) score++;
+    
+    return { valid: score >= 3, score, requirements };
+}
+
 const registerHandler = async (req, res) => {
     try {
         const { 
             email, password, role, companyName, companyType, firstName, lastName, company, phone,
-            walletOption, existingWalletAddress, walletPassword 
+            walletOption, existingWalletAddress, walletPassword, acceptTerms, termsAcceptedAt
         } = req.body;
         console.log('Registration attempt for:', email, 'Role:', role, 'Wallet option:', walletOption);
+        
+        // Validate terms acceptance
+        if (!acceptTerms) {
+            return res.status(400).json({ error: 'You must agree to the Terms of Service, Privacy Policy, and User Agreement to continue' });
+        }
+        
+        // Validate password strength
+        const passwordValidation = validatePassword(password);
+        if (!passwordValidation.valid) {
+            return res.status(400).json({ 
+                error: 'Password is too weak. Please use a stronger password.',
+                requirements: passwordValidation.requirements
+            });
+        }
         
         if (database.users.has(email)) {
             return res.status(400).json({ error: 'User already exists' });
@@ -7016,10 +7475,15 @@ const registerHandler = async (req, res) => {
         const hashedPassword = await bcrypt.hash(password, 10);
         const userId = `user-${Date.now()}`;
         
+        // Store password history (last 5 passwords)
+        const passwordHistory = [hashedPassword];
+        
         const user = {
             id: userId,
             email,
             password: hashedPassword,
+            passwordHistory: passwordHistory,
+            passwordChangedAt: new Date().toISOString(),
             role: role || 'buyer',
             companyName: companyName || company || '',
             companyType: companyType || 'individual',
@@ -7028,10 +7492,23 @@ const registerHandler = async (req, res) => {
             phone: phone || '',
             verified: false,
             kycStatus: 'pending',
+            termsAccepted: true,
+            termsAcceptedAt: termsAcceptedAt || new Date().toISOString(),
             createdAt: new Date().toISOString()
         };
         
         database.users.set(email, user);
+        
+        // Log audit event for registration
+        logAuditEvent('user_registered', userId, {
+            email,
+            role: user.role,
+            companyName: user.companyName,
+            termsAccepted: true,
+            termsAcceptedAt: user.termsAcceptedAt,
+            ip: req.ip || req.connection?.remoteAddress || 'unknown',
+            userAgent: req.headers['user-agent'] || 'unknown'
+        });
         
         // Handle wallet creation based on user choice
         let wallet;
@@ -7134,16 +7611,33 @@ app.post('/api/auth/login', async (req, res) => {
         
         console.log('Password valid, creating token...');
         
+        // Create session first (before token generation)
+        const session = createSession(user.id, null, req);
+        
         const token = jwt.sign(
-            { userId: user.id, email, role: user.role },
+            { userId: user.id, email, role: user.role, sessionId: session.id },
             process.env.JWT_SECRET || 'tangent-secret-key',
             { expiresIn: '24h' }
         );
+        
+        // Update session with token
+        session.token = token;
+        database.sessions.set(session.id, session);
+        
+        // Log audit event for login
+        logAuditEvent('user_login', user.id, {
+            email,
+            role: user.role,
+            sessionId: session.id,
+            ip: req.ip || req.connection?.remoteAddress || 'unknown',
+            userAgent: req.headers['user-agent'] || 'unknown'
+        });
         
         console.log('Login successful for:', email, 'Role:', user.role);
         res.json({
             message: 'Login successful',
             token,
+            sessionId: session.id,
             user: {
                 id: user.id,
                 email,
@@ -7413,8 +7907,15 @@ function scheduleOFACUpdates() {
 // Define required documents by company type
 const REQUIRED_DOCUMENTS = {
     'listed': ['passport'],
-    'private': ['passport', 'incorporation', 'financials', 'bylaws'],
+    'private': ['passport', 'incorporation', 'financials'], // bylaws is optional
     'individual': ['passport']
+};
+
+// Optional documents (not required but can be uploaded)
+const OPTIONAL_DOCUMENTS = {
+    'listed': [],
+    'private': ['bylaws'],
+    'individual': []
 };
 
 // Allowed file formats and max sizes
@@ -7436,11 +7937,14 @@ function validateDocuments(files, companyType) {
     };
     
     const requiredDocs = REQUIRED_DOCUMENTS[companyType] || [];
+    const optionalDocs = OPTIONAL_DOCUMENTS[companyType] || [];
     const uploadedDocs = Object.keys(files);
+    const allAllowedDocs = [...requiredDocs, ...optionalDocs];
     
-    console.log('🔍 DOCUMENT VALIDATION START');
+    console.log('DOCUMENT VALIDATION START');
     console.log('Company Type:', companyType);
     console.log('Required Documents:', requiredDocs);
+    console.log('Optional Documents:', optionalDocs);
     console.log('Uploaded Documents:', uploadedDocs);
     
     // Check for missing required documents
@@ -7452,9 +7956,9 @@ function validateDocuments(files, companyType) {
         }
     });
     
-    // Check for unexpected document types
+    // Check for unexpected document types (not in required or optional)
     uploadedDocs.forEach(docType => {
-        if (!requiredDocs.includes(docType)) {
+        if (!allAllowedDocs.includes(docType)) {
             validationResult.invalidDocuments.push(docType);
             validationResult.warnings.push(`Unexpected document type: ${docType}. This document type is not required for ${companyType} companies.`);
         }
@@ -7516,7 +8020,7 @@ app.post('/api/kyc/submit', authenticateToken, upload.fields([
         } = req.body;
         const files = req.files || {};
         
-        console.log('📋 KYC Submission:', { companyType, companyName, email: req.user.email });
+        console.log('KYC Submission:', { companyType, companyName, email: req.user.email });
         
         // STEP 1: Validate Documents (basic - file format, size)
         const documentValidation = validateDocuments(files, companyType);
@@ -7539,7 +8043,7 @@ app.post('/api/kyc/submit', authenticateToken, upload.fields([
             const docVerification = require('./lib/document-verification');
             enhancedValidation = await docVerification.enhancedDocumentValidation(files, companyType);
             
-            console.log('🔍 Enhanced Document Verification:', {
+            console.log('Enhanced Document Verification:', {
                 verified: enhancedValidation.verifiedDocuments.length,
                 unverified: enhancedValidation.unverifiedDocuments.length,
                 warnings: enhancedValidation.warnings.length
@@ -19782,6 +20286,149 @@ app.get('/api/admin/early-registrations-stats', authenticateToken, (req, res) =>
     } catch (error) {
         console.error('Error fetching early registrations stats:', error);
         res.status(500).json({ error: 'Failed to fetch early registrations statistics' });
+    }
+});
+
+// Get audit logs (Admin only)
+app.get('/api/admin/audit-logs', authenticateToken, (req, res) => {
+    try {
+        if (req.user.role !== 'admin') {
+            return res.status(403).json({ error: 'Admin access required' });
+        }
+
+        const limit = parseInt(req.query.limit) || 100;
+        const action = req.query.action || null;
+        
+        let logs = Array.from(database.auditLogs.values());
+        
+        // Filter by action if provided
+        if (action) {
+            logs = logs.filter(log => log.action === action);
+        }
+        
+        // Sort by timestamp (newest first)
+        logs.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+        
+        // Limit results
+        logs = logs.slice(0, limit);
+
+        res.json({
+            success: true,
+            logs,
+            total: logs.length,
+            timestamp: new Date().toISOString()
+        });
+
+    } catch (error) {
+        console.error('Error fetching audit logs:', error);
+        res.status(500).json({ error: 'Failed to fetch audit logs' });
+    }
+});
+
+// Get active sessions (Admin only)
+app.get('/api/admin/sessions', authenticateToken, (req, res) => {
+    try {
+        if (req.user.role !== 'admin') {
+            return res.status(403).json({ error: 'Admin access required' });
+        }
+
+        const userId = req.query.userId || null;
+        const activeOnly = req.query.activeOnly === 'true';
+        
+        let sessions = Array.from(database.sessions.values());
+        
+        // Filter by userId if provided
+        if (userId) {
+            sessions = sessions.filter(s => s.userId === userId);
+        }
+        
+        // Filter active sessions if requested
+        if (activeOnly) {
+            const now = new Date();
+            sessions = sessions.filter(s => {
+                if (!s.active) return false;
+                const expiresAt = new Date(s.expiresAt);
+                return expiresAt > now;
+            });
+        }
+        
+        // Sort by last activity (newest first)
+        sessions.sort((a, b) => new Date(b.lastActivity) - new Date(a.lastActivity));
+
+        res.json({
+            success: true,
+            sessions,
+            total: sessions.length,
+            timestamp: new Date().toISOString()
+        });
+
+    } catch (error) {
+        console.error('Error fetching sessions:', error);
+        res.status(500).json({ error: 'Failed to fetch sessions' });
+    }
+});
+
+// Terminate session (Admin or user)
+app.post('/api/admin/sessions/:sessionId/terminate', authenticateToken, (req, res) => {
+    try {
+        const sessionId = req.params.sessionId;
+        const userId = req.user.userId;
+        
+        // Only admin can terminate any session, users can only terminate their own
+        if (req.user.role !== 'admin') {
+            const session = database.sessions.get(sessionId);
+            if (!session || session.userId !== userId) {
+                return res.status(403).json({ error: 'You can only terminate your own sessions' });
+            }
+        }
+        
+        const terminated = terminateSession(sessionId, userId);
+        
+        if (terminated) {
+            logAuditEvent('session_terminated', userId, { sessionId, terminatedBy: req.user.email });
+            res.json({
+                success: true,
+                message: 'Session terminated successfully',
+                timestamp: new Date().toISOString()
+            });
+        } else {
+            res.status(404).json({ error: 'Session not found' });
+        }
+
+    } catch (error) {
+        console.error('Error terminating session:', error);
+        res.status(500).json({ error: 'Failed to terminate session' });
+    }
+});
+
+// Manual backup trigger (Admin only)
+app.post('/api/admin/backup', authenticateToken, (req, res) => {
+    try {
+        if (req.user.role !== 'admin') {
+            return res.status(403).json({ error: 'Admin access required' });
+        }
+
+        const backup = createBackup();
+        
+        if (backup.success) {
+            res.json({
+                success: true,
+                message: 'Backup created successfully',
+                backup: {
+                    file: backup.file,
+                    timestamp: backup.timestamp
+                }
+            });
+        } else {
+            res.status(500).json({
+                success: false,
+                error: backup.error
+            });
+        }
+
+    } catch (error) {
+        console.error('Error creating backup:', error);
+        res.status(500).json({ error: 'Failed to create backup' });
     }
 });
 
