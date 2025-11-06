@@ -410,6 +410,15 @@ function logAuditEvent(action, userId, details = {}) {
     
     database.auditLogs.set(logId, auditLog);
     
+    // Log to console for visibility
+    console.log(`📋 AUDIT: ${action} | User: ${userId || 'system'} | Time: ${auditLog.timestamp}`);
+    if (details.email) {
+        console.log(`   Email: ${details.email}`);
+    }
+    if (details.ip && details.ip !== 'unknown') {
+        console.log(`   IP: ${details.ip}`);
+    }
+    
     // Keep only last 10,000 audit logs in memory (older logs should be archived)
     if (database.auditLogs.size > 10000) {
         const firstKey = database.auditLogs.keys().next().value;
@@ -2521,10 +2530,12 @@ app.get('/signup', (req, res) => {
             label { display: block; margin-bottom: 0.5rem; color: #333; font-weight: 600; }
             input, select { width: 100%; padding: 12px; border: 2px solid #e5e5e5; border-radius: 8px; font-size: 1rem; }
             input:focus, select:focus { outline: none; border-color: #ffffff; }
-            .btn { width: 100%; padding: 15px; background: #ffffff; color: #000000; border: none; border-radius: 8px; font-size: 1.1rem; font-weight: 600; cursor: pointer; margin-top: 1rem; }
-            .btn:hover { background: #cccccc; }
+            .btn { width: 100%; padding: 15px; background: #1e3c72; color: white; border: none; border-radius: 8px; font-size: 1.1rem; font-weight: 600; cursor: pointer; margin-top: 1rem; transition: background 0.3s; }
+            .btn:hover { background: #2a4f8a; }
+            .btn:disabled { background: #cccccc; cursor: not-allowed; }
             .links { text-align: center; margin-top: 2rem; }
-            .links a { color: #ffffff; text-decoration: none; }
+            .links a { color: #1976d2; text-decoration: none; }
+            .links a:hover { text-decoration: underline; }
             .message { padding: 1rem; margin-bottom: 1rem; border-radius: 8px; display: none; }
             .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
             .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
@@ -2636,7 +2647,7 @@ app.get('/signup', (req, res) => {
             </div>
             
             <div id="message" class="message"></div>
-            <form id="signupForm">
+            <form id="signupForm" onsubmit="event.preventDefault(); event.stopPropagation(); return false;" action="javascript:void(0);" method="post">
                 <div class="form-group">
                     <label for="email">Email Address *</label>
                     <input type="email" id="email" placeholder="your@email.com" required>
@@ -2687,18 +2698,23 @@ app.get('/signup', (req, res) => {
                     </div>
                 </div>
                 
-                <div class="form-group" style="margin-top: 1.5rem;">
-                    <label style="display: flex; align-items: flex-start; gap: 0.5rem; cursor: pointer;">
-                        <input type="checkbox" id="acceptTerms" required style="margin-top: 0.25rem; transform: scale(1.2); cursor: pointer;">
-                        <span style="font-size: 0.9rem; line-height: 1.5;">
-                            I agree to the <a href="/terms" target="_blank" style="color: #ffffff; text-decoration: underline;">Terms of Service</a>, 
-                            <a href="/privacy" target="_blank" style="color: #ffffff; text-decoration: underline;">Privacy Policy</a>, 
-                            and <a href="/user-agreement" target="_blank" style="color: #ffffff; text-decoration: underline;">User Agreement</a> *
+                <div class="form-group" style="margin-top: 1.5rem; padding: 1rem; background: #f9f9f9; border-radius: 8px;">
+                    <label style="display: flex; align-items: flex-start; gap: 0.75rem; cursor: pointer;">
+                        <input type="checkbox" id="acceptTerms" required style="margin-top: 0.25rem; transform: scale(1.3); cursor: pointer; flex-shrink: 0; width: 20px; height: 20px;">
+                        <span style="font-size: 0.95rem; line-height: 1.6; color: #333; flex: 1;">
+                            I agree to the 
+                            <a href="/terms" target="_blank" style="color: #1976d2; text-decoration: underline; font-weight: 500;">Terms of Service</a>, 
+                            <a href="/privacy" target="_blank" style="color: #1976d2; text-decoration: underline; font-weight: 500;">Privacy Policy</a>, 
+                            and 
+                            <a href="/user-agreement" target="_blank" style="color: #1976d2; text-decoration: underline; font-weight: 500;">User Agreement</a>
+                            <span style="color: #ef4444;">*</span>
                         </span>
                     </label>
                 </div>
                 
-                <button type="submit" class="btn" id="submitBtn">Create Account & Continue to KYC</button>
+                <button type="button" class="btn" id="submitBtn" style="width: 100%; padding: 15px; background: #1e3c72; color: white; border: none; border-radius: 8px; font-size: 1.1rem; font-weight: 600; cursor: pointer; margin-top: 1.5rem; transition: background 0.3s;">
+                    Create Account & Continue to KYC
+                </button>
             </form>
             
             <div class="links">
@@ -2710,115 +2726,167 @@ app.get('/signup', (req, res) => {
         <script>
             console.log('✅ Signup page loaded');
             
+            // Prevent any accidental redirects
+            window.addEventListener('beforeunload', function(e) {
+                console.log('⚠️ Page unloading - this should not happen on form submission');
+            });
+            
+            // Global error handler to prevent redirects
+            window.addEventListener('error', function(e) {
+                console.error('❌ Global error caught:', e.error);
+                e.preventDefault();
+            });
+            
             // Handle form submission - prevent default form submission
             const form = document.getElementById('signupForm');
             if (!form) {
                 console.error('❌ Form not found!');
             } else {
                 console.log('✅ Form found, attaching event listener');
+                // Make absolutely sure form can't submit
+                form.setAttribute('onsubmit', 'return false;');
+                form.setAttribute('action', 'javascript:void(0);');
+                form.setAttribute('method', 'post');
             }
             
-            form.addEventListener('submit', async (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                console.log('📝 Form submission intercepted');
-                
-                // Check terms acceptance
-                const acceptTerms = document.getElementById('acceptTerms').checked;
-                if (!acceptTerms) {
-                    showMessage('You must agree to the Terms of Service, Privacy Policy, and User Agreement to continue', 'error');
-                    return;
-                }
-                
-                const formData = {
-                    email: document.getElementById('email').value,
-                    password: document.getElementById('password').value,
-                    role: document.getElementById('role').value,
-                    companyName: document.getElementById('companyName').value,
-                    companyType: document.getElementById('companyType').value,
-                    acceptTerms: true,
-                    termsAcceptedAt: new Date().toISOString()
-                };
-                
-                // Validate password strength
-                const passwordStrength = checkPasswordStrength(formData.password);
-                if (passwordStrength.score < 3) {
-                    showMessage('Password is too weak. Please use a stronger password.', 'error');
-                    return;
-                }
-                
-                // Validate all required fields
-                if (!formData.email || !formData.password || !formData.role || !formData.companyName || !formData.companyType) {
-                    showMessage('Please fill in all required fields', 'error');
-                    return;
-                }
-                
-                console.log('🚀 Submitting registration:', formData);
-                
-                try {
-                    const response = await fetch('/api/auth/register', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(formData)
-                    });
-                    
-                    console.log('📡 Registration response status:', response.status);
-                    
-                    const data = await response.json();
-                    console.log('📊 Registration response data:', data);
-                    
-                    if (response.ok && data.success) {
-                        // Store user data
-                        localStorage.setItem('token', data.token);
-                        localStorage.setItem('user', JSON.stringify(data.user));
-                        
-                        console.log('✅ Registration successful!');
-                        console.log('🔑 Token:', data.token);
-                        console.log('👤 User:', data.user);
-                        console.log('📍 Redirect URL:', data.redirectUrl);
-                        
-                        showMessage('Account created successfully! Redirecting...', 'success');
-                        
-                        // Redirect based on server response or default behavior
-                        setTimeout(() => {
-                            // Use redirectUrl from server response if available, otherwise use deployed version's default
-                            let redirectUrl;
-                            if (data.redirectUrl) {
-                                // Server specifies redirect (e.g., to KYC for workflow)
-                                redirectUrl = data.redirectUrl;
-                            } else {
-                                // Default behavior (matching deployed version)
-                                if (data.user.role === 'insurer') {
-                                    redirectUrl = '/dashboard/insurer';
-                                } else {
-                                    redirectUrl = '/dashboard/authenticated?role=' + data.user.role;
-                                }
-                            }
-                            
-                            // Add token to URL
-                            const fullUrl = redirectUrl + (redirectUrl.includes('?') ? '&' : '?') + 'token=' + encodeURIComponent(data.token);
-                            console.log('🚀 Redirecting to:', fullUrl);
-                            window.location.href = fullUrl;
-                        }, 1500);
-                    } else {
-                        // Show error message
-                        const errorMsg = data.error || 'Unknown error';
-                        showMessage('Registration failed: ' + errorMsg, 'error');
-                        console.error('Registration failed:', data);
-                    }
-                } catch (error) {
-                    console.error('❌ Registration error:', error);
-                    console.error('Error details:', error.message, error.stack);
-                    showMessage('Network error: ' + error.message + '. Please check console for details.', 'error');
-                }
-            });
+            // Also handle button click - PRIMARY handler
+            const submitBtn = document.getElementById('submitBtn');
+            if (!submitBtn) {
+                console.error('❌ Submit button not found!');
+            } else {
+                console.log('✅ Submit button found');
+            }
             
-            // Also handle button click as backup
-            document.getElementById('submitBtn').addEventListener('click', function(e) {
-                e.preventDefault();
-                console.log('🔘 Submit button clicked');
-                form.dispatchEvent(new Event('submit'));
-            });
+            if (submitBtn) {
+                // Remove any existing listeners by cloning and replacing
+                const newBtn = submitBtn.cloneNode(true);
+                submitBtn.parentNode.replaceChild(newBtn, submitBtn);
+                
+                newBtn.addEventListener('click', async function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    e.stopImmediatePropagation();
+                    console.log('🔘 Submit button clicked - PRIMARY HANDLER');
+                    console.log('🔍 Event type:', e.type);
+                    console.log('🔍 Event target:', e.target);
+                    
+                    // Disable button to prevent double submission
+                    const btn = e.target;
+                    btn.disabled = true;
+                    const originalText = btn.textContent;
+                    btn.textContent = 'Creating Account...';
+                    
+                    try {
+                        // Check terms acceptance
+                        const acceptTerms = document.getElementById('acceptTerms');
+                        if (!acceptTerms) {
+                            throw new Error('Terms checkbox not found');
+                        }
+                        if (!acceptTerms.checked) {
+                            showMessage('You must agree to the Terms of Service, Privacy Policy, and User Agreement to continue', 'error');
+                            btn.disabled = false;
+                            btn.textContent = originalText;
+                            return false;
+                        }
+                        
+                        const formData = {
+                            email: document.getElementById('email').value,
+                            password: document.getElementById('password').value,
+                            role: document.getElementById('role').value,
+                            companyName: document.getElementById('companyName').value,
+                            companyType: document.getElementById('companyType').value,
+                            acceptTerms: true,
+                            termsAcceptedAt: new Date().toISOString()
+                        };
+                        
+                        console.log('📋 Form data:', formData);
+                        
+                        // Validate password strength
+                        const passwordStrength = checkPasswordStrength(formData.password);
+                        if (passwordStrength.score < 3) {
+                            showMessage('Password is too weak. Please use a stronger password.', 'error');
+                            btn.disabled = false;
+                            btn.textContent = originalText;
+                            return false;
+                        }
+                        
+                        // Validate all required fields
+                        if (!formData.email || !formData.password || !formData.role || !formData.companyName || !formData.companyType) {
+                            showMessage('Please fill in all required fields', 'error');
+                            btn.disabled = false;
+                            btn.textContent = originalText;
+                            return false;
+                        }
+                        
+                        console.log('🚀 Submitting registration to /api/auth/register');
+                        
+                        const response = await fetch('/api/auth/register', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(formData)
+                        });
+                        
+                        console.log('📡 Registration response status:', response.status);
+                        console.log('📡 Response OK:', response.ok);
+                        
+                        const responseText = await response.text();
+                        console.log('📡 Raw response:', responseText);
+                        
+                        let data;
+                        try {
+                            data = JSON.parse(responseText);
+                        } catch (parseError) {
+                            console.error('❌ Failed to parse JSON response:', parseError);
+                            throw new Error('Invalid server response');
+                        }
+                        
+                        console.log('📊 Parsed response data:', data);
+                        
+                        if (!response.ok) {
+                            throw new Error(data.error || 'Registration failed');
+                        }
+                        
+                        if (data.success) {
+                            // Store user data
+                            localStorage.setItem('token', data.token);
+                            localStorage.setItem('user', JSON.stringify(data.user));
+                            
+                            console.log('✅ Registration successful!');
+                            showMessage('Account created successfully! Redirecting...', 'success');
+                            
+                            // Redirect based on server response
+                            setTimeout(() => {
+                                const redirectUrl = data.redirectUrl || '/kyc?type=' + data.user.role;
+                                const fullUrl = redirectUrl + (redirectUrl.includes('?') ? '&' : '?') + 'token=' + encodeURIComponent(data.token);
+                                console.log('🚀 Redirecting to:', fullUrl);
+                                window.location.href = fullUrl;
+                            }, 1500);
+                        } else {
+                            throw new Error(data.error || 'Registration failed');
+                        }
+                    } catch (error) {
+                        console.error('❌ Registration error:', error);
+                        console.error('❌ Error stack:', error.stack);
+                        showMessage('Registration failed: ' + error.message, 'error');
+                        btn.disabled = false;
+                        btn.textContent = originalText;
+                    }
+                    
+                    return false;
+                }, true); // Use capture phase
+            }
+            
+            // Form submit handler as backup (but button click is primary)
+            if (form) {
+                form.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    e.stopImmediatePropagation();
+                    console.log('📝 Form submission intercepted (backup handler) - PREVENTING DEFAULT');
+                    console.warn('⚠️ Form submitted directly - this should not happen!');
+                    return false;
+                }, true); // Use capture phase
+            }
             
             // Show message function
             function showMessage(text, type) {
@@ -7500,15 +7568,21 @@ const registerHandler = async (req, res) => {
         database.users.set(email, user);
         
         // Log audit event for registration
-        logAuditEvent('user_registered', userId, {
-            email,
-            role: user.role,
-            companyName: user.companyName,
-            termsAccepted: true,
-            termsAcceptedAt: user.termsAcceptedAt,
-            ip: req.ip || req.connection?.remoteAddress || 'unknown',
-            userAgent: req.headers['user-agent'] || 'unknown'
-        });
+        console.log('🔍 About to log audit event for registration:', userId, email);
+        try {
+            logAuditEvent('user_registered', userId, {
+                email,
+                role: user.role,
+                companyName: user.companyName,
+                termsAccepted: true,
+                termsAcceptedAt: user.termsAcceptedAt,
+                ip: req.ip || req.connection?.remoteAddress || 'unknown',
+                userAgent: req.headers['user-agent'] || 'unknown'
+            });
+            console.log('✅ Audit event logged successfully');
+        } catch (auditError) {
+            console.error('❌ Error logging audit event:', auditError);
+        }
         
         // Handle wallet creation based on user choice
         let wallet;
@@ -7625,13 +7699,19 @@ app.post('/api/auth/login', async (req, res) => {
         database.sessions.set(session.id, session);
         
         // Log audit event for login
-        logAuditEvent('user_login', user.id, {
-            email,
-            role: user.role,
-            sessionId: session.id,
-            ip: req.ip || req.connection?.remoteAddress || 'unknown',
-            userAgent: req.headers['user-agent'] || 'unknown'
-        });
+        console.log('🔍 About to log audit event for login:', user.id, email);
+        try {
+            logAuditEvent('user_login', user.id, {
+                email,
+                role: user.role,
+                sessionId: session.id,
+                ip: req.ip || req.connection?.remoteAddress || 'unknown',
+                userAgent: req.headers['user-agent'] || 'unknown'
+            });
+            console.log('✅ Audit event logged successfully');
+        } catch (auditError) {
+            console.error('❌ Error logging audit event:', auditError);
+        }
         
         console.log('Login successful for:', email, 'Role:', user.role);
         res.json({
@@ -11182,11 +11262,22 @@ app.get('/api/admin/settings', (req, res) => {
   });
 });
 
-// KYC Route - Redirect to dashboard KYC page
+// KYC Route - Redirect to dashboard authenticated route with token preservation
 app.get('/kyc', (req, res) => {
-  console.log('KYC REDIRECT ROUTE HIT! Redirecting to /dashboard/kyc');
-  const queryParams = req.query.type ? `?type=${req.query.type}` : '';
-  res.redirect(`/dashboard/kyc${queryParams}`);
+  console.log('KYC REDIRECT ROUTE HIT! Redirecting to /dashboard/authenticated');
+  const token = req.query.token;
+  const type = req.query.type;
+  
+  // Build query params preserving token
+  const params = new URLSearchParams();
+  if (token) params.append('token', token);
+  if (type) params.append('role', type); // Use 'role' instead of 'type' for dashboard/authenticated
+  
+  const queryString = params.toString();
+  const redirectUrl = `/dashboard/authenticated${queryString ? '?' + queryString : ''}`;
+  
+  console.log('🔄 Redirecting to:', redirectUrl);
+  res.redirect(redirectUrl);
 });
 
 // KYC route removed to prevent conflicts - KYC is now handled directly in dashboard/authenticated
