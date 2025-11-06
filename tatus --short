@@ -1,0 +1,24 @@
+warning: in the working copy of 'INDEPENDENT-IMPROVEMENTS.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'lib/contract-extractor.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'lib/document-verification.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'price-prediction-integration.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'server-WORKING-FIXED.js', LF will be replaced by CRLF the next time Git touches it
+cloudflare-worker-traidefi.js
+config.env.example
+legal/privacy-policy.html
+legal/terms-of-service.html
+legal/user-agreement.html
+lib/credit-bureaus/dnb-client.js
+lib/credit-bureaus/equifax-client.js
+lib/credit-bureaus/experian-client.js
+lib/credit-bureaus/index.js
+lib/deal-risk-scorer.js
+lib/kyc-document-extractor.js
+node_modules/.package-lock.json
+price-prediction-service/API-PRICING-INFO.md
+price-prediction-service/__pycache__/enhanced_analyzer.cpython-314.pyc
+price-prediction-service/__pycache__/news_analyzer.cpython-314.pyc
+price-prediction-service/__pycache__/price_predictor.cpython-314.pyc
+price-prediction-service/news_analyzer.py
+price-prediction-service/requirements.txt
+server-WORKING-FIXED.js

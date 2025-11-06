@@ -9,6 +9,9 @@ const jwt = require('jsonwebtoken');
 const session = require('express-session');
 const { spawn } = require('child_process');
 const axios = require('axios');
+const speakeasy = require('speakeasy');
+const QRCode = require('qrcode');
+const crypto = require('crypto');
 require('dotenv').config({ path: './config.env' });
 
 // Database integration
@@ -507,6 +510,198 @@ function cleanupExpiredSessions() {
     if (cleaned > 0) {
         console.log(`[INFO] Cleaned up ${cleaned} expired sessions`);
     }
+}
+
+// ================================
+// TWO-FACTOR AUTHENTICATION (2FA) SYSTEM
+// ================================
+
+// Generate 2FA secret for a user
+function generate2FASecret(userEmail) {
+    const secret = speakeasy.generateSecret({
+        name: `Traidefi (${userEmail})`,
+        issuer: 'Traidefi Platform'
+    });
+    
+    return {
+        secret: secret.base32,
+        otpauthUrl: secret.otpauth_url
+    };
+}
+
+// Generate QR code for 2FA setup
+async function generate2FAQRCode(otpauthUrl) {
+    try {
+        const qrCodeDataURL = await QRCode.toDataURL(otpauthUrl);
+        return qrCodeDataURL;
+    } catch (error) {
+        console.error('Error generating QR code:', error);
+        throw new Error('Failed to generate QR code');
+    }
+}
+
+// Verify 2FA token
+function verify2FAToken(token, secret) {
+    return speakeasy.totp.verify({
+        secret: secret,
+        encoding: 'base32',
+        token: token,
+        window: 2 // Allow 2 time steps (60 seconds) tolerance
+    });
+}
+
+// Generate backup codes
+function generateBackupCodes(count = 10) {
+    const codes = [];
+    for (let i = 0; i < count; i++) {
+        // Generate 8-digit backup code
+        const code = Math.floor(10000000 + Math.random() * 90000000).toString();
+        codes.push(code);
+    }
+    return codes;
+}
+
+// Hash backup codes for storage
+async function hashBackupCodes(codes) {
+    const hashedCodes = [];
+    for (const code of codes) {
+        const hashed = await bcrypt.hash(code, 10);
+        hashedCodes.push(hashed);
+    }
+    return hashedCodes;
+}
+
+// Verify backup code
+async function verifyBackupCode(code, hashedCodes) {
+    for (const hashedCode of hashedCodes) {
+        const match = await bcrypt.compare(code, hashedCode);
+        if (match) {
+            return true;
+        }
+    }
+    return false;
+}
+
+// ================================
+// EMAIL/SMS CODE 2FA SYSTEM
+// ================================
+
+// Generate 6-digit code for email/SMS
+function generateEmailCode() {
+    return Math.floor(100000 + Math.random() * 900000).toString(); // 6-digit code
+}
+
+// Store email codes temporarily (expire after 10 minutes)
+const emailCodes = new Map(); // email -> { code, expiresAt, attempts }
+
+// Send 2FA code via email
+async function send2FACodeEmail(userEmail, code) {
+    try {
+        const htmlContent = `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <style>
+                    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+                    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+                    .code-box { background: #f4f4f4; border: 2px dashed #667eea; padding: 20px; text-align: center; margin: 20px 0; border-radius: 8px; }
+                    .code { font-size: 32px; font-weight: bold; color: #667eea; letter-spacing: 5px; }
+                    .warning { background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin: 20px 0; }
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <h2>Your Two-Factor Authentication Code</h2>
+                    <p>You requested a two-factor authentication code for your Traidefi account.</p>
+                    <div class="code-box">
+                        <div class="code">${code}</div>
+                    </div>
+                    <p>Enter this code to complete your login or enable 2FA.</p>
+                    <div class="warning">
+                        <strong>⚠️ Security Notice:</strong><br>
+                        This code will expire in 10 minutes.<br>
+                        If you didn't request this code, please ignore this email and secure your account.
+                    </div>
+                    <p style="color: #666; font-size: 12px; margin-top: 30px;">
+                        This is an automated message. Please do not reply to this email.
+                    </p>
+                </div>
+            </body>
+            </html>
+        `;
+        
+        const textContent = `
+Your Two-Factor Authentication Code
+
+Your code is: ${code}
+
+This code will expire in 10 minutes.
+
+If you didn't request this code, please ignore this email and secure your account.
+        `;
+        
+        // Use emailService if available, otherwise use transporter
+        if (emailService && emailService.sendEmail) {
+            await emailService.sendEmail(userEmail, 'Your Two-Factor Authentication Code', htmlContent, textContent);
+        } else {
+            await transporter.sendMail({
+                from: process.env.EMAIL_USER || 'noreply@traidefi.com',
+                to: userEmail,
+                subject: 'Your Two-Factor Authentication Code',
+                html: htmlContent,
+                text: textContent
+            });
+        }
+        
+        console.log(`📧 2FA code sent to ${userEmail}`);
+        return true;
+    } catch (error) {
+        console.error('❌ Failed to send 2FA code email:', error);
+        return false;
+    }
+}
+
+// Store email code with expiration
+function storeEmailCode(userEmail, code) {
+    const expiresAt = Date.now() + (10 * 60 * 1000); // 10 minutes
+    emailCodes.set(userEmail, {
+        code: code,
+        expiresAt: expiresAt,
+        attempts: 0
+    });
+    
+    // Clean up expired codes periodically
+    setTimeout(() => {
+        emailCodes.delete(userEmail);
+    }, 10 * 60 * 1000);
+}
+
+// Verify email code
+function verifyEmailCode(userEmail, inputCode) {
+    const stored = emailCodes.get(userEmail);
+    
+    if (!stored) {
+        return { valid: false, error: 'No code found. Please request a new code.' };
+    }
+    
+    if (Date.now() > stored.expiresAt) {
+        emailCodes.delete(userEmail);
+        return { valid: false, error: 'Code expired. Please request a new code.' };
+    }
+    
+    if (stored.attempts >= 5) {
+        emailCodes.delete(userEmail);
+        return { valid: false, error: 'Too many attempts. Please request a new code.' };
+    }
+    
+    stored.attempts++;
+    
+    if (stored.code === inputCode) {
+        emailCodes.delete(userEmail); // Code used, remove it
+        return { valid: true };
+    }
+    
+    return { valid: false, error: 'Invalid code. Please try again.' };
 }
 
 // Automated Backup System
@@ -1040,6 +1235,10 @@ const authenticateToken = (req, res, next) => {
         }
         // For dashboard routes, redirect to login instead of JSON error
         if (req.path.startsWith('/dashboard')) {
+            return res.redirect('/landing-two');
+        }
+        // For settings routes, redirect to login
+        if (req.path.startsWith('/settings')) {
             return res.redirect('/landing-two');
         }
         // For public routes, don't require auth
@@ -1807,17 +2006,31 @@ app.get('/dashboard/authenticated', (req, res) => {
         return res.redirect('/landing-two');
     }
     
+    let user = null;
+    let twoFactorEnabled = false;
+    let twoFactorMethod = null;
+    
     try {
         // Verify token and get user data
         const decoded = jwt.verify(token, process.env.JWT_SECRET || 'tangent-secret-key');
-        const user = database.users.get(decoded.email);
+        user = database.users.get(decoded.email);
         
         if (!user) {
             console.log('❌ User not found in database:', decoded.email);
             return res.redirect('/landing-two');
         }
         
-        console.log('🔍 KYC CHECK - User:', user.email, 'KYC Status:', user.kycStatus, 'Role:', user.role);
+        // Check 2FA status
+        twoFactorEnabled = user.twoFactorEnabled || false;
+        twoFactorMethod = user.twoFactorMethod || null;
+        
+        console.log('🔍 KYC CHECK - User:', user.email, 'KYC Status:', user.kycStatus, 'Role:', user.role, '2FA Enabled:', twoFactorEnabled, '2FA Method:', twoFactorMethod);
+        console.log('🔐 2FA Status Check:', {
+            twoFactorEnabled: twoFactorEnabled,
+            twoFactorMethod: twoFactorMethod,
+            userHas2FA: user.twoFactorEnabled,
+            userHasMethod: user.twoFactorMethod
+        });
         
         // Check if user needs KYC (redirect new users to KYC)  
         if (user.kycStatus !== 'approved' && user.role !== 'admin') {
@@ -1882,13 +2095,81 @@ app.get('/dashboard/authenticated', (req, res) => {
         .status-completed { background: #666666; color: #ffffff; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; }
         .empty-state { text-align: center; padding: 40px; color: #888888; }
         .logout-btn { background: #666666; color: white; padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer; text-decoration: none; font-size: 0.9rem; }
+        .security-banner { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 12px; margin-bottom: 30px; border: 2px solid #ffffff; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; }
+        .security-banner.enabled { background: linear-gradient(135deg, #10b981 0%, #059669 100%); }
+        .security-banner .content { flex: 1; }
+        .security-banner h3 { margin: 0 0 8px 0; font-size: 1.2rem; }
+        .security-banner p { margin: 0; opacity: 0.9; font-size: 0.95rem; }
+        .security-banner .btn { background: white; color: #667eea; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-weight: 600; white-space: nowrap; }
+        .security-banner.enabled .btn { color: #10b981; }
+        .notification-container { position: relative; display: inline-block; }
+        .notification-bell { background: #333333; border: none; color: #ffffff; font-size: 1.5rem; padding: 10px 15px; border-radius: 8px; cursor: pointer; position: relative; }
+        .notification-bell:hover { background: #444444; }
+        .notification-badge { position: absolute; top: 5px; right: 5px; background: #ef4444; color: white; border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: bold; }
+        .notification-panel { position: absolute; top: 100%; right: 0; background: #1a1a1a; border: 1px solid #333333; border-radius: 12px; width: 400px; max-height: 500px; overflow-y: auto; z-index: 1000; display: none; margin-top: 10px; box-shadow: 0 10px 40px rgba(0,0,0,0.5); }
+        .notification-panel.open { display: block; }
+        .notification-header { padding: 15px; border-bottom: 1px solid #333333; display: flex; justify-content: space-between; align-items: center; }
+        .notification-header h3 { margin: 0; color: #ffffff; font-size: 1.1rem; }
+        .notification-item { padding: 15px; border-bottom: 1px solid #333333; cursor: pointer; transition: background 0.2s; }
+        .notification-item:hover { background: #252525; }
+        .notification-item.unread { background: #1f2937; }
+        .notification-item.read { opacity: 0.7; }
+        .notification-title { font-weight: 600; color: #ffffff; margin-bottom: 5px; }
+        .notification-message { color: #cccccc; font-size: 0.9rem; margin-bottom: 5px; }
+        .notification-time { color: #888888; font-size: 0.8rem; }
+        .notification-type { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; margin-right: 8px; }
+        .notification-type.contract { background: #3b82f6; color: white; }
+        .notification-type.payment { background: #10b981; color: white; }
+        .notification-type.kyc { background: #f59e0b; color: white; }
+        .notification-type.security { background: #ef4444; color: white; }
+        .notification-type.system { background: #6b7280; color: white; }
+        .notification-actions { padding: 10px; border-top: 1px solid #333333; text-align: center; }
+        .notification-empty { padding: 40px; text-align: center; color: #888888; }
     </style>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
 </head>
 <body>
     <div class="container">
+        ${(twoFactorEnabled === false || twoFactorEnabled === undefined) ? `
+        <div class="security-banner">
+            <div class="content">
+                <h3>🔐 Protect Your Account</h3>
+                <p>Enable Two-Factor Authentication (2FA) to add an extra layer of security to your account. Choose between Email codes or Authenticator App.</p>
+            </div>
+            <a href="/settings/2fa?token=${token}" class="btn">Enable 2FA Now →</a>
+        </div>
+        ` : `
+        <div class="security-banner enabled">
+            <div class="content">
+                <h3>✅ Account Protected</h3>
+                <p>Two-Factor Authentication is enabled using ${twoFactorMethod === 'email' ? 'Email Code' : 'Authenticator App'} method.</p>
+            </div>
+            <a href="/settings/2fa?token=${token}" class="btn">Manage 2FA →</a>
+        </div>
+        `}
+        
         <div class="header">
             <h1>My Contracts Dashboard</h1>
-            <div>
+            <div style="display: flex; align-items: center; gap: 15px;">
+                <div class="notification-container">
+                    <button class="notification-bell" id="notificationBell" onclick="toggleNotifications()">
+                        🔔
+                        <span class="notification-badge" id="notificationBadge" style="display: none;">0</span>
+                    </button>
+                    <div class="notification-panel" id="notificationPanel">
+                        <div class="notification-header">
+                            <h3>Notifications</h3>
+                            <button onclick="markAllAsRead()" style="background: #666; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 0.85rem;">Mark all read</button>
+                        </div>
+                        <div id="notificationList">
+                            <div class="notification-empty">Loading notifications...</div>
+                        </div>
+                        <div class="notification-actions">
+                            <button onclick="loadNotifications()" style="background: #666; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">Refresh</button>
+                        </div>
+                    </div>
+                </div>
+                <div>
                 <span class="role-badge">${safeRole.toUpperCase()}</span>
                 <button class="logout-btn" onclick="logout()">Logout</button>
             </div>
@@ -2273,6 +2554,196 @@ app.get('/dashboard/authenticated', (req, res) => {
         }
         function logout() { localStorage.removeItem('token'); localStorage.removeItem('user'); window.location.href = '/landing-two'; }
         
+        // ================================
+        // NOTIFICATION SYSTEM
+        // ================================
+        let socket = null;
+        let notifications = [];
+        let unreadCount = 0;
+        
+        // Initialize WebSocket connection
+        function initWebSocket() {
+            try {
+                const token = localStorage.getItem('token');
+                if (!token) return;
+                
+                socket = io({
+                    transports: ['websocket', 'polling'],
+                    reconnection: true,
+                    reconnectionDelay: 1000,
+                    reconnectionAttempts: 5
+                });
+                
+                socket.on('connect', () => {
+                    console.log('✅ WebSocket connected');
+                    socket.emit('authenticate', { token: token });
+                });
+                
+                socket.on('authenticated', (data) => {
+                    console.log('✅ WebSocket authenticated:', data);
+                    loadNotifications();
+                });
+                
+                socket.on('auth_error', (error) => {
+                    console.error('❌ WebSocket auth error:', error);
+                });
+                
+                socket.on('notification', (notification) => {
+                    console.log('📬 New notification received:', notification);
+                    notifications.unshift(notification);
+                    updateNotificationUI();
+                });
+                
+                socket.on('notifications', (notificationsList) => {
+                    console.log('📬 Pending notifications received:', notificationsList);
+                    notifications = notificationsList.concat(notifications);
+                    updateNotificationUI();
+                });
+                
+                socket.on('disconnect', () => {
+                    console.log('🔌 WebSocket disconnected');
+                });
+            } catch (error) {
+                console.warn('⚠️ WebSocket not available, using polling:', error);
+                loadNotifications();
+                // Poll for notifications every 30 seconds
+                setInterval(loadNotifications, 30000);
+            }
+        }
+        
+        // Load notifications from API
+        async function loadNotifications() {
+            try {
+                const token = localStorage.getItem('token');
+                if (!token) return;
+                
+                const response = await fetch('/api/notifications', {
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    notifications = data.notifications || [];
+                    unreadCount = data.unreadCount || 0;
+                    updateNotificationUI();
+                }
+            } catch (error) {
+                console.error('Failed to load notifications:', error);
+            }
+        }
+        
+        // Update notification UI
+        function updateNotificationUI() {
+            const badge = document.getElementById('notificationBadge');
+            const list = document.getElementById('notificationList');
+            
+            // Update badge
+            if (unreadCount > 0) {
+                badge.textContent = unreadCount > 99 ? '99+' : unreadCount;
+                badge.style.display = 'flex';
+            } else {
+                badge.style.display = 'none';
+            }
+            
+            // Update list
+            if (notifications.length === 0) {
+                list.innerHTML = '<div class="notification-empty">No notifications</div>';
+                return;
+            }
+            
+            list.innerHTML = notifications.map(notif => {
+                const timeAgo = getTimeAgo(notif.createdAt);
+                const typeClass = notif.type || 'system';
+                return \`
+                    <div class="notification-item \${notif.read ? 'read' : 'unread'}" onclick="markAsRead('\${notif.id}')">
+                        <div>
+                            <span class="notification-type \${typeClass}">\${typeClass}</span>
+                            <span class="notification-title">\${notif.title}</span>
+                        </div>
+                        <div class="notification-message">\${notif.message}</div>
+                        <div class="notification-time">\${timeAgo}</div>
+                    </div>
+                \`;
+            }).join('');
+        }
+        
+        // Get time ago string
+        function getTimeAgo(timestamp) {
+            const now = new Date();
+            const time = new Date(timestamp);
+            const diff = Math.floor((now - time) / 1000);
+            
+            if (diff < 60) return 'Just now';
+            if (diff < 3600) return Math.floor(diff / 60) + 'm ago';
+            if (diff < 86400) return Math.floor(diff / 3600) + 'h ago';
+            return Math.floor(diff / 86400) + 'd ago';
+        }
+        
+        // Toggle notification panel
+        function toggleNotifications() {
+            const panel = document.getElementById('notificationPanel');
+            panel.classList.toggle('open');
+            if (panel.classList.contains('open')) {
+                loadNotifications();
+            }
+        }
+        
+        // Mark notification as read
+        async function markAsRead(notificationId) {
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch(\`/api/notifications/\${notificationId}/read\`, {
+                    method: 'POST',
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
+                
+                if (response.ok) {
+                    const notif = notifications.find(n => n.id === notificationId);
+                    if (notif) {
+                        notif.read = true;
+                        unreadCount = Math.max(0, unreadCount - 1);
+                        updateNotificationUI();
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to mark as read:', error);
+            }
+        }
+        
+        // Mark all as read
+        async function markAllAsRead() {
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch('/api/notifications/read-all', {
+                    method: 'POST',
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
+                
+                if (response.ok) {
+                    notifications.forEach(n => n.read = true);
+                    unreadCount = 0;
+                    updateNotificationUI();
+                }
+            } catch (error) {
+                console.error('Failed to mark all as read:', error);
+            }
+        }
+        
+        // Close notification panel when clicking outside
+        document.addEventListener('click', (e) => {
+            const panel = document.getElementById('notificationPanel');
+            const bell = document.getElementById('notificationBell');
+            if (panel && !panel.contains(e.target) && !bell.contains(e.target)) {
+                panel.classList.remove('open');
+            }
+        });
+        
+        // Initialize on page load
+        window.addEventListener('load', () => {
+            initWebSocket();
+            loadNotifications();
+        });
+        
         // Test payDeposit function availability
         window.addEventListener('load', function() {
             console.log('Page loaded. payDeposit function:', typeof payDeposit !== 'undefined' ? 'AVAILABLE' : 'NOT DEFINED');
@@ -2306,7 +2777,7 @@ app.get('/dashboard/:role', authenticateToken, (req, res) => {
         if (req.user.role !== 'admin') {
             return res.status(403).send('<h1>Access Denied</h1><p>Admin access required.</p>');
         }
-        return res.send(createDashboard('admin', req.user));
+        return res.send(createDashboard('admin', req.user, req.query.token || req.headers.authorization?.replace('Bearer ', '') || ''));
     }
     
     // Check if user needs KYC
@@ -2344,11 +2815,11 @@ app.get('/dashboard/:role', authenticateToken, (req, res) => {
     
     // Role-specific routing
     if (role === 'insurer') {
-        return res.send(createDashboard('insurer', req.user));
+        return res.send(createDashboard('insurer', req.user, req.query.token || req.headers.authorization?.replace('Bearer ', '') || ''));
     }
     
     // All other roles go to unified dashboard
-    res.send(createDashboard('unified', req.user));
+    res.send(createDashboard('unified', req.user, req.query.token || req.headers.authorization?.replace('Bearer ', '') || ''));
 });
 
 // Sign In Page
@@ -2414,38 +2885,105 @@ app.get('/signin', (req, res) => {
                     <label for="password">Password</label>
                     <input type="password" id="password" required>
                 </div>
-                <button type="submit" class="btn">Sign In</button>
+                <div class="form-group" id="twoFactorGroup" style="display: none;">
+                    <label for="twoFactorToken">Two-Factor Authentication Code</label>
+                    <input type="text" id="twoFactorToken" placeholder="Enter 6-digit code" maxlength="6" pattern="[0-9]{6}">
+                    <small style="color: #666; font-size: 0.85rem; display: block; margin-top: 0.5rem;">
+                        Enter the code from your authenticator app or use a backup code
+                    </small>
+                </div>
+                <button type="submit" class="btn" id="submitBtn">Sign In</button>
             </form>
             <div class="links">
                 <a href="/signup">Don't have an account? Sign Up</a><br>
+                <a href="/forgot-password">Forgot your password?</a><br>
                 <a href="/">← Back to Home</a>
+            </div>
+            <div style="margin-top: 1.5rem; padding: 1rem; background: #e3f2fd; border-radius: 8px; border-left: 4px solid #2196f3;">
+                <p style="margin: 0; color: #1976d2; font-size: 0.9rem;">
+                    <strong>🔐 Security Tip:</strong> After signing in, enable Two-Factor Authentication (2FA) to protect your account. You'll see a prompt on your dashboard.
+                </p>
             </div>
         </div>
         
         <script>
             console.log('✅ Signin page JavaScript loaded');
+            let loginSessionId = null;
+            let loginEmail = null;
+            let loginPassword = null;
+            
+            async function sendLoginEmailCode(email) {
+                try {
+                    const response = await fetch('/api/auth/2fa/send-login-code', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ email })
+                    });
+                    const data = await response.json();
+                    if (data.success) {
+                        console.log('Email code sent for login');
+                    }
+                } catch (error) {
+                    console.error('Failed to send email code:', error);
+                }
+            }
+            
             document.getElementById('signinForm').addEventListener('submit', async (e) => {
                 e.preventDefault();
                 
                 const email = document.getElementById('email').value;
                 const password = document.getElementById('password').value;
+                const twoFactorToken = document.getElementById('twoFactorToken').value;
                 const messageDiv = document.getElementById('message');
+                const twoFactorGroup = document.getElementById('twoFactorGroup');
                 
                 console.log('🔑 Login form submitted:', email);
                 
                 try {
                     console.log('🚀 Sending login request to server...');
+                    const requestBody = { email, password };
+                    if (twoFactorToken) {
+                        requestBody.twoFactorToken = twoFactorToken;
+                    }
+                    
                     const response = await fetch('/api/auth/login', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ email, password })
+                        body: JSON.stringify(requestBody)
                     });
                     
                     console.log('📡 Response received:', response.status, response.ok);
                     const data = await response.json();
                     console.log('📊 Response data:', data);
                     
-                    if (response.ok) {
+                    if (data.requires2FA) {
+                        // Show 2FA input field
+                        loginSessionId = data.sessionId;
+                        loginEmail = email;
+                        loginPassword = password;
+                        twoFactorGroup.style.display = 'block';
+                        document.getElementById('email').disabled = true;
+                        document.getElementById('password').disabled = true;
+                        document.getElementById('twoFactorToken').focus();
+                        
+                        // Update message based on method
+                        if (data.method === 'email') {
+                            messageDiv.className = 'message success';
+                            messageDiv.textContent = 'Please check your email for a 6-digit code';
+                            messageDiv.style.display = 'block';
+                            // Auto-send email code
+                            sendLoginEmailCode(email);
+                        } else {
+                            messageDiv.className = 'message success';
+                            messageDiv.textContent = 'Please enter your two-factor authentication code';
+                            messageDiv.style.display = 'block';
+                        }
+                        
+                        document.getElementById('submitBtn').textContent = 'Verify & Sign In';
+                        return;
+                    }
+                    
+                    if (response.ok && data.token) {
                         localStorage.setItem('token', data.token);
                         localStorage.setItem('user', JSON.stringify(data.user));
                         
@@ -2454,9 +2992,6 @@ app.get('/signin', (req, res) => {
                         messageDiv.style.display = 'block';
                         
                         console.log('✅ Login successful! User data:', data.user);
-                        console.log('🔍 User role:', data.user.role);
-                        console.log('🔍 KYC status:', data.user.kycStatus);
-                        console.log('🔍 Verified:', data.user.verified);
                         
                         // Get redirect URL from query parameter, or default to /dashboard
                         const urlParams = new URLSearchParams(window.location.search);
@@ -2464,7 +2999,6 @@ app.get('/signin', (req, res) => {
                         const redirectUrl = redirectPath || '/dashboard';
                         
                         console.log('🎯 Redirect URL will be:', redirectUrl);
-                        console.log('🎯 Token stored in localStorage');
                         
                         // Redirect to the requested page or dashboard
                         setTimeout(() => {
@@ -2720,6 +3254,11 @@ app.get('/signup', (req, res) => {
             <div class="links">
                 <a href="/signin">Already have an account? Sign In</a><br>
                 <a href="/">← Back to Home</a>
+            </div>
+            <div style="margin-top: 1.5rem; padding: 1rem; background: #e3f2fd; border-radius: 8px; border-left: 4px solid #2196f3;">
+                <p style="margin: 0; color: #1976d2; font-size: 0.9rem;">
+                    <strong>🔐 Security:</strong> After completing signup, we'll help you enable Two-Factor Authentication (2FA) to protect your account.
+                </p>
             </div>
         </div>
         
@@ -3012,6 +3551,414 @@ app.get('/signup', (req, res) => {
     </body>
     </html>
     `);
+});
+
+// ================================
+// TWO-FACTOR AUTHENTICATION (2FA) SETUP PAGE
+// ================================
+
+// 2FA Settings Page - must be before catch-all routes
+app.get('/settings/2fa', authenticateToken, async (req, res) => {
+    try {
+        console.log('🔐 2FA Settings page accessed by:', req.user?.email);
+        const user = database.users.get(req.user.email);
+        if (!user) {
+            console.log('❌ User not found for 2FA settings');
+            return res.redirect('/landing-two');
+        }
+        
+        // Get 2FA status
+        const twoFactorEnabled = user.twoFactorEnabled || false;
+        
+        res.send(`
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Two-Factor Authentication - traidefi</title>
+            <style>
+                * { margin: 0; padding: 0; box-sizing: border-box; }
+                body { 
+                    font-family: 'Arial', sans-serif; 
+                    background: #000000;
+                    min-height: 100vh;
+                    padding: 20px;
+                }
+                .container {
+                    max-width: 600px;
+                    margin: 0 auto;
+                    background: white;
+                    padding: 3rem;
+                    border-radius: 15px;
+                    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+                }
+                h1 { color: #1e3c72; font-size: 2.2rem; margin-bottom: 1rem; text-align: center; }
+                .status-badge {
+                    display: inline-block;
+                    padding: 0.5rem 1rem;
+                    border-radius: 20px;
+                    font-size: 0.9rem;
+                    font-weight: 600;
+                    margin-bottom: 2rem;
+                }
+                .status-enabled { background: #d4edda; color: #155724; }
+                .status-disabled { background: #f8d7da; color: #721c24; }
+                .form-group { margin-bottom: 1.5rem; }
+                label { display: block; margin-bottom: 0.5rem; color: #333; font-weight: 600; }
+                input { width: 100%; padding: 12px; border: 2px solid #e5e5e5; border-radius: 8px; font-size: 1rem; }
+                input:focus { outline: none; border-color: #667eea; }
+                .btn { padding: 12px 24px; background: #667eea; color: white; border: none; border-radius: 8px; font-size: 1rem; font-weight: 600; cursor: pointer; margin-right: 0.5rem; }
+                .btn:hover { background: #5a6fd8; }
+                .btn-danger { background: #dc3545; }
+                .btn-danger:hover { background: #c82333; }
+                .btn-secondary { background: #6c757d; }
+                .btn-secondary:hover { background: #5a6268; }
+                .message { padding: 1rem; margin-bottom: 1rem; border-radius: 8px; display: none; }
+                .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+                .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+                .qr-code-container { text-align: center; margin: 2rem 0; padding: 1rem; background: #f9f9f9; border-radius: 8px; }
+                .qr-code-container img { max-width: 250px; border: 2px solid #ddd; border-radius: 8px; }
+                .manual-key { 
+                    background: #f5f5f5; 
+                    padding: 1rem; 
+                    border-radius: 8px; 
+                    font-family: monospace; 
+                    word-break: break-all;
+                    margin: 1rem 0;
+                }
+                .backup-codes {
+                    background: #fff3cd;
+                    border: 1px solid #ffc107;
+                    border-radius: 8px;
+                    padding: 1rem;
+                    margin: 1rem 0;
+                }
+                .backup-codes code {
+                    display: block;
+                    margin: 0.5rem 0;
+                    font-family: monospace;
+                    font-size: 1.1rem;
+                    color: #856404;
+                }
+                .info-box {
+                    background: #e3f2fd;
+                    border-left: 4px solid #2196f3;
+                    padding: 1rem;
+                    margin: 1rem 0;
+                    border-radius: 4px;
+                }
+                .links { text-align: center; margin-top: 2rem; }
+                .links a { color: #667eea; text-decoration: none; }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <h1>🔐 Two-Factor Authentication</h1>
+                <div style="text-align: center;">
+                    <span class="status-badge ${twoFactorEnabled ? 'status-enabled' : 'status-disabled'}">
+                        ${twoFactorEnabled ? '✅ Enabled' : '❌ Disabled'}
+                    </span>
+                </div>
+                
+                <div id="message" class="message"></div>
+                
+                ${twoFactorEnabled ? `
+                    <div class="info-box">
+                        <strong>2FA is currently enabled</strong><br>
+                        Method: ${user.twoFactorMethod === 'email' ? '📧 Email Code' : '🔐 Authenticator App'}<br>
+                        Your account is protected with two-factor authentication.
+                    </div>
+                    <div>
+                        <button class="btn btn-danger" onclick="disable2FA()">Disable 2FA</button>
+                        ${user.twoFactorMethod === 'totp' ? '<button class="btn btn-secondary" onclick="regenerateBackupCodes()">Regenerate Backup Codes</button>' : ''}
+                    </div>
+                ` : `
+                    <div id="setupSection">
+                        <div class="info-box">
+                            <strong>What is Two-Factor Authentication?</strong><br>
+                            Two-factor authentication adds an extra layer of security to your account. 
+                            Choose your preferred method below.
+                        </div>
+                        
+                        <div id="setupStep1">
+                            <h3 style="margin-top: 2rem; margin-bottom: 1rem;">Choose Your 2FA Method:</h3>
+                            
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin: 2rem 0;">
+                                <div style="border: 2px solid #e5e5e5; border-radius: 8px; padding: 1.5rem; text-align: center; cursor: pointer;" onclick="startEmail2FA()" onmouseover="this.style.borderColor='#667eea'" onmouseout="this.style.borderColor='#e5e5e5'">
+                                    <div style="font-size: 3rem; margin-bottom: 1rem;">📧</div>
+                                    <h4 style="color: #1e3c72; margin-bottom: 0.5rem;">Email Code</h4>
+                                    <p style="color: #666; font-size: 0.9rem;">Simple & Easy<br>Code sent to your email</p>
+                                </div>
+                                
+                                <div style="border: 2px solid #e5e5e5; border-radius: 8px; padding: 1.5rem; text-align: center; cursor: pointer;" onclick="startTOTP2FA()" onmouseover="this.style.borderColor='#667eea'" onmouseout="this.style.borderColor='#e5e5e5'">
+                                    <div style="font-size: 3rem; margin-bottom: 1rem;">🔐</div>
+                                    <h4 style="color: #1e3c72; margin-bottom: 0.5rem;">Authenticator App</h4>
+                                    <p style="color: #666; font-size: 0.9rem;">More Secure<br>Google Authenticator, Authy</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Email Method Setup -->
+                        <div id="setupEmail" style="display: none;">
+                            <h3 style="margin-top: 2rem; margin-bottom: 1rem;">Email Code Method</h3>
+                            <div class="info-box">
+                                We'll send a 6-digit code to your email address: <strong>${user.email}</strong>
+                            </div>
+                            <button class="btn" onclick="sendEmailCode()">Send Code to Email</button>
+                            <button class="btn btn-secondary" onclick="cancelSetup()">Cancel</button>
+                            
+                            <div id="emailCodeStep" style="display: none; margin-top: 2rem;">
+                                <div class="form-group">
+                                    <label for="emailVerifyToken">Enter the 6-digit code sent to your email:</label>
+                                    <input type="text" id="emailVerifyToken" placeholder="000000" maxlength="6" pattern="[0-9]{6}">
+                                </div>
+                                <button class="btn" onclick="verifyAndEnableEmail2FA()">Verify & Enable</button>
+                                <button class="btn btn-secondary" onclick="sendEmailCode()">Resend Code</button>
+                            </div>
+                        </div>
+                        
+                        <!-- TOTP Method Setup -->
+                        <div id="setupTOTP" style="display: none;">
+                            <h3 style="margin-top: 2rem; margin-bottom: 1rem;">Step 1: Scan QR Code</h3>
+                            <div class="qr-code-container">
+                                <img id="qrCodeImage" src="" alt="QR Code">
+                            </div>
+                            
+                            <h3 style="margin-top: 2rem; margin-bottom: 1rem;">Step 2: Enter Verification Code</h3>
+                            <div class="form-group">
+                                <label for="verifyToken">Enter the 6-digit code from your app:</label>
+                                <input type="text" id="verifyToken" placeholder="000000" maxlength="6" pattern="[0-9]{6}">
+                            </div>
+                            <button class="btn" onclick="verifyAndEnableTOTP2FA()">Verify & Enable</button>
+                            <button class="btn btn-secondary" onclick="cancelSetup()">Cancel</button>
+                            
+                            <div style="margin-top: 1rem;">
+                                <strong>Or enter manually:</strong>
+                                <div class="manual-key" id="manualKey"></div>
+                            </div>
+                        </div>
+                    </div>
+                `}
+                
+                <div id="backupCodesSection" style="display: none;">
+                    <h3 style="margin-top: 2rem;">Backup Codes</h3>
+                    <div class="info-box">
+                        <strong>⚠️ Save these codes!</strong><br>
+                        These codes can be used to access your account if you lose your authenticator device. 
+                        Each code can only be used once.
+                    </div>
+                    <div class="backup-codes" id="backupCodesDisplay"></div>
+                    <button class="btn btn-secondary" onclick="closeBackupCodes()">I've Saved These Codes</button>
+                </div>
+                
+                <div class="links">
+                    <a href="/dashboard/authenticated?token=${req.query.token || ''}">← Back to Dashboard</a>
+                </div>
+            </div>
+            
+            <script>
+                const token = '${req.query.token || ''}';
+                let setupSecret = null;
+                let currentMethod = null;
+                
+                function showMessage(text, type) {
+                    const messageDiv = document.getElementById('message');
+                    messageDiv.textContent = text;
+                    messageDiv.className = 'message ' + type;
+                    messageDiv.style.display = 'block';
+                    setTimeout(() => {
+                        messageDiv.style.display = 'none';
+                    }, 5000);
+                }
+                
+                function startEmail2FA() {
+                    currentMethod = 'email';
+                    document.getElementById('setupStep1').style.display = 'none';
+                    document.getElementById('setupEmail').style.display = 'block';
+                }
+                
+                async function startTOTP2FA() {
+                    currentMethod = 'totp';
+                    try {
+                        const response = await fetch('/api/auth/2fa/setup', {
+                            headers: { 'Authorization': 'Bearer ' + token }
+                        });
+                        const data = await response.json();
+                        
+                        if (data.success) {
+                            setupSecret = data.secret;
+                            document.getElementById('qrCodeImage').src = data.qrCode;
+                            document.getElementById('manualKey').textContent = data.manualEntryKey;
+                            document.getElementById('setupStep1').style.display = 'none';
+                            document.getElementById('setupTOTP').style.display = 'block';
+                            showMessage('QR code generated. Please scan it with your authenticator app.', 'success');
+                        } else {
+                            showMessage('Failed to generate 2FA setup', 'error');
+                        }
+                    } catch (error) {
+                        showMessage('Error: ' + error.message, 'error');
+                    }
+                }
+                
+                async function sendEmailCode() {
+                    try {
+                        const response = await fetch('/api/auth/2fa/send-email-code', {
+                            method: 'POST',
+                            headers: { 'Authorization': 'Bearer ' + token }
+                        });
+                        const data = await response.json();
+                        
+                        if (data.success) {
+                            showMessage('Code sent to your email! Check your inbox.', 'success');
+                            document.getElementById('emailCodeStep').style.display = 'block';
+                        } else {
+                            showMessage(data.error || 'Failed to send code', 'error');
+                        }
+                    } catch (error) {
+                        showMessage('Error: ' + error.message, 'error');
+                    }
+                }
+                
+                async function verifyAndEnableEmail2FA() {
+                    const verifyToken = document.getElementById('emailVerifyToken').value;
+                    if (!verifyToken || verifyToken.length !== 6) {
+                        showMessage('Please enter a valid 6-digit code', 'error');
+                        return;
+                    }
+                    
+                    try {
+                        const response = await fetch('/api/auth/2fa/enable', {
+                            method: 'POST',
+                            headers: { 
+                                'Content-Type': 'application/json',
+                                'Authorization': 'Bearer ' + token
+                            },
+                            body: JSON.stringify({ token: verifyToken, method: 'email' })
+                        });
+                        const data = await response.json();
+                        
+                        if (data.success) {
+                            showMessage('2FA enabled successfully with Email method!', 'success');
+                            setTimeout(() => window.location.reload(), 1500);
+                        } else {
+                            showMessage(data.error || 'Failed to enable 2FA', 'error');
+                        }
+                    } catch (error) {
+                        showMessage('Error: ' + error.message, 'error');
+                    }
+                }
+                
+                async function verifyAndEnableTOTP2FA() {
+                    const verifyToken = document.getElementById('verifyToken').value;
+                    if (!verifyToken || verifyToken.length !== 6) {
+                        showMessage('Please enter a valid 6-digit code', 'error');
+                        return;
+                    }
+                    
+                    try {
+                        const response = await fetch('/api/auth/2fa/enable', {
+                            method: 'POST',
+                            headers: { 
+                                'Content-Type': 'application/json',
+                                'Authorization': 'Bearer ' + token
+                            },
+                            body: JSON.stringify({ token: verifyToken, method: 'totp' })
+                        });
+                        const data = await response.json();
+                        
+                        if (data.success) {
+                            showMessage('2FA enabled successfully!', 'success');
+                            if (data.backupCodes) {
+                                displayBackupCodes(data.backupCodes);
+                            } else {
+                                setTimeout(() => window.location.reload(), 1500);
+                            }
+                        } else {
+                            showMessage(data.error || 'Failed to enable 2FA', 'error');
+                        }
+                    } catch (error) {
+                        showMessage('Error: ' + error.message, 'error');
+                    }
+                }
+                
+                function displayBackupCodes(codes) {
+                    const codesHtml = codes.map(code => '<code>' + code + '</code>').join('');
+                    document.getElementById('backupCodesDisplay').innerHTML = codesHtml;
+                    document.getElementById('backupCodesSection').style.display = 'block';
+                    document.getElementById('setupTOTP').style.display = 'none';
+                }
+                
+                function closeBackupCodes() {
+                    document.getElementById('backupCodesSection').style.display = 'none';
+                    window.location.reload();
+                }
+                
+                function cancelSetup() {
+                    document.getElementById('setupStep1').style.display = 'block';
+                    document.getElementById('setupEmail').style.display = 'none';
+                    document.getElementById('setupTOTP').style.display = 'none';
+                    document.getElementById('emailCodeStep').style.display = 'none';
+                    setupSecret = null;
+                    currentMethod = null;
+                }
+                
+                async function disable2FA() {
+                    const password = prompt('Enter your password to disable 2FA:');
+                    if (!password) return;
+                    
+                    try {
+                        const response = await fetch('/api/auth/2fa/disable', {
+                            method: 'POST',
+                            headers: { 
+                                'Content-Type': 'application/json',
+                                'Authorization': 'Bearer ' + token
+                            },
+                            body: JSON.stringify({ password })
+                        });
+                        const data = await response.json();
+                        
+                        if (data.success) {
+                            showMessage('2FA disabled successfully', 'success');
+                            setTimeout(() => window.location.reload(), 1500);
+                        } else {
+                            showMessage(data.error || 'Failed to disable 2FA', 'error');
+                        }
+                    } catch (error) {
+                        showMessage('Error: ' + error.message, 'error');
+                    }
+                }
+                
+                async function regenerateBackupCodes() {
+                    if (!confirm('This will invalidate your existing backup codes. Continue?')) {
+                        return;
+                    }
+                    
+                    try {
+                        const response = await fetch('/api/auth/2fa/regenerate-backup-codes', {
+                            method: 'POST',
+                            headers: { 'Authorization': 'Bearer ' + token }
+                        });
+                        const data = await response.json();
+                        
+                        if (data.success) {
+                            displayBackupCodes(data.backupCodes);
+                            showMessage('New backup codes generated', 'success');
+                        } else {
+                            showMessage(data.error || 'Failed to regenerate codes', 'error');
+                        }
+                    } catch (error) {
+                        showMessage('Error: ' + error.message, 'error');
+                    }
+                }
+            </script>
+        </body>
+        </html>
+        `);
+    } catch (error) {
+        console.error('2FA setup page error:', error);
+        res.status(500).send('Error loading 2FA setup page');
+    }
 });
 
 // ================================
@@ -7683,10 +8630,82 @@ app.post('/api/auth/login', async (req, res) => {
             return res.status(401).json({ error: 'Invalid credentials' });
         }
         
-        console.log('Password valid, creating token...');
+        console.log('Password valid, checking 2FA...');
         
-        // Create session first (before token generation)
+        // Create temporary session for 2FA flow (will be updated with token after 2FA verification)
         const session = createSession(user.id, null, req);
+        
+        // Check if user has 2FA enabled
+        if (user.twoFactorEnabled && user.twoFactorSecret) {
+            // User has 2FA enabled - require 2FA token
+            const { twoFactorToken } = req.body;
+            
+            if (!twoFactorToken) {
+                // Return response indicating 2FA is required
+                return res.status(200).json({
+                    requires2FA: true,
+                    message: 'Two-factor authentication required',
+                    sessionId: session.id,
+                    method: user.twoFactorMethod || 'totp' // 'totp' or 'email'
+                });
+            }
+            
+            // Verify based on method
+            let isValid = false;
+            let isValidBackupCode = false;
+            
+            if (user.twoFactorMethod === 'email') {
+                // Email code verification
+                const verification = verifyEmailCode(email, twoFactorToken);
+                if (!verification.valid) {
+                    console.log('Invalid email code for:', email);
+                    logAuditEvent('2fa_verification_failed', user.id, {
+                        email,
+                        ip: req.ip || req.connection?.remoteAddress || 'unknown',
+                        method: 'email',
+                        error: verification.error
+                    });
+                    return res.status(401).json({ error: verification.error || 'Invalid code' });
+                }
+                isValid = true;
+            } else {
+                // TOTP verification (default)
+                isValid = verify2FAToken(twoFactorToken, user.twoFactorSecret);
+                
+                // Check backup codes
+                if (user.twoFactorBackupCodes && user.twoFactorBackupCodes.length > 0) {
+                    isValidBackupCode = await verifyBackupCode(twoFactorToken, user.twoFactorBackupCodes);
+                }
+                
+                if (!isValid && !isValidBackupCode) {
+                    console.log('Invalid 2FA token for:', email);
+                    logAuditEvent('2fa_verification_failed', user.id, {
+                        email,
+                        ip: req.ip || req.connection?.remoteAddress || 'unknown'
+                    });
+                    return res.status(401).json({ error: 'Invalid two-factor authentication code' });
+                }
+                
+                // If backup code was used, remove it
+                if (isValidBackupCode && !isValid) {
+                    const remainingCodes = [];
+                    for (const hashed of user.twoFactorBackupCodes) {
+                        const match = await bcrypt.compare(twoFactorToken, hashed);
+                        if (!match) {
+                            remainingCodes.push(hashed);
+                        }
+                    }
+                    user.twoFactorBackupCodes = remainingCodes;
+                    database.users.set(email, user);
+                    logAuditEvent('2fa_backup_code_used', user.id, { email });
+                }
+            }
+            
+            console.log('2FA verified successfully');
+            logAuditEvent('2fa_verification_success', user.id, { email, method: user.twoFactorMethod || 'totp' });
+        }
+        
+        console.log('Creating token...');
         
         const token = jwt.sign(
             { userId: user.id, email, role: user.role, sessionId: session.id },
@@ -7730,6 +8749,871 @@ app.post('/api/auth/login', async (req, res) => {
     } catch (error) {
         console.error('Login error:', error);
         res.status(500).json({ error: 'Login failed' });
+    }
+});
+
+// ================================
+// ACCOUNT RECOVERY SYSTEM
+// ================================
+
+// Rate limiting for password reset requests
+const passwordResetAttempts = new Map(); // email -> { count, lastAttempt }
+
+function checkPasswordResetRateLimit(email) {
+    const now = Date.now();
+    const attempts = passwordResetAttempts.get(email);
+    
+    if (!attempts) {
+        passwordResetAttempts.set(email, { count: 1, lastAttempt: now });
+        return { allowed: true };
+    }
+    
+    // Reset count if more than 1 hour has passed
+    if (now - attempts.lastAttempt > 60 * 60 * 1000) {
+        passwordResetAttempts.set(email, { count: 1, lastAttempt: now });
+        return { allowed: true };
+    }
+    
+    // Allow max 3 requests per hour
+    if (attempts.count >= 3) {
+        const timeUntilReset = 60 * 60 * 1000 - (now - attempts.lastAttempt);
+        const minutesLeft = Math.ceil(timeUntilReset / (60 * 1000));
+        return { 
+            allowed: false, 
+            error: `Too many password reset requests. Please try again in ${minutesLeft} minute(s).` 
+        };
+    }
+    
+    attempts.count++;
+    attempts.lastAttempt = now;
+    return { allowed: true };
+}
+
+// Generate password reset token
+function generatePasswordResetToken() {
+    return crypto.randomBytes(32).toString('hex');
+}
+
+// Send password reset email
+async function sendPasswordResetEmail(userEmail, resetToken) {
+    try {
+        const resetUrl = `${process.env.BASE_URL || 'http://localhost:4000'}/reset-password?token=${resetToken}`;
+        
+        const htmlContent = `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <style>
+                    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+                    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+                    .button { background: #667eea; color: white; padding: 15px 30px; text-decoration: none; border-radius: 8px; display: inline-block; margin: 20px 0; }
+                    .warning { background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin: 20px 0; }
+                    .code-box { background: #f4f4f4; padding: 15px; border-radius: 8px; font-family: monospace; margin: 20px 0; word-break: break-all; }
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <h2>Password Reset Request</h2>
+                    <p>You requested to reset your password for your Traidefi account.</p>
+                    <p>Click the button below to reset your password:</p>
+                    <a href="${resetUrl}" class="button">Reset Password</a>
+                    <p>Or copy and paste this link into your browser:</p>
+                    <div class="code-box">${resetUrl}</div>
+                    <div class="warning">
+                        <strong>⚠️ Security Notice:</strong><br>
+                        This link will expire in 24 hours.<br>
+                        If you didn't request this password reset, please ignore this email and secure your account.
+                    </div>
+                    <p style="color: #666; font-size: 12px; margin-top: 30px;">
+                        This is an automated message. Please do not reply to this email.
+                    </p>
+                </div>
+            </body>
+            </html>
+        `;
+        
+        const textContent = `
+Password Reset Request
+
+You requested to reset your password for your Traidefi account.
+
+Click this link to reset your password:
+${resetUrl}
+
+This link will expire in 24 hours.
+
+If you didn't request this password reset, please ignore this email and secure your account.
+        `;
+        
+        // Use emailService if available, otherwise use transporter
+        if (emailService && emailService.sendEmail) {
+            await emailService.sendEmail(userEmail, 'Password Reset Request - Traidefi', htmlContent, textContent);
+        } else {
+            await transporter.sendMail({
+                from: process.env.EMAIL_USER || 'noreply@traidefi.com',
+                to: userEmail,
+                subject: 'Password Reset Request - Traidefi',
+                html: htmlContent,
+                text: textContent
+            });
+        }
+        
+        console.log(`📧 Password reset email sent to ${userEmail}`);
+        return true;
+    } catch (error) {
+        console.error('❌ Failed to send password reset email:', error);
+        return false;
+    }
+}
+
+// Forgot Password Page
+app.get('/forgot-password', (req, res) => {
+    res.send(`
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Forgot Password - traidefi</title>
+        <style>
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body { 
+                font-family: 'Arial', sans-serif; 
+                background: #000000;
+                min-height: 100vh;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                padding: 20px;
+            }
+            .container {
+                background: white;
+                padding: 3rem;
+                border-radius: 15px;
+                box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+                max-width: 450px;
+                width: 100%;
+            }
+            h1 { color: #1e3c72; font-size: 2.2rem; margin-bottom: 1rem; text-align: center; }
+            .subtitle { color: #666; text-align: center; margin-bottom: 2rem; font-size: 0.95rem; }
+            .form-group { margin-bottom: 1.5rem; }
+            label { display: block; margin-bottom: 0.5rem; color: #333; font-weight: 600; }
+            input { width: 100%; padding: 12px; border: 2px solid #e5e5e5; border-radius: 8px; font-size: 1rem; }
+            input:focus { outline: none; border-color: #667eea; }
+            .btn { width: 100%; padding: 15px; background: #667eea; color: white; border: none; border-radius: 8px; font-size: 1.1rem; font-weight: 600; cursor: pointer; margin-top: 1rem; }
+            .btn:hover { background: #5a6fd8; }
+            .btn:disabled { background: #ccc; cursor: not-allowed; }
+            .links { text-align: center; margin-top: 2rem; }
+            .links a { color: #667eea; text-decoration: none; }
+            .message { padding: 1rem; margin-bottom: 1rem; border-radius: 8px; display: none; }
+            .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+            .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+            .info-box {
+                background: #e3f2fd;
+                border-left: 4px solid #2196f3;
+                padding: 1rem;
+                margin-bottom: 1.5rem;
+                border-radius: 4px;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1>🔑 Forgot Password</h1>
+            <p class="subtitle">Enter your email address and we'll send you a link to reset your password</p>
+            
+            <div id="message" class="message"></div>
+            
+            <div class="info-box">
+                <strong>How it works:</strong><br>
+                1. Enter your email address<br>
+                2. Check your email for a reset link<br>
+                3. Click the link to set a new password<br>
+                4. Link expires in 24 hours
+            </div>
+            
+            <form id="forgotPasswordForm">
+                <div class="form-group">
+                    <label for="email">Email Address</label>
+                    <input type="email" id="email" placeholder="your@email.com" required>
+                </div>
+                <button type="submit" class="btn" id="submitBtn">Send Reset Link</button>
+            </form>
+            
+            <div class="links">
+                <a href="/signin">← Back to Sign In</a><br>
+                <a href="/signup">Don't have an account? Sign Up</a>
+            </div>
+        </div>
+        
+        <script>
+            document.getElementById('forgotPasswordForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                
+                const email = document.getElementById('email').value;
+                const messageDiv = document.getElementById('message');
+                const submitBtn = document.getElementById('submitBtn');
+                const originalText = submitBtn.textContent;
+                
+                submitBtn.disabled = true;
+                submitBtn.textContent = 'Sending...';
+                messageDiv.style.display = 'none';
+                
+                try {
+                    const response = await fetch('/api/auth/forgot-password', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ email })
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        messageDiv.className = 'message success';
+                        messageDiv.textContent = '✅ If an account with that email exists, a password reset link has been sent. Please check your email.';
+                        messageDiv.style.display = 'block';
+                        document.getElementById('forgotPasswordForm').reset();
+                    } else {
+                        messageDiv.className = 'message error';
+                        messageDiv.textContent = data.error || 'Failed to send reset link. Please try again.';
+                        messageDiv.style.display = 'block';
+                    }
+                } catch (error) {
+                    messageDiv.className = 'message error';
+                    messageDiv.textContent = 'Network error. Please try again.';
+                    messageDiv.style.display = 'block';
+                } finally {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = originalText;
+                }
+            });
+        </script>
+    </body>
+    </html>
+    `);
+});
+
+// Password Reset Page (with token)
+app.get('/reset-password', (req, res) => {
+    const { token } = req.query;
+    
+    if (!token) {
+        return res.redirect('/forgot-password');
+    }
+    
+    res.send(`
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Reset Password - traidefi</title>
+        <style>
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body { 
+                font-family: 'Arial', sans-serif; 
+                background: #000000;
+                min-height: 100vh;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                padding: 20px;
+            }
+            .container {
+                background: white;
+                padding: 3rem;
+                border-radius: 15px;
+                box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+                max-width: 450px;
+                width: 100%;
+            }
+            h1 { color: #1e3c72; font-size: 2.2rem; margin-bottom: 1rem; text-align: center; }
+            .subtitle { color: #666; text-align: center; margin-bottom: 2rem; font-size: 0.95rem; }
+            .form-group { margin-bottom: 1.5rem; }
+            label { display: block; margin-bottom: 0.5rem; color: #333; font-weight: 600; }
+            input { width: 100%; padding: 12px; border: 2px solid #e5e5e5; border-radius: 8px; font-size: 1rem; }
+            input:focus { outline: none; border-color: #667eea; }
+            .btn { width: 100%; padding: 15px; background: #667eea; color: white; border: none; border-radius: 8px; font-size: 1.1rem; font-weight: 600; cursor: pointer; margin-top: 1rem; }
+            .btn:hover { background: #5a6fd8; }
+            .btn:disabled { background: #ccc; cursor: not-allowed; }
+            .links { text-align: center; margin-top: 2rem; }
+            .links a { color: #667eea; text-decoration: none; }
+            .message { padding: 1rem; margin-bottom: 1rem; border-radius: 8px; display: none; }
+            .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+            .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+            .password-strength { margin-top: 0.5rem; font-size: 0.85rem; }
+            .strength-meter { height: 4px; background: #e5e5e5; border-radius: 2px; margin-top: 0.5rem; }
+            .strength-fill { height: 100%; border-radius: 2px; transition: width 0.3s, background 0.3s; }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1>🔑 Reset Password</h1>
+            <p class="subtitle">Enter your new password below</p>
+            
+            <div id="message" class="message"></div>
+            
+            <form id="resetPasswordForm">
+                <input type="hidden" id="token" value="${token}">
+                
+                <div class="form-group">
+                    <label for="password">New Password</label>
+                    <input type="password" id="password" placeholder="Enter new password" required>
+                    <div class="password-strength" id="passwordStrength" style="display: none;">
+                        <div class="strength-meter">
+                            <div class="strength-fill" id="strengthFill" style="width: 0%;"></div>
+                        </div>
+                        <div id="strengthText" style="margin-top: 0.5rem;"></div>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="confirmPassword">Confirm New Password</label>
+                    <input type="password" id="confirmPassword" placeholder="Confirm new password" required>
+                </div>
+                
+                <button type="submit" class="btn" id="submitBtn">Reset Password</button>
+            </form>
+            
+            <div class="links">
+                <a href="/signin">← Back to Sign In</a>
+            </div>
+        </div>
+        
+        <script>
+            // Password strength checker
+            function checkPasswordStrength(password) {
+                const hasSpecial = /[^a-zA-Z0-9]/.test(password);
+                const requirements = {
+                    length: password.length >= 8,
+                    uppercase: /[A-Z]/.test(password),
+                    lowercase: /[a-z]/.test(password),
+                    number: /[0-9]/.test(password),
+                    special: hasSpecial
+                };
+                
+                let score = 0;
+                if (requirements.length) score++;
+                if (requirements.uppercase) score++;
+                if (requirements.lowercase) score++;
+                if (requirements.number) score++;
+                if (requirements.special) score++;
+                
+                return { score, requirements };
+            }
+            
+            // Update password strength meter
+            const passwordInput = document.getElementById('password');
+            const strengthDiv = document.getElementById('passwordStrength');
+            const strengthFill = document.getElementById('strengthFill');
+            const strengthText = document.getElementById('strengthText');
+            
+            passwordInput.addEventListener('input', function() {
+                const password = this.value;
+                if (password.length === 0) {
+                    strengthDiv.style.display = 'none';
+                    return;
+                }
+                
+                strengthDiv.style.display = 'block';
+                const strength = checkPasswordStrength(password);
+                const percentage = (strength.score / 5) * 100;
+                strengthFill.style.width = percentage + '%';
+                
+                if (strength.score < 2) {
+                    strengthFill.style.background = '#dc3545';
+                    strengthText.textContent = 'Weak password';
+                    strengthText.style.color = '#dc3545';
+                } else if (strength.score < 4) {
+                    strengthFill.style.background = '#ffc107';
+                    strengthText.textContent = 'Medium password';
+                    strengthText.style.color = '#ffc107';
+                } else {
+                    strengthFill.style.background = '#28a745';
+                    strengthText.textContent = 'Strong password';
+                    strengthText.style.color = '#28a745';
+                }
+            });
+            
+            document.getElementById('resetPasswordForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                
+                const token = document.getElementById('token').value;
+                const password = document.getElementById('password').value;
+                const confirmPassword = document.getElementById('confirmPassword').value;
+                const messageDiv = document.getElementById('message');
+                const submitBtn = document.getElementById('submitBtn');
+                const originalText = submitBtn.textContent;
+                
+                // Validate passwords match
+                if (password !== confirmPassword) {
+                    messageDiv.className = 'message error';
+                    messageDiv.textContent = 'Passwords do not match';
+                    messageDiv.style.display = 'block';
+                    return;
+                }
+                
+                // Validate password strength
+                const strength = checkPasswordStrength(password);
+                if (strength.score < 3) {
+                    messageDiv.className = 'message error';
+                    messageDiv.textContent = 'Password is too weak. Please use a stronger password.';
+                    messageDiv.style.display = 'block';
+                    return;
+                }
+                
+                submitBtn.disabled = true;
+                submitBtn.textContent = 'Resetting...';
+                messageDiv.style.display = 'none';
+                
+                try {
+                    const response = await fetch('/api/auth/reset-password', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ token, newPassword: password })
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        messageDiv.className = 'message success';
+                        messageDiv.textContent = '✅ Password reset successfully! Redirecting to sign in...';
+                        messageDiv.style.display = 'block';
+                        
+                        setTimeout(() => {
+                            window.location.href = '/signin';
+                        }, 2000);
+                    } else {
+                        messageDiv.className = 'message error';
+                        messageDiv.textContent = data.error || 'Failed to reset password. The link may have expired.';
+                        messageDiv.style.display = 'block';
+                        submitBtn.disabled = false;
+                        submitBtn.textContent = originalText;
+                    }
+                } catch (error) {
+                    messageDiv.className = 'message error';
+                    messageDiv.textContent = 'Network error. Please try again.';
+                    messageDiv.style.display = 'block';
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = originalText;
+                }
+            });
+        </script>
+    </body>
+    </html>
+    `);
+});
+
+// API: Request Password Reset
+app.post('/api/auth/forgot-password', async (req, res) => {
+    try {
+        const { email } = req.body;
+        
+        if (!email) {
+            return res.status(400).json({ error: 'Email is required' });
+        }
+        
+        // Rate limiting
+        const rateLimit = checkPasswordResetRateLimit(email);
+        if (!rateLimit.allowed) {
+            logAuditEvent('password_reset_rate_limited', null, { email, ip: req.ip || 'unknown' });
+            return res.status(429).json({ error: rateLimit.error });
+        }
+        
+        const user = database.users.get(email);
+        
+        // Don't reveal whether user exists (security best practice)
+        if (!user) {
+            // Still log the attempt for security monitoring
+            logAuditEvent('password_reset_requested_invalid_email', null, { email, ip: req.ip || 'unknown' });
+            return res.json({
+                success: true,
+                message: 'If an account with that email exists, a password reset link has been sent'
+            });
+        }
+        
+        // Generate reset token
+        const resetToken = generatePasswordResetToken();
+        const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+        
+        // Store reset token
+        user.passwordResetToken = resetToken;
+        user.passwordResetTokenExpiresAt = expiresAt.toISOString();
+        database.users.set(email, user);
+        
+        // Send reset email
+        const emailSent = await sendPasswordResetEmail(email, resetToken);
+        
+        if (!emailSent) {
+            // Clear token if email failed
+            delete user.passwordResetToken;
+            delete user.passwordResetTokenExpiresAt;
+            database.users.set(email, user);
+            
+            return res.status(500).json({ error: 'Failed to send reset email. Please try again later.' });
+        }
+        
+        // Log the request
+        logAuditEvent('password_reset_requested', user.id, { 
+            email, 
+            ip: req.ip || req.connection?.remoteAddress || 'unknown' 
+        });
+        
+        res.json({
+            success: true,
+            message: 'If an account with that email exists, a password reset link has been sent'
+        });
+        
+    } catch (error) {
+        console.error('Password reset request error:', error);
+        res.status(500).json({ error: 'Failed to process password reset request' });
+    }
+});
+
+// API: Reset Password (with token)
+app.post('/api/auth/reset-password', async (req, res) => {
+    try {
+        const { token, newPassword } = req.body;
+        
+        if (!token || !newPassword) {
+            return res.status(400).json({ error: 'Reset token and new password are required' });
+        }
+        
+        // Find user by reset token
+        let userFound = null;
+        let userEmail = null;
+        
+        for (const [email, user] of database.users.entries()) {
+            if (user.passwordResetToken === token) {
+                userFound = user;
+                userEmail = email;
+                break;
+            }
+        }
+        
+        if (!userFound) {
+            logAuditEvent('password_reset_invalid_token', null, { ip: req.ip || 'unknown' });
+            return res.status(400).json({ error: 'Invalid or expired reset token' });
+        }
+        
+        // Check if token expired
+        if (userFound.passwordResetTokenExpiresAt) {
+            const expiresAt = new Date(userFound.passwordResetTokenExpiresAt);
+            if (Date.now() > expiresAt.getTime()) {
+                // Clear expired token
+                delete userFound.passwordResetToken;
+                delete userFound.passwordResetTokenExpiresAt;
+                database.users.set(userEmail, userFound);
+                
+                logAuditEvent('password_reset_expired_token', userFound.id, { email: userEmail });
+                return res.status(400).json({ error: 'Reset token has expired. Please request a new one.' });
+            }
+        }
+        
+        // Validate password strength using existing function
+        const passwordValidation = validatePassword(newPassword);
+        if (!passwordValidation.valid) {
+            return res.status(400).json({ 
+                error: 'Password is too weak. Please use a stronger password.',
+                requirements: passwordValidation.requirements
+            });
+        }
+        
+        // Hash new password
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+        
+        // Update password and clear reset token
+        userFound.password = hashedPassword;
+        userFound.passwordChangedAt = new Date().toISOString();
+        delete userFound.passwordResetToken;
+        delete userFound.passwordResetTokenExpiresAt;
+        
+        database.users.set(userEmail, userFound);
+        
+        // Log the password reset
+        logAuditEvent('password_reset_completed', userFound.id, { 
+            email: userEmail, 
+            ip: req.ip || req.connection?.remoteAddress || 'unknown' 
+        });
+        
+        res.json({
+            success: true,
+            message: 'Password reset successfully'
+        });
+        
+    } catch (error) {
+        console.error('Password reset error:', error);
+        res.status(500).json({ error: 'Failed to reset password' });
+    }
+});
+
+// ================================
+// TWO-FACTOR AUTHENTICATION (2FA) API ENDPOINTS
+// ================================
+
+// Generate 2FA setup (secret + QR code)
+app.get('/api/auth/2fa/setup', authenticateToken, async (req, res) => {
+    try {
+        const user = database.users.get(req.user.email);
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+        
+        // Generate new secret
+        const secretData = generate2FASecret(user.email);
+        
+        // Generate QR code
+        const qrCode = await generate2FAQRCode(secretData.otpauthUrl);
+        
+        // Store temporary secret (not enabled yet - user needs to verify first)
+        user.twoFactorTempSecret = secretData.secret;
+        database.users.set(user.email, user);
+        
+        logAuditEvent('2fa_setup_initiated', user.id, { email: user.email });
+        
+        res.json({
+            success: true,
+            secret: secretData.secret,
+            qrCode: qrCode,
+            manualEntryKey: secretData.secret
+        });
+    } catch (error) {
+        console.error('2FA setup error:', error);
+        res.status(500).json({ error: 'Failed to generate 2FA setup' });
+    }
+});
+
+// Enable 2FA (verify token and enable)
+app.post('/api/auth/2fa/enable', authenticateToken, async (req, res) => {
+    try {
+        const { token, method } = req.body; // method: 'totp' or 'email'
+        const user = database.users.get(req.user.email);
+        
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+        
+        if (method === 'email') {
+            // Email method - verify the code sent via email
+            const verification = verifyEmailCode(user.email, token);
+            if (!verification.valid) {
+                logAuditEvent('2fa_enable_failed', user.id, { email: user.email, reason: verification.error, method: 'email' });
+                return res.status(400).json({ error: verification.error || 'Invalid code' });
+            }
+            
+            // Enable 2FA with email method
+            user.twoFactorEnabled = true;
+            user.twoFactorMethod = 'email';
+            user.twoFactorSecret = 'email'; // Placeholder, not used for email method
+            user.twoFactorEnabledAt = new Date().toISOString();
+            
+            database.users.set(user.email, user);
+            
+            logAuditEvent('2fa_enabled', user.id, { email: user.email, method: 'email' });
+            
+            res.json({
+                success: true,
+                message: 'Two-factor authentication enabled successfully (Email method)',
+                method: 'email'
+            });
+        } else {
+            // TOTP method (default)
+            if (!user.twoFactorTempSecret) {
+                return res.status(400).json({ error: 'No 2FA setup in progress. Please generate a new setup first.' });
+            }
+            
+            // Verify the token
+            const isValid = verify2FAToken(token, user.twoFactorTempSecret);
+            
+            if (!isValid) {
+                logAuditEvent('2fa_enable_failed', user.id, { email: user.email, reason: 'Invalid token', method: 'totp' });
+                return res.status(400).json({ error: 'Invalid verification code' });
+            }
+            
+            // Generate backup codes
+            const backupCodes = generateBackupCodes(10);
+            const hashedBackupCodes = await hashBackupCodes(backupCodes);
+            
+            // Enable 2FA
+            user.twoFactorEnabled = true;
+            user.twoFactorMethod = 'totp';
+            user.twoFactorSecret = user.twoFactorTempSecret;
+            user.twoFactorBackupCodes = hashedBackupCodes;
+            user.twoFactorEnabledAt = new Date().toISOString();
+            delete user.twoFactorTempSecret;
+            
+            database.users.set(user.email, user);
+            
+            logAuditEvent('2fa_enabled', user.id, { email: user.email, method: 'totp' });
+            
+            res.json({
+                success: true,
+                message: 'Two-factor authentication enabled successfully',
+                backupCodes: backupCodes, // Return plain codes only once
+                method: 'totp'
+            });
+        }
+    } catch (error) {
+        console.error('2FA enable error:', error);
+        res.status(500).json({ error: 'Failed to enable 2FA' });
+    }
+});
+
+// Send 2FA code via email (for login - no auth required)
+app.post('/api/auth/2fa/send-login-code', async (req, res) => {
+    try {
+        const { email } = req.body;
+        
+        if (!email) {
+            return res.status(400).json({ error: 'Email required' });
+        }
+        
+        const user = database.users.get(email);
+        if (!user || !user.twoFactorEnabled || user.twoFactorMethod !== 'email') {
+            return res.status(400).json({ error: '2FA not enabled with email method for this account' });
+        }
+        
+        // Generate code
+        const code = generateEmailCode();
+        
+        // Store code
+        storeEmailCode(email, code);
+        
+        // Send email
+        const sent = await send2FACodeEmail(email, code);
+        
+        if (!sent) {
+            return res.status(500).json({ error: 'Failed to send email code' });
+        }
+        
+        logAuditEvent('2fa_email_code_sent', user.id, { email, context: 'login' });
+        
+        res.json({
+            success: true,
+            message: 'Code sent to your email',
+            expiresIn: 600 // 10 minutes in seconds
+        });
+    } catch (error) {
+        console.error('Send login email code error:', error);
+        res.status(500).json({ error: 'Failed to send email code' });
+    }
+});
+
+// Send 2FA code via email
+app.post('/api/auth/2fa/send-email-code', authenticateToken, async (req, res) => {
+    try {
+        const user = database.users.get(req.user.email);
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+        
+        // Generate code
+        const code = generateEmailCode();
+        
+        // Store code
+        storeEmailCode(user.email, code);
+        
+        // Send email
+        const sent = await send2FACodeEmail(user.email, code);
+        
+        if (!sent) {
+            return res.status(500).json({ error: 'Failed to send email code' });
+        }
+        
+        logAuditEvent('2fa_email_code_sent', user.id, { email: user.email });
+        
+        res.json({
+            success: true,
+            message: 'Code sent to your email',
+            expiresIn: 600 // 10 minutes in seconds
+        });
+    } catch (error) {
+        console.error('Send email code error:', error);
+        res.status(500).json({ error: 'Failed to send email code' });
+    }
+});
+
+// Disable 2FA
+app.post('/api/auth/2fa/disable', authenticateToken, async (req, res) => {
+    try {
+        const { password } = req.body; // Require password confirmation
+        const user = database.users.get(req.user.email);
+        
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+        
+        // Verify password
+        const validPassword = await bcrypt.compare(password, user.password);
+        if (!validPassword) {
+            return res.status(401).json({ error: 'Invalid password' });
+        }
+        
+        // Disable 2FA
+        user.twoFactorEnabled = false;
+        user.twoFactorSecret = null;
+        user.twoFactorBackupCodes = null;
+        user.twoFactorDisabledAt = new Date().toISOString();
+        
+        database.users.set(user.email, user);
+        
+        logAuditEvent('2fa_disabled', user.id, { email: user.email });
+        
+        res.json({
+            success: true,
+            message: 'Two-factor authentication disabled successfully'
+        });
+    } catch (error) {
+        console.error('2FA disable error:', error);
+        res.status(500).json({ error: 'Failed to disable 2FA' });
+    }
+});
+
+// Regenerate backup codes
+app.post('/api/auth/2fa/regenerate-backup-codes', authenticateToken, async (req, res) => {
+    try {
+        const user = database.users.get(req.user.email);
+        
+        if (!user || !user.twoFactorEnabled) {
+            return res.status(400).json({ error: '2FA is not enabled' });
+        }
+        
+        // Generate new backup codes
+        const backupCodes = generateBackupCodes(10);
+        const hashedBackupCodes = await hashBackupCodes(backupCodes);
+        
+        user.twoFactorBackupCodes = hashedBackupCodes;
+        database.users.set(user.email, user);
+        
+        logAuditEvent('2fa_backup_codes_regenerated', user.id, { email: user.email });
+        
+        res.json({
+            success: true,
+            backupCodes: backupCodes // Return plain codes only once
+        });
+    } catch (error) {
+        console.error('Backup codes regeneration error:', error);
+        res.status(500).json({ error: 'Failed to regenerate backup codes' });
+    }
+});
+
+// Get 2FA status
+app.get('/api/auth/2fa/status', authenticateToken, async (req, res) => {
+    try {
+        const user = database.users.get(req.user.email);
+        
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+        
+        res.json({
+            enabled: user.twoFactorEnabled || false,
+            enabledAt: user.twoFactorEnabledAt || null,
+            hasBackupCodes: user.twoFactorBackupCodes && user.twoFactorBackupCodes.length > 0
+        });
+    } catch (error) {
+        console.error('2FA status error:', error);
+        res.status(500).json({ error: 'Failed to get 2FA status' });
     }
 });
 
@@ -8250,6 +10134,13 @@ app.post('/api/kyc/submit', authenticateToken, upload.fields([
             user.kycStatus = 'approved'; // Always approve for demo
             user.verified = true;
             database.users.set(req.user.email, user);
+            
+            // Create notification for KYC approval
+            const userId = user.id || req.user.email;
+            createNotification(userId, 'kyc', 'KYC Approved', 'Your KYC verification has been approved. You can now access all platform features.', {
+                kycStatus: 'approved',
+                approvedAt: new Date().toISOString()
+            });
             
             // Process any pending contracts for this user
             processPendingContractsForUser(req.user.email);
@@ -9675,6 +11566,25 @@ app.post('/api/contracts/:id/confirm', authenticateToken, (req, res) => {
             if (contract.supplierConfirmed && contract.buyerConfirmed) {
                 contract.status = 'pending_deposit';
                 
+                // Notify both parties about contract confirmation
+                const buyerUserId = contract.buyerId || contract.buyerEmail;
+                const supplierUserId = contract.supplierId || contract.supplierEmail;
+                
+                if (buyerUserId) {
+                    createNotification(buyerUserId, 'contract', 'Contract Confirmed', `Contract ${contract.id} has been confirmed. Please pay the deposit to proceed.`, {
+                        contractId: contract.id,
+                        status: 'pending_deposit',
+                        depositAmount: contract.depositAmount || contract.totalValue * 0.1
+                    });
+                }
+                
+                if (supplierUserId) {
+                    createNotification(supplierUserId, 'contract', 'Contract Confirmed', `Contract ${contract.id} has been confirmed. Waiting for buyer deposit.`, {
+                        contractId: contract.id,
+                        status: 'pending_deposit'
+                    });
+                }
+                
                 // TANGENT-BRIDGE-v4 Credit Risk Assessment Integration
                 // REQUIRED: Trigger credit assessment AFTER both parties confirm and payment terms are established
                 // Credit assessment is MANDATORY for all trades - will wait/retry if service is starting
@@ -10084,6 +11994,26 @@ app.post('/api/contracts/:id/deposit', authenticateToken, (req, res) => {
         database.wallets.set('pool-wallet', poolWallet);
         database.contracts.set(id, contract);
         
+        // Notify supplier that deposit has been paid (use email for notification)
+        const supplierEmailForNotification = contract.supplierId || contract.supplierEmail;
+        if (supplierEmailForNotification) {
+            createNotification(supplierEmailForNotification, 'payment', 'Deposit Received', `Deposit of $${contract.depositAmount.toLocaleString()} has been received for contract ${contract.id}. You can now upload shipping documents.`, {
+                contractId: contract.id,
+                depositAmount: contract.depositAmount,
+                status: 'active'
+            });
+        }
+        
+        // Notify buyer that deposit was processed
+        const buyerEmailForNotification = contract.buyerId || contract.buyerEmail;
+        if (buyerEmailForNotification) {
+            createNotification(buyerEmailForNotification, 'payment', 'Deposit Processed', `Your deposit of $${contract.depositAmount.toLocaleString()} for contract ${contract.id} has been processed.`, {
+                contractId: contract.id,
+                depositAmount: contract.depositAmount,
+                status: 'active'
+            });
+        }
+        
         console.log('✅ COMPLETE FINANCIAL FLOW EXECUTED:');
         console.log('   Buyer paid:', contract.depositAmount.toLocaleString(), 'TGT');
         console.log('   Pool received:', netDepositToPool.toLocaleString(), 'TGT');
@@ -10186,6 +12116,25 @@ app.post('/api/contracts/:id/release-payment', authenticateToken, async (req, re
             timestamp: new Date().toISOString(),
             actor: req.user.email
         });
+        
+        // Notify supplier that payment has been released
+        const supplierEmailForNotification = contract.supplierId || contract.supplierEmail;
+        if (supplierEmailForNotification) {
+            createNotification(supplierEmailForNotification, 'payment', 'Payment Released', `Final payment of $${contract.totalValue.toLocaleString()} has been released for contract ${contract.id}.`, {
+                contractId: contract.id,
+                amount: contract.totalValue,
+                status: 'completed'
+            });
+        }
+        
+        // Notify buyer that payment was released
+        const buyerEmailForNotification = contract.buyerId || contract.buyerEmail;
+        if (buyerEmailForNotification) {
+            createNotification(buyerEmailForNotification, 'contract', 'Contract Completed', `Contract ${contract.id} has been completed. Final payment has been released.`, {
+                contractId: contract.id,
+                status: 'completed'
+            });
+        }
         
         // Send notification emails
         const supplierEmail = {
@@ -10957,7 +12906,7 @@ app.get('/api/admin/kyc-reports', authenticateToken, requireRole(['admin']), (re
 });
 
 // UNIFIED DASHBOARD TEMPLATE
-function createDashboard(role, user) {
+function createDashboard(role, user, token = '') {
   const roleConfig = {
     unified: { 
       title: '📋 My Contracts', 
@@ -10992,6 +12941,10 @@ function createDashboard(role, user) {
   };
 
   const config = roleConfig[role] || roleConfig.buyer;
+  
+  // Check 2FA status
+  const twoFactorEnabled = user?.twoFactorEnabled || false;
+  const twoFactorMethod = user?.twoFactorMethod || null;
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -11009,6 +12962,13 @@ function createDashboard(role, user) {
     .user-info { display: flex; align-items: center; gap: 1rem; }
     .logout-btn { background: #ef4444; color: white; padding: 0.5rem 1rem; border-radius: 6px; text-decoration: none; }
     .main-content { max-width: 1200px; margin: 0 auto; padding: 2rem; }
+    .security-banner { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 12px; margin-bottom: 2rem; border: 2px solid #ffffff; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; }
+    .security-banner.enabled { background: linear-gradient(135deg, #10b981 0%, #059669 100%); }
+    .security-banner .content { flex: 1; }
+    .security-banner h3 { margin: 0 0 8px 0; font-size: 1.2rem; }
+    .security-banner p { margin: 0; opacity: 0.9; font-size: 0.95rem; }
+    .security-banner .btn { background: white; color: #667eea; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-weight: 600; white-space: nowrap; }
+    .security-banner.enabled .btn { color: #10b981; }
     .dashboard-section { background: #1e293b; border-radius: 12px; padding: 2rem; margin-bottom: 2rem; border: 1px solid #334155; }
     .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; }
     .section-title { color: #06b6d4; font-size: 1.5rem; margin: 0; }
@@ -11042,7 +13002,7 @@ function createDashboard(role, user) {
   </div>
 
   <div class="main-content">
-    ${safeRole === 'admin' ? createAdminSections() : `
+    ${role === 'admin' ? createAdminSections() : `
     <!-- My Contracts Section -->
     <div class="dashboard-section">
       <div class="section-header">
@@ -11071,7 +13031,7 @@ function createDashboard(role, user) {
 
     // Load contracts on page load (skip for admin)
     document.addEventListener('DOMContentLoaded', () => {
-      const isAdmin = ${JSON.stringify(safeRole)} === 'admin';
+      const isAdmin = ${JSON.stringify(role)} === 'admin';
       if (!isAdmin) {
         loadContracts();
       }
@@ -11107,7 +13067,7 @@ function createDashboard(role, user) {
         return;
       }
 
-            const isAdmin = ${JSON.stringify(safeRole)} === 'admin';
+            const isAdmin = ${JSON.stringify(role)} === 'admin';
             const tableHTML = \`
         <table class="contracts-table">
           <thead>
@@ -11250,7 +13210,7 @@ app.get('/dashboard/admin', authenticateToken, (req, res) => {
       <a href="/landing-two">← Back to Login</a>
     `);
   }
-  res.send(createDashboard('admin', req.user));
+  res.send(createDashboard('admin', req.user, req.query.token || req.headers.authorization?.replace('Bearer ', '') || ''));
 });
 
 // KYC Dashboard for new users
@@ -20596,6 +22556,272 @@ app.use('*', (req, res) => {
 });
 
 // ================================
+// NOTIFICATION SYSTEM (Railway-Safe)
+// ================================
+
+// Notification storage (in-memory, compatible with existing database structure)
+const notifications = new Map(); // userId -> Array of notifications
+const notificationSettings = new Map(); // userId -> { email: true, push: true, ... }
+
+// Initialize WebSocket service (with graceful fallback)
+let io = null;
+let websocketEnabled = false;
+
+try {
+    const { Server } = require('socket.io');
+    websocketEnabled = true;
+    console.log('✅ WebSocket service ready (will attach to server)');
+} catch (error) {
+    console.warn('⚠️ WebSocket not available:', error.message);
+    console.log('ℹ️ Continuing without WebSocket - notifications will use polling');
+    websocketEnabled = false;
+}
+
+// Notification helper functions
+function createNotification(userId, type, title, message, data = {}) {
+    const notification = {
+        id: `notif-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        userId,
+        type, // 'contract', 'payment', 'kyc', 'security', 'system'
+        title,
+        message,
+        data,
+        read: false,
+        createdAt: new Date().toISOString()
+    };
+    
+    // Store notification
+    if (!notifications.has(userId)) {
+        notifications.set(userId, []);
+    }
+    const userNotifications = notifications.get(userId);
+    userNotifications.unshift(notification); // Add to beginning
+    
+    // Keep only last 100 notifications per user
+    if (userNotifications.length > 100) {
+        userNotifications.splice(100);
+    }
+    
+    // Send via WebSocket if available
+    if (websocketEnabled && io) {
+        io.to(`user_${userId}`).emit('notification', notification);
+    }
+    
+    // Send email notification (optional, based on user preferences)
+    sendNotificationEmail(userId, notification).catch(error => {
+        console.error('Failed to send notification email:', error);
+    });
+    
+    console.log(`📬 Notification created for ${userId}: ${title}`);
+    return notification;
+}
+
+// Send email notification
+async function sendNotificationEmail(userId, notification) {
+    try {
+        // Get user email from userId (userId might be email or ID)
+        let userEmail = userId;
+        if (!userId.includes('@')) {
+            // If userId is an ID, find user by ID
+            for (const [email, user] of database.users.entries()) {
+                if (user.id === userId || user.email === userId) {
+                    userEmail = email;
+                    break;
+                }
+            }
+        }
+        
+        // Check if user has email notifications enabled (default: true)
+        const settings = notificationSettings.get(userId) || { email: true };
+        if (!settings.email) {
+            return; // User disabled email notifications
+        }
+        
+        // Create email content
+        const emailSubject = `🔔 ${notification.title} - Traidefi`;
+        const emailHtml = `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <style>
+                    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+                    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+                    .notification-box { background: #f4f4f4; border-left: 4px solid #667eea; padding: 20px; margin: 20px 0; border-radius: 8px; }
+                    .type-badge { display: inline-block; padding: 4px 12px; border-radius: 4px; font-size: 0.85rem; margin-bottom: 10px; }
+                    .type-contract { background: #3b82f6; color: white; }
+                    .type-payment { background: #10b981; color: white; }
+                    .type-kyc { background: #f59e0b; color: white; }
+                    .type-security { background: #ef4444; color: white; }
+                    .type-system { background: #6b7280; color: white; }
+                    .footer { margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd; color: #666; font-size: 0.85rem; }
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <h2>New Notification</h2>
+                    <div class="notification-box">
+                        <span class="type-badge type-${notification.type}">${notification.type}</span>
+                        <h3>${notification.title}</h3>
+                        <p>${notification.message}</p>
+                        <p style="color: #666; font-size: 0.9rem; margin-top: 15px;">
+                            <a href="${process.env.BASE_URL || 'http://localhost:4000'}/dashboard/authenticated" style="color: #667eea; text-decoration: none;">View in Dashboard →</a>
+                        </p>
+                    </div>
+                    <div class="footer">
+                        <p>This is an automated notification from Traidefi Platform.</p>
+                        <p>You can manage notification preferences in your account settings.</p>
+                    </div>
+                </div>
+            </body>
+            </html>
+        `;
+        
+        const emailText = `
+${notification.title}
+
+${notification.message}
+
+View in Dashboard: ${process.env.BASE_URL || 'http://localhost:4000'}/dashboard/authenticated
+
+This is an automated notification from Traidefi Platform.
+        `;
+        
+        // Send email using existing email service
+        if (emailService && emailService.sendEmail) {
+            await emailService.sendEmail(userEmail, emailSubject, emailHtml, emailText);
+        } else if (transporter) {
+            await transporter.sendMail({
+                from: process.env.EMAIL_USER || 'noreply@traidefi.com',
+                to: userEmail,
+                subject: emailSubject,
+                html: emailHtml,
+                text: emailText
+            });
+        } else {
+            console.log(`📧 Email notification skipped (no email service): ${userEmail}`);
+        }
+        
+        console.log(`📧 Notification email sent to ${userEmail}: ${notification.title}`);
+    } catch (error) {
+        console.error('❌ Failed to send notification email:', error);
+        // Don't throw - email failure shouldn't break notification creation
+    }
+}
+
+function sendPendingNotifications(userId, socket) {
+    if (!notifications.has(userId)) return;
+    
+    const unread = notifications.get(userId).filter(n => !n.read);
+    if (unread.length > 0) {
+        socket.emit('notifications', unread);
+        console.log(`📬 Sent ${unread.length} pending notifications to ${userId}`);
+    }
+}
+
+function markNotificationAsRead(userId, notificationId) {
+    if (!notifications.has(userId)) return false;
+    
+    const userNotifications = notifications.get(userId);
+    const notification = userNotifications.find(n => n.id === notificationId);
+    if (notification) {
+        notification.read = true;
+        return true;
+    }
+    return false;
+}
+
+function markAllAsRead(userId) {
+    if (!notifications.has(userId)) return 0;
+    
+    const userNotifications = notifications.get(userId);
+    const count = userNotifications.filter(n => !n.read).length;
+    userNotifications.forEach(n => n.read = true);
+    return count;
+}
+
+// Notification API Endpoints
+app.get('/api/notifications', authenticateToken, (req, res) => {
+    try {
+        const userId = req.user.id || req.user.email;
+        const userNotifications = notifications.get(userId) || [];
+        
+        // Get query parameters
+        const limit = parseInt(req.query.limit) || 50;
+        const unreadOnly = req.query.unreadOnly === 'true';
+        
+        let filtered = userNotifications;
+        if (unreadOnly) {
+            filtered = filtered.filter(n => !n.read);
+        }
+        
+        const result = filtered.slice(0, limit);
+        const unreadCount = userNotifications.filter(n => !n.read).length;
+        
+        res.json({
+            success: true,
+            notifications: result,
+            unreadCount,
+            total: userNotifications.length
+        });
+    } catch (error) {
+        console.error('Get notifications error:', error);
+        res.status(500).json({ error: 'Failed to get notifications' });
+    }
+});
+
+app.post('/api/notifications/:id/read', authenticateToken, (req, res) => {
+    try {
+        const userId = req.user.id || req.user.email;
+        const { id } = req.params;
+        
+        const marked = markNotificationAsRead(userId, id);
+        if (marked) {
+            res.json({ success: true, message: 'Notification marked as read' });
+        } else {
+            res.status(404).json({ error: 'Notification not found' });
+        }
+    } catch (error) {
+        console.error('Mark notification as read error:', error);
+        res.status(500).json({ error: 'Failed to mark notification as read' });
+    }
+});
+
+app.post('/api/notifications/read-all', authenticateToken, (req, res) => {
+    try {
+        const userId = req.user.id || req.user.email;
+        const count = markAllAsRead(userId);
+        res.json({ success: true, message: `Marked ${count} notifications as read` });
+    } catch (error) {
+        console.error('Mark all as read error:', error);
+        res.status(500).json({ error: 'Failed to mark all as read' });
+    }
+});
+
+app.delete('/api/notifications/:id', authenticateToken, (req, res) => {
+    try {
+        const userId = req.user.id || req.user.email;
+        const { id } = req.params;
+        
+        if (!notifications.has(userId)) {
+            return res.status(404).json({ error: 'Notification not found' });
+        }
+        
+        const userNotifications = notifications.get(userId);
+        const index = userNotifications.findIndex(n => n.id === id);
+        
+        if (index === -1) {
+            return res.status(404).json({ error: 'Notification not found' });
+        }
+        
+        userNotifications.splice(index, 1);
+        res.json({ success: true, message: 'Notification deleted' });
+    } catch (error) {
+        console.error('Delete notification error:', error);
+        res.status(500).json({ error: 'Failed to delete notification' });
+    }
+});
+
+// ================================
 // SERVER STARTUP WITH CRASH PREVENTION
 // ================================
 const server = app.listen(PORT, '0.0.0.0', (err) => {
@@ -20618,6 +22844,68 @@ const server = app.listen(PORT, '0.0.0.0', (err) => {
     console.log('');
     console.log('[INFO] All 15 functionalities implemented');
     console.log('[INFO] Production ready - no placeholders');
+    
+    // Attach WebSocket to server after it's created (Railway-safe)
+    if (websocketEnabled) {
+        try {
+            const { Server } = require('socket.io');
+            
+            // Initialize Socket.IO with Railway-compatible settings
+            io = new Server(server, {
+                cors: {
+                    origin: process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : ['http://localhost:4000', 'https://tangent-protocol.com'],
+                    methods: ['GET', 'POST'],
+                    credentials: true
+                },
+                transports: ['websocket', 'polling'], // Railway-compatible transports
+                pingTimeout: 60000,
+                pingInterval: 25000
+            });
+            
+            // WebSocket authentication and connection handling
+            io.on('connection', (socket) => {
+                console.log('🔌 WebSocket client connected:', socket.id);
+                
+                // Authenticate socket connection
+                socket.on('authenticate', (data) => {
+                    try {
+                        const token = data?.token || data;
+                        if (!token) {
+                            socket.emit('auth_error', { message: 'No token provided' });
+                            return;
+                        }
+                        
+                        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+                        socket.userId = decoded.id || decoded.email;
+                        socket.userEmail = decoded.email;
+                        socket.authenticated = true;
+                        
+                        // Join user-specific room
+                        socket.join(`user_${socket.userId}`);
+                        
+                        socket.emit('authenticated', { userId: socket.userId, email: socket.userEmail });
+                        console.log('✅ WebSocket authenticated:', socket.userId);
+                        
+                        // Send pending notifications
+                        sendPendingNotifications(socket.userId, socket);
+                    } catch (error) {
+                        console.error('❌ WebSocket auth error:', error.message);
+                        socket.emit('auth_error', { message: 'Invalid token' });
+                    }
+                });
+                
+                socket.on('disconnect', () => {
+                    console.log('🔌 WebSocket client disconnected:', socket.id);
+                });
+            });
+            
+            console.log('✅ WebSocket service attached to server');
+        } catch (wsError) {
+            console.warn('⚠️ Failed to attach WebSocket:', wsError.message);
+            console.log('ℹ️ Continuing without WebSocket - notifications will use polling');
+            websocketEnabled = false;
+        }
+    }
 });
 
 server.on('error', (err) => {

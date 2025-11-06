@@ -1,0 +1,32 @@
+# Commands to commit and deploy PDF feature + Traidefi branding fixes
+
+# Step 1: Stop the server (if running)
+# Press Ctrl+C in the terminal where server is running
+
+# Step 2: Check what changed
+git status
+
+# Step 3: Add all modified files
+git add lib/contract-extractor.js
+git add server-WORKING-FIXED.js
+git add package.json
+git add package-lock.json
+
+# Step 4: Commit with descriptive message
+git commit -m "Add PDF contract upload feature + Fix Traidefi branding
+
+- Add PDF contract extraction: Users can upload PDF contracts and system automatically extracts contract terms (product, quantity, price, dates, parties, etc.)
+- Add editable form for users to correct extracted contract data
+- Fix Traidefi branding: Always show 'Traidefi' on both tangent-platform and traidefi.ai URLs
+- Remove all conditional branding logic - consistent branding across all pages
+- Fix landing page to always show two-block layout (Trading Platform + TGT Stablecoin)"
+
+# Step 5: Push to deploy
+git push origin main
+
+# Railway will auto-deploy after push
+# Monitor deployment at: https://railway.app
+
+
+
+

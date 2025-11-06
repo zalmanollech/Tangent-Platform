@@ -1,0 +1,23 @@
+# Commands to commit and deploy PDF contract upload feature
+
+# Step 1: Stop the server (if running)
+# Press Ctrl+C in the terminal where server is running
+
+# Step 2: Add files
+git add lib/contract-extractor.js
+git add server-WORKING-FIXED.js
+git add package.json
+git add package-lock.json
+
+# Step 3: Commit
+git commit -m "Add PDF contract upload and extraction feature - Users can upload PDF contracts and system automatically extracts contract terms (product, quantity, price, dates, parties, etc.) with editable form for corrections"
+
+# Step 4: Push to deploy
+git push origin main
+
+# Railway will auto-deploy after push
+
+
+
+
+
