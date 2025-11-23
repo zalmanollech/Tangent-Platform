@@ -26,7 +26,8 @@
     "resend": "^6.4.0",
     "socket.io": "^4.7.2",
     "speakeasy": "^2.0.0",
-    "xml2js": "^0.6.2"
+    "xml2js": "^0.6.2",
+    "ethers": "^6.0.0"
   },
   "engines": {
     "node": "20.x"

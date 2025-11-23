@@ -3707,6 +3707,17 @@ app.use((req, res, next) => {
 app.use('/uploads', express.static('uploads'));
 
 // ================================
+// HEALTH CHECK ENDPOINT (for Railway/deployment)
+// ================================
+app.get('/health', (req, res) => {
+    res.status(200).json({ 
+        status: 'ok', 
+        timestamp: new Date().toISOString(),
+        service: 'traidefi-platform'
+    });
+});
+
+// ================================
 // LEGAL DOCUMENTS
 // ================================
 // Terms of Service
