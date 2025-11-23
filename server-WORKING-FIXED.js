@@ -41,6 +41,20 @@ let creditIntegration = null;
 let creditServiceAvailable = false;
 let creditServiceProcess = null; // For auto-start functionality
 
+// OFAC Sanctions Screening Integration
+let sanctionsAPI = null;
+try {
+    sanctionsAPI = require('./lib/free-sanctions-api');
+    console.log('[INFO] OFAC Sanctions API loaded successfully');
+    // Initialize sanctions databases (async, non-blocking)
+    sanctionsAPI.initializeSanctions().catch(err => {
+        console.warn('[WARN] Failed to initialize sanctions databases:', err.message);
+    });
+} catch (error) {
+    console.warn('[WARN] OFAC Sanctions API not available:', error.message);
+    sanctionsAPI = null;
+}
+
 // Insurance Integration - Production Safe
 let insuranceIntegration = null;
 let insuranceServiceAvailable = false;
@@ -403,6 +417,7 @@ const database = {
     pendingContracts: new Map(), // Contracts waiting for counterparty KYC
     notifications: new Map(), // User notifications
     complianceReports: new Map(), // KYC compliance reports
+    creditAssessments: new Map(), // Credit risk assessments
     auditLogs: new Map(), // Audit trail system
     sessions: new Map(), // Session management
     admin: {
@@ -412,6 +427,16 @@ const database = {
         basisPoints: 100
     }
 };
+
+// Database persistence helper function
+function saveDatabase() {
+  // Temporary stub so demos don't crash if persistence is missing.
+  try {
+    console.log('[DB] saveDatabase() called – persistence temporarily disabled in this build.');
+  } catch (err) {
+    console.error('[DB] saveDatabase error (ignored for demo):', err);
+  }
+}
 
 // Audit Trail System
 function logAuditEvent(action, userId, details = {}) {
@@ -1260,6 +1285,10 @@ const authenticateToken = (req, res, next) => {
         if (isPublicRoute) {
             return next(); // Skip auth for public routes
         }
+        // For API routes, return JSON error instead of redirecting
+        if (req.path.startsWith('/api/')) {
+            return res.status(401).json({ error: 'Authentication required', message: 'Please sign in to access this resource' });
+        }
         return res.status(401).json({ error: 'Access token required' });
     }
     
@@ -1331,7 +1360,701 @@ app.get('/signin', (req, res) => {
 app.get('/signup', (req, res) => {
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
     // Use plain text strings - no HTML entities, no corrupted characters
-    const html = '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Sign Up - traidefi</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;background:#000;min-height:100vh;display:flex;align-items:center;justify-content:center;color:#fff}.container{background:#1a1a1a;padding:3rem;border-radius:15px;box-shadow:0 20px 40px rgba(0,0,0,0.5);max-width:500px;width:90%}h1{color:#fff;font-size:2.2rem;margin-bottom:1rem;text-align:center}.journey{background:#2a2a2a;padding:1.5rem;border-radius:8px;margin-bottom:2rem}.journey h3{color:#fff;margin-bottom:1rem;font-size:1.1rem}.steps{display:flex;justify-content:space-between;margin-bottom:1rem}.step{flex:1;text-align:center;padding:0.5rem;background:#333;border-radius:6px;margin:0 0.25rem;color:#ccc;font-size:0.9rem}.step.active{background:#667eea;color:#fff}.step-desc{color:#888;font-size:0.85rem;text-align:center}.form-group{margin-bottom:1.5rem}label{display:block;margin-bottom:0.5rem;color:#fff;font-weight:600}input,select{width:100%;padding:12px;background:#333;border:1px solid #555;border-radius:8px;font-size:1rem;color:#fff}input:focus,select:focus{outline:none;border-color:#667eea}.btn{width:100%;padding:15px;background:#667eea;color:#fff;border:none;border-radius:8px;font-size:1.1rem;font-weight:600;cursor:pointer;margin-top:1rem}.btn:hover{background:#5a6fd8}.links{text-align:center;margin-top:2rem}.links a{color:#667eea;text-decoration:none}.message{padding:1rem;margin-bottom:1rem;border-radius:8px;display:none}.success{background:#d4edda;color:#155724;border:1px solid #c3e6cb}.error{background:#f8d7da;color:#721c24;border:1px solid #f5c6cb}</style></head><body><div class="container"><h1>Create Your Account</h1><div class="journey"><h3>Your Registration Journey</h3><div class="steps"><div class="step active">1. Sign Up</div><div class="step">2. KYC Docs</div><div class="step">3. Wallet Setup</div><div class="step">4. Dashboard</div></div><p class="step-desc">Complete basic info - Upload KYC documents - Set up your wallet - Start trading!</p></div><div id="message" class="message"></div><form id="signupForm"><div class="form-group"><label for="email">Email Address *</label><input type="email" id="email" required></div><div class="form-group"><label for="password">Password *</label><input type="password" id="password" required></div><div class="form-group"><label for="role">Your Role *</label><select id="role" required><option value="">Select your trading role</option><option value="buyer">Buyer</option><option value="supplier">Supplier</option><option value="trader">Trader</option><option value="insurer">Insurer</option></select></div><button type="submit" class="btn" id="submitBtn">Create Account</button></form><div class="links"><a href="/signin">Already have an account? Sign In</a><br><a href="/landing-two">Back to Home</a></div></div><script>console.log("[OK] Signup page loaded");document.getElementById("signupForm").addEventListener("submit",async function(e){e.preventDefault();const email=document.getElementById("email").value;const password=document.getElementById("password").value;const role=document.getElementById("role").value;const messageDiv=document.getElementById("message");try{const response=await fetch("/api/auth/register",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email,password,role})});const data=await response.json();if(data.success){localStorage.setItem("token",data.token);localStorage.setItem("user",JSON.stringify(data.user));window.location.href="/dashboard/kyc"}else{messageDiv.textContent=data.error||"Registration failed";messageDiv.className="message error";messageDiv.style.display="block"}}catch(error){messageDiv.textContent="Network error. Please try again.";messageDiv.className="message error";messageDiv.style.display="block"}});</script></body></html>';
+    const html = '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Sign Up - traidefi</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;background:#000;min-height:100vh;display:flex;align-items:center;justify-content:center;color:#fff}.container{background:#1a1a1a;padding:3rem;border-radius:15px;box-shadow:0 20px 40px rgba(0,0,0,0.5);max-width:500px;width:90%}h1{color:#fff;font-size:2.2rem;margin-bottom:1rem;text-align:center}.journey{background:#2a2a2a;padding:1.5rem;border-radius:8px;margin-bottom:2rem}.journey h3{color:#fff;margin-bottom:1rem;font-size:1.1rem}.steps{display:flex;justify-content:space-between;margin-bottom:1rem}.step{flex:1;text-align:center;padding:0.5rem;background:#333;border-radius:6px;margin:0 0.25rem;color:#ccc;font-size:0.9rem}.step.active{background:#667eea;color:#fff}.step-desc{color:#888;font-size:0.85rem;text-align:center}.form-group{margin-bottom:1.5rem}label{display:block;margin-bottom:0.5rem;color:#fff;font-weight:600}input,select{width:100%;padding:12px;background:#333;border:1px solid #555;border-radius:8px;font-size:1rem;color:#fff}input:focus,select:focus{outline:none;border-color:#667eea}.btn{width:100%;padding:15px;background:#667eea;color:#fff;border:none;border-radius:8px;font-size:1.1rem;font-weight:600;cursor:pointer;margin-top:1rem}.btn:hover{background:#5a6fd8}.links{text-align:center;margin-top:2rem}.links a{color:#667eea;text-decoration:none}.message{padding:1rem;margin-bottom:1rem;border-radius:8px;display:none}.success{background:#d4edda;color:#155724;border:1px solid #c3e6cb}.error{background:#f8d7da;color:#721c24;border:1px solid #f5c6cb}</style></head><body><div class="container"><h1>Create Your Account</h1><div class="journey"><h3>Your Registration Journey</h3><div class="steps"><div class="step active">1. Sign Up</div><div class="step">2. KYC Docs</div><div class="step">3. Wallet Setup</div><div class="step">4. Dashboard</div></div><p class="step-desc">Complete basic info - Upload KYC documents - Set up your wallet - Start trading!</p></div><div id="message" class="message"></div><form id="signupForm"><div class="form-group"><label for="email">Email Address *</label><input type="email" id="email" required></div><div class="form-group"><label for="password">Password *</label><input type="password" id="password" required></div><div class="form-group"><label for="role">Your Role *</label><select id="role" required><option value="">Select your trading role</option><option value="buyer">Buyer</option><option value="supplier">Supplier</option><option value="trader">Trader</option><option value="insurer">Insurer</option></select></div><button type="submit" class="btn" id="submitBtn">Create Account</button></form><div class="links"><a href="/signin">Already have an account? Sign In</a><br><a href="/landing-two">Back to Home</a></div></div><script>console.log("[OK] Signup page loaded");document.getElementById("signupForm").addEventListener("submit",async function(e){e.preventDefault();const email=document.getElementById("email").value;const password=document.getElementById("password").value;const role=document.getElementById("role").value;const messageDiv=document.getElementById("message");try{const response=await fetch("/api/auth/register",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email,password,role})});const data=await response.json();if(data.success){localStorage.setItem("token",data.token);localStorage.setItem("user",JSON.stringify(data.user));window.location.href="/dashboard/kyc?token=" + encodeURIComponent(data.token)}else{messageDiv.textContent=data.error||"Registration failed";messageDiv.className="message error";messageDiv.style.display="block"}}catch(error){messageDiv.textContent="Network error. Please try again.";messageDiv.className="message error";messageDiv.style.display="block"}});</script></body></html>';
+    res.end(html, 'utf8');
+});
+
+// Wallet Setup Page
+app.get('/wallet-setup', (req, res) => {
+    const token = req.query.token || req.headers.authorization?.replace('Bearer ', '') || req.cookies?.token;
+    const role = req.query.role || 'buyer';
+    
+    if (!token) {
+        return res.redirect('/landing-two');
+    }
+    
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+    const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Wallet Setup - traidefi</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;background:#000;min-height:100vh;display:flex;align-items:center;justify-content:center;color:#fff}.container{background:#1a1a1a;padding:3rem;border-radius:15px;box-shadow:0 20px 40px rgba(0,0,0,0.5);max-width:600px;width:90%}h1{color:#fff;font-size:2.2rem;margin-bottom:1rem;text-align:center}.journey{background:#2a2a2a;padding:1.5rem;border-radius:8px;margin-bottom:2rem}.journey h3{color:#fff;margin-bottom:1rem;font-size:1.1rem}.steps{display:flex;justify-content:space-between;margin-bottom:1rem}.step{flex:1;text-align:center;padding:0.5rem;background:#333;border-radius:6px;margin:0 0.25rem;color:#ccc;font-size:0.9rem}.step.active{background:#667eea;color:#fff}.step-desc{color:#888;font-size:0.85rem;text-align:center}.options{display:flex;flex-direction:column;gap:1rem;margin-top:2rem}.option-card{background:#2a2a2a;padding:2rem;border-radius:8px;border:2px solid #333;cursor:pointer;transition:all 0.3s}.option-card:hover{border-color:#667eea;background:#333}.option-card h3{color:#fff;margin-bottom:0.5rem}.option-card p{color:#ccc;font-size:0.9rem}.form-group{margin-bottom:1.5rem}label{display:block;margin-bottom:0.5rem;color:#fff;font-weight:600}input{width:100%;padding:12px;background:#333;border:1px solid #555;border-radius:8px;font-size:1rem;color:#fff}input:focus{outline:none;border-color:#667eea}.btn{width:100%;padding:15px;background:#667eea;color:#fff;border:none;border-radius:8px;font-size:1.1rem;font-weight:600;cursor:pointer;margin-top:1rem}.btn:hover{background:#5a6fd8}.btn.secondary{background:#666;margin-top:0.5rem}.btn.secondary:hover{background:#777}.message{padding:1rem;margin-bottom:1rem;border-radius:8px;display:none}.success{background:#d4edda;color:#155724;border:1px solid #c3e6cb}.error{background:#f8d7da;color:#721c24;border:1px solid #f5c6cb}</style></head><body><div class="container"><h1>Wallet Setup</h1><div class="journey"><h3>Your Registration Journey</h3><div class="steps"><div class="step">1. Sign Up</div><div class="step">2. KYC Docs</div><div class="step active">3. Wallet Setup</div><div class="step">4. Dashboard</div></div><p class="step-desc">Set up your wallet to start trading on the platform</p></div><div id="message" class="message"></div><div class="options" id="options"><div class="option-card" onclick="showWalletForm()"><h3>I have a wallet</h3><p>Enter your existing wallet address and details</p></div><div class="option-card" onclick="setupMetaMask()"><h3>Help me set up wallet</h3><p>Connect with MetaMask or create a new wallet</p></div></div><form id="walletForm" style="display:none"><div class="form-group"><label for="walletAddress">Wallet Address *</label><input type="text" id="walletAddress" name="walletAddress" placeholder="0x..." required></div><div class="form-group"><label for="walletType">Wallet Type</label><input type="text" id="walletType" name="walletType" placeholder="MetaMask, Ledger, etc."></div><button type="submit" class="btn">Save Wallet</button><button type="button" class="btn secondary" onclick="hideWalletForm()">Cancel</button></form></div><script>const token='${token}';const role='${role}';function showWalletForm(){document.getElementById('walletForm').style.display='block';document.getElementById('options').style.display='none'}function hideWalletForm(){document.getElementById('walletForm').style.display='none';document.getElementById('options').style.display='flex';document.getElementById('walletAddress').value='';document.getElementById('walletType').value=''}async function setupMetaMask(){if(typeof window.ethereum!=='undefined'){try{const accounts=await window.ethereum.request({method:'eth_requestAccounts'});if(accounts&&accounts.length>0){const walletAddress=accounts[0];await saveWallet(walletAddress,'MetaMask');}else{alert('Please connect your MetaMask account')}}catch(error){console.error('MetaMask error:',error);alert('MetaMask connection failed. Please try again.')}}else{alert('MetaMask is not installed. Please install MetaMask extension or use the manual wallet entry option.')}}async function saveWallet(address,type){if(!address||address.trim()===''){showMessage('Wallet address is required','error');return}if(!address.match(/^0x[a-fA-F0-9]{40}$/)){showMessage('Invalid wallet address format. Must be a valid Ethereum address (0x followed by 40 hex characters)','error');return}try{const response=await fetch('/api/wallet/create',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({address:address.trim(),type:type||'Manual'})});const data=await response.json();if(data.success){localStorage.setItem('token',token);window.location.href='/dashboard/authenticated?role='+role+'&token='+encodeURIComponent(token)}else{showMessage(data.error||'Failed to save wallet','error')}}catch(error){console.error('Wallet save error:',error);showMessage('Network error. Please try again.','error')}}document.getElementById('walletForm').addEventListener('submit',async function(e){e.preventDefault();const address=document.getElementById('walletAddress').value.trim();const type=document.getElementById('walletType').value.trim()||'Manual';await saveWallet(address,type)});function showMessage(text,type){const messageDiv=document.getElementById('message');messageDiv.textContent=text;messageDiv.className='message '+type;messageDiv.style.display='block';setTimeout(()=>{messageDiv.style.display='none'},5000)}</script></body></html>`;
+    res.end(html, 'utf8');
+});
+
+// Manage Contract Page (Document Upload)
+app.get('/manage-contract/:contractId', (req, res) => {
+    const token = req.query.token || req.headers.authorization?.replace('Bearer ', '') || req.cookies?.token;
+    const { contractId } = req.params;
+    
+    if (!token) {
+        return res.redirect('/landing-two');
+    }
+    
+    let user = null;
+    try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'tangent-secret-key');
+        user = database.users.get(decoded.email);
+        if (!user) {
+            return res.redirect('/landing-two');
+        }
+    } catch (error) {
+        return res.redirect('/landing-two');
+    }
+    
+    const contract = database.contracts.get(contractId);
+    if (!contract) {
+        return res.status(404).send('Contract not found');
+    }
+    
+    // Check if user has permission
+    if (contract.supplierEmail !== user.email && contract.buyerEmail !== user.email && user.role !== 'admin' && user.role !== 'trader') {
+        return res.status(403).send('Unauthorized');
+    }
+    
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+    const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Manage Contract - traidefi</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;background:#000;min-height:100vh;padding:2rem;color:#fff}.container{max-width:800px;margin:0 auto;background:#1a1a1a;padding:3rem;border-radius:15px;box-shadow:0 20px 40px rgba(0,0,0,0.5)}h1{color:#fff;font-size:2.2rem;margin-bottom:1rem}.contract-info{background:#2a2a2a;padding:1.5rem;border-radius:8px;margin-bottom:2rem}.contract-info h3{color:#fff;margin-bottom:1rem}.info-row{display:flex;justify-content:space-between;padding:0.5rem 0;border-bottom:1px solid #333}.info-row:last-child{border-bottom:none}.info-label{color:#ccc}.info-value{color:#fff;font-weight:600}.document-upload{background:#2a2a2a;padding:1.5rem;border-radius:8px;margin-bottom:2rem}.document-upload h3{color:#fff;margin-bottom:1rem}.file-input-wrapper{position:relative;display:inline-block;width:100%}.file-input-wrapper input[type=file]{position:absolute;opacity:0;width:100%;height:100%;cursor:pointer}.file-input-label{display:block;padding:12px;background:#333;border:1px solid #555;border-radius:8px;text-align:center;cursor:pointer;color:#fff}.file-input-label:hover{background:#444;border-color:#667eea}.uploaded-docs{margin-top:1.5rem}.doc-item{background:#333;padding:1rem;border-radius:8px;margin-bottom:0.5rem;display:flex;justify-content:space-between;align-items:center}.doc-name{color:#fff}.doc-date{color:#ccc;font-size:0.9rem}.btn{width:100%;padding:15px;background:#667eea;color:#fff;border:none;border-radius:8px;font-size:1.1rem;font-weight:600;cursor:pointer;margin-top:1rem}.btn:hover{background:#5a6fd8}.btn.secondary{background:#666;margin-top:0.5rem}.btn.secondary:hover{background:#777}.message{padding:1rem;margin-bottom:1rem;border-radius:8px;display:none}.success{background:#d4edda;color:#155724;border:1px solid #c3e6cb}.error{background:#f8d7da;color:#721c24;border:1px solid #f5c6cb}.back-link{text-align:center;margin-top:2rem}.back-link a{color:#667eea;text-decoration:none}</style></head><body><div class="container"><h1>Manage Contract</h1><div id="message" class="message"></div><div class="contract-info"><h3>Contract Details</h3><div class="info-row"><span class="info-label">Product:</span><span class="info-value">${contract.product}</span></div><div class="info-row"><span class="info-label">Quantity:</span><span class="info-value">${contract.quantity} ${contract.unit}</span></div><div class="info-row"><span class="info-label">Total Value:</span><span class="info-value">$${contract.totalValue.toLocaleString()} ${contract.currency}</span></div><div class="info-row"><span class="info-label">Status:</span><span class="info-value">${contract.status}</span></div></div><div class="document-upload"><h3>📄 Upload Shipping Documents</h3><p style="color:#ccc;margin-bottom:1rem">Upload shipping documents (Bill of Lading, Commercial Invoice, Packing List, etc.)</p><div class="file-input-wrapper"><input type="file" id="documentUpload" multiple accept=".pdf,.jpg,.jpeg,.png" onchange="handleFileSelect(event)"><label for="documentUpload" class="file-input-label">Choose Files (PDF, JPG, PNG)</label></div><div id="selectedFiles" style="margin-top:1rem;color:#ccc"></div><button class="btn" onclick="uploadDocuments()">Upload Documents</button><div id="uploadedDocs" class="uploaded-docs"></div></div><button class="btn secondary" onclick="window.location.href='/dashboard/authenticated?token='+encodeURIComponent('${token}')">Back to Dashboard</button></div><script>let token='${token}'||localStorage.getItem('token')||'';const contractId='${contractId}';let selectedFiles=[];function handleFileSelect(event){selectedFiles=Array.from(event.target.files);const filesDiv=document.getElementById('selectedFiles');if(selectedFiles.length>0){filesDiv.innerHTML='<strong>Selected files:</strong><br>'+selectedFiles.map(f=>f.name).join('<br>')}else{filesDiv.innerHTML=''}}async function uploadDocuments(){if(selectedFiles.length===0){showMessage('Please select at least one file','error');return}if(!token){token=localStorage.getItem('token')||'';if(!token){showMessage('Authentication required. Please sign in again.','error');setTimeout(()=>{window.location.href='/landing-two'},2000);return}}const formData=new FormData();selectedFiles.forEach(file=>{formData.append('documents',file)});try{showMessage('Uploading documents...','success');const response=await fetch('/api/contracts/'+contractId+'/documents',{method:'POST',headers:{'Authorization':'Bearer '+token},body:formData});if(!response.ok){if(response.status===401||response.status===403){const errorData=await response.json().catch(()=>({error:'Authentication failed'}));showMessage(errorData.error||'Session expired. Please sign in again.','error');setTimeout(()=>{window.location.href='/landing-two'},2000);return}const errorData=await response.json().catch(()=>({error:'Upload failed'}));showMessage(errorData.error||'Failed to upload documents','error');return}const result=await response.json();if(result.success){showMessage(result.message||'Documents uploaded successfully!','success');selectedFiles=[];document.getElementById('documentUpload').value='';document.getElementById('selectedFiles').innerHTML='';setTimeout(()=>{const finalToken=token||localStorage.getItem('token')||'';window.location.href='/dashboard/authenticated?token='+encodeURIComponent(finalToken)},2000)}else{showMessage(result.error||'Failed to upload documents','error')}}catch(error){console.error('Upload error:',error);showMessage('Network error: '+error.message+'. Please check your connection and try again.','error')}}function showMessage(text,type){const messageDiv=document.getElementById('message');messageDiv.textContent=text;messageDiv.className='message '+type;messageDiv.style.display='block';setTimeout(()=>{messageDiv.style.display='none'},5000)}</script></body></html>`;
+    res.end(html, 'utf8');
+});
+
+// Create Contract Page
+app.get('/create-contract', (req, res) => {
+    const token = req.query.token || req.headers.authorization?.replace('Bearer ', '') || req.cookies?.token;
+    
+    if (!token) {
+        return res.redirect('/landing-two');
+    }
+    
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+    const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Create Contract - traidefi</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;background:#000;min-height:100vh;padding:2rem;color:#fff}.container{max-width:800px;margin:0 auto;background:#1a1a1a;padding:3rem;border-radius:15px;box-shadow:0 20px 40px rgba(0,0,0,0.5)}h1{color:#fff;font-size:2.2rem;margin-bottom:1rem;text-align:center}.form-group{margin-bottom:1.5rem}label{display:block;margin-bottom:0.5rem;color:#fff;font-weight:600}input,select,textarea{width:100%;padding:12px;background:#333;border:1px solid #555;border-radius:8px;font-size:1rem;color:#fff}input:focus,select:focus,textarea:focus{outline:none;border-color:#667eea}textarea{min-height:100px;resize:vertical}.currency-options{display:flex;gap:1rem;margin-top:0.5rem}.currency-option{flex:1;padding:15px;background:#2a2a2a;border:2px solid #333;border-radius:8px;cursor:pointer;text-align:center;transition:all 0.3s}.currency-option:hover{border-color:#667eea}.currency-option.selected{background:#667eea;border-color:#667eea}.currency-option h4{color:#fff;margin-bottom:0.5rem;font-size:1rem}.currency-option p{color:#ccc;font-size:0.85rem}.btn{width:100%;padding:15px;background:#667eea;color:#fff;border:none;border-radius:8px;font-size:1.1rem;font-weight:600;cursor:pointer;margin-top:1rem}.btn:hover{background:#5a6fd8}.btn.secondary{background:#666;margin-top:0.5rem}.btn.secondary:hover{background:#777}.message{padding:1rem;margin-bottom:1rem;border-radius:8px;display:none}.success{background:#d4edda;color:#155724;border:1px solid #c3e6cb}.error{background:#f8d7da;color:#721c24;border:1px solid #f5c6cb}.back-link{text-align:center;margin-top:2rem}.back-link a{color:#667eea;text-decoration:none}.price-comparison{background:#2a2a2a;padding:1.5rem;border-radius:8px;margin-top:1rem;display:none}.price-comparison h4{color:#fff;margin-bottom:1rem}.price-row{display:flex;justify-content:space-between;padding:0.5rem 0;border-bottom:1px solid #333}.price-row:last-child{border-bottom:none}.price-label{color:#ccc}.price-value{color:#fff;font-weight:600}.price-warning{color:#ff6b6b}.price-good{color:#51cf66}.price-loading{color:#ffd43b}.pdf-upload{background:#2a2a2a;padding:1.5rem;border-radius:8px;margin-bottom:2rem;border:2px dashed #555}.pdf-upload h3{color:#fff;margin-bottom:1rem}.pdf-upload p{color:#ccc;margin-bottom:1rem;font-size:0.9rem}.file-input-wrapper{position:relative;display:inline-block;width:100%}.file-input-wrapper input[type=file]{position:absolute;opacity:0;width:100%;height:100%;cursor:pointer}.file-input-label{display:block;padding:12px;background:#333;border:1px solid #555;border-radius:8px;text-align:center;cursor:pointer;color:#fff}.file-input-label:hover{background:#444;border-color:#667eea}.file-name{color:#ccc;margin-top:0.5rem;font-size:0.9rem}</style></head><body><div class="container"><h1>Create New Contract</h1><div id="message" class="message"></div><div class="pdf-upload"><h3>📄 Upload PDF Contract (Optional)</h3><p>Upload a PDF contract to automatically extract and fill in the contract details. You can review and edit the extracted information before submitting.</p><div class="file-input-wrapper"><input type="file" id="pdfUpload" accept=".pdf" onchange="handlePDFUpload(event)"><label for="pdfUpload" class="file-input-label">Choose PDF File</label></div><div id="pdfFileName" class="file-name"></div></div><form id="contractForm"><div class="form-group"><label for="product">Product/Commodity *</label><select id="product" name="product" required onchange="checkPriceComparison()"><option value="">Select a product</option><option value="Rice">Rice</option><option value="Wheat">Wheat</option><option value="Corn">Corn</option><option value="Soybeans">Soybeans</option><option value="Coffee">Coffee</option><option value="Sugar">Sugar</option><option value="Cocoa">Cocoa</option><option value="Cotton">Cotton</option><option value="Palm Oil">Palm Oil</option><option value="Rubber">Rubber</option><option value="Other">Other (specify below)</option></select><input type="text" id="productOther" name="productOther" placeholder="Specify product name" style="display:none;margin-top:0.5rem"></div><div class="form-group"><label for="quantity">Quantity *</label><input type="number" id="quantity" name="quantity" placeholder="e.g., 1000" step="0.01" required></div><div class="form-group"><label for="unit">Unit *</label><select id="unit" name="unit" required><option value="">Select unit</option><option value="MT">Metric Tons (MT)</option><option value="kg">Kilograms (kg)</option><option value="lb">Pounds (lb)</option><option value="bushels">Bushels</option><option value="bags">Bags</option></select></div><div class="form-group"><label for="price">Price per Unit *</label><input type="number" id="price" name="price" placeholder="e.g., 500" step="0.01" required oninput="checkPriceComparison()"><div id="priceComparison" class="price-comparison"><h4>Market Price Comparison</h4><div id="priceComparisonContent"></div></div></div><div class="form-group"><label>Payment Currency *</label><div class="currency-options"><div class="currency-option" onclick="selectCurrency('TGT')"><h4>TGT</h4><p>Tangent Token</p></div><div class="currency-option" onclick="selectCurrency('USDT')"><h4>USDT</h4><p>Tether USD</p></div><div class="currency-option" onclick="selectCurrency('USDC')"><h4>USDC</h4><p>USD Coin</p></div></div><input type="hidden" id="currency" name="currency" value="TGT" required></div><div class="form-group"><label for="counterparty">Counterparty Email *</label><input type="email" id="counterparty" name="counterparty" placeholder="buyer@example.com or supplier@example.com" required></div><div class="form-group"><label for="depositPercent">Deposit Percentage *</label><input type="number" id="depositPercent" name="depositPercent" placeholder="30" min="10" max="50" value="30" required></div><div class="form-group"><label for="voyageTime">Voyage Time (days) *</label><input type="number" id="voyageTime" name="voyageTime" placeholder="30" min="1" value="30" required></div><div class="form-group"><label for="description">Description</label><textarea id="description" name="description" placeholder="Additional contract details..."></textarea></div><button type="submit" class="btn">Create Contract</button><button type="button" class="btn secondary" onclick="window.location.href='/dashboard/authenticated?token='+encodeURIComponent('${token}')">Cancel</button></form><div class="back-link"><a href="/dashboard/authenticated?token=${token}">Back to Dashboard</a></div></div><script>const token='${token}'||localStorage.getItem('token');if(!token){window.location.href='/landing-two'}function selectCurrency(currency){document.querySelectorAll('.currency-option').forEach(opt=>opt.classList.remove('selected'));event.target.closest('.currency-option')?.classList.add('selected')||event.currentTarget.classList.add('selected');document.getElementById('currency').value=currency}async function handlePDFUpload(event){const file=event.target.files[0];if(!file){return}if(file.type!=='application/pdf'){showMessage('Please upload a PDF file','error');return}document.getElementById('pdfFileName').textContent='Uploading: '+file.name;showMessage('Extracting contract data from PDF...','success');const formData=new FormData();formData.append('pdf',file);try{const response=await fetch('/api/contracts/extract-from-pdf',{method:'POST',headers:{'Authorization':'Bearer '+token},body:formData});const result=await response.json();if(result.success&&result.extracted){const ext=result.extracted;if(ext.productDetails){const productSelect=document.getElementById('product');const productValue=ext.productDetails.toLowerCase();if(['rice','wheat','corn','soybeans','coffee','sugar','cocoa','cotton','palm oil','rubber'].some(p=>productValue.includes(p))){productSelect.value=ext.productDetails}else{productSelect.value='Other';document.getElementById('productOther').style.display='block';document.getElementById('productOther').value=ext.productDetails}}if(ext.quantity){document.getElementById('quantity').value=ext.quantity}if(ext.unit){document.getElementById('unit').value=ext.unit}if(ext.pricePerUnit){document.getElementById('price').value=ext.pricePerUnit;checkPriceComparison()}if(ext.buyerEmail||ext.supplierEmail){document.getElementById('counterparty').value=ext.buyerEmail||ext.supplierEmail}if(ext.deliveryDate){const days=Math.ceil((new Date(ext.deliveryDate)-new Date())/86400000);if(days>0){document.getElementById('voyageTime').value=days}}if(ext.specifications){document.getElementById('description').value=ext.specifications}showMessage('Contract data extracted and filled! Please review and edit as needed.','success');document.getElementById('pdfFileName').textContent='Extracted from: '+file.name}else{showMessage('Could not extract contract data from PDF. Please fill the form manually.','error')}}catch(error){console.error('PDF extraction error:',error);showMessage('Failed to extract PDF. Please fill the form manually.','error')}}document.getElementById('product').addEventListener('change',function(){const productOther=document.getElementById('productOther');if(this.value==='Other'){productOther.style.display='block';productOther.required=true}else{productOther.style.display='none';productOther.required=false;productOther.value=''}checkPriceComparison()});async function checkPriceComparison(){const product=document.getElementById('product').value;const price=parseFloat(document.getElementById('price').value);const comparisonDiv=document.getElementById('priceComparison');const contentDiv=document.getElementById('priceComparisonContent');if(!product||!price||isNaN(price)){comparisonDiv.style.display='none';return}comparisonDiv.style.display='block';contentDiv.innerHTML='<div class="price-row"><span class="price-label price-loading">Loading market prices...</span></div>';try{let variancePercent=5;let basisPoints=100;try{const response=await fetch('/api/admin/settings',{headers:{'Authorization':'Bearer '+token}});if(response.ok){const settings=await response.json();basisPoints=settings.basisPoints||100;variancePercent=5}}catch(e){console.log('Using default variance settings')}const mockPrices={Rice:450,Wheat:280,Corn:180,Soybeans:520,Coffee:180,Sugar:0.18,Cocoa:3200,Cotton:0.85,'Palm Oil':850,Rubber:1.2};const marketPrice=mockPrices[product]||price*0.95;const priceDiff=Math.abs(price-marketPrice);const priceDiffPercent=(priceDiff/marketPrice)*100;const isWithinVariance=priceDiffPercent<=variancePercent;let html='';html+='<div class="price-row"><span class="price-label">Your Price:</span><span class="price-value">$'+price.toFixed(2)+'</span></div>';html+='<div class="price-row"><span class="price-label">Market Average:</span><span class="price-value">$'+marketPrice.toFixed(2)+'</span></div>';html+='<div class="price-row"><span class="price-label">Difference:</span><span class="price-value '+(isWithinVariance?'price-good':'price-warning')+'">'+priceDiffPercent.toFixed(2)+'% '+(price>marketPrice?'above':'below')+' market</span></div>';if(!isWithinVariance){html+='<div class="price-row"><span class="price-label price-warning">⚠️ Price variance exceeds '+variancePercent+'% threshold</span></div>'}else{html+='<div class="price-row"><span class="price-label price-good">✓ Price within acceptable range</span></div>'}contentDiv.innerHTML=html}catch(error){console.error('Price comparison error:',error);contentDiv.innerHTML='<div class="price-row"><span class="price-label">Unable to fetch market prices</span></div>'}}document.getElementById('price').addEventListener('input',checkPriceComparison);document.getElementById('contractForm').addEventListener('submit',async function(e){e.preventDefault();const formData=new FormData(this);const data=Object.fromEntries(formData);if(data.product==='Other'){data.product=data.productOther||'Other'}data.totalValue=(parseFloat(data.quantity)*parseFloat(data.price)).toFixed(2);data.depositAmount=((parseFloat(data.totalValue)*parseFloat(data.depositPercent))/100).toFixed(2);try{const response=await fetch('/api/contracts',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify(data)});if(!response.ok){const errorData=await response.json().catch(()=>({error:'Authentication failed. Please sign in again.'}));if(response.status===401||response.status===403){showMessage('Session expired. Please sign in again.','error');setTimeout(()=>{window.location.href='/landing-two'},2000);return}showMessage(errorData.error||'Failed to create contract','error');return}const result=await response.json();if(result.success||result.id){showMessage('Contract created successfully!','success');setTimeout(()=>{window.location.href='/dashboard/authenticated?token='+encodeURIComponent(token)},2000)}else{showMessage(result.error||'Failed to create contract','error')}}catch(error){console.error('Contract creation error:',error);showMessage('Network error. Please try again.','error')}});function showMessage(text,type){const messageDiv=document.getElementById('message');messageDiv.textContent=text;messageDiv.className='message '+type;messageDiv.style.display='block';setTimeout(()=>{messageDiv.style.display='none'},5000)}</script></body></html>`;
+    res.end(html, 'utf8');
+});
+
+// Demo Workflow - Main Index Page
+app.get('/demo/workflow', (req, res) => {
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+    const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Demo Workflow - traidefi</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;background:#000;min-height:100vh;color:#fff;padding:2rem}.container{max-width:1200px;margin:0 auto}.header{text-align:center;margin-bottom:3rem}h1{color:#fff;font-size:2.5rem;margin-bottom:1rem}.subtitle{color:#ccc;font-size:1.2rem;margin-bottom:2rem}.intro-box{background:#1a1a1a;padding:2rem;border-radius:15px;margin-bottom:3rem;border:1px solid #333}.intro-box p{color:#ccc;line-height:1.8;font-size:1.1rem;margin-bottom:1rem}.workflow-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1.5rem;margin-bottom:3rem}.workflow-card{background:#1a1a1a;padding:2rem;border-radius:15px;border:2px solid #333;transition:all 0.3s;cursor:pointer}.workflow-card:hover{border-color:#667eea;background:#2a2a2a}.workflow-card h3{color:#fff;font-size:1.5rem;margin-bottom:1rem}.workflow-card p{color:#ccc;line-height:1.6;margin-bottom:1.5rem}.workflow-card .step-count{color:#667eea;font-weight:600;margin-bottom:0.5rem}.btn{display:inline-block;padding:12px 24px;background:#667eea;color:#fff;border:none;border-radius:8px;font-size:1rem;font-weight:600;cursor:pointer;text-decoration:none}.btn:hover{background:#5a6fd8}.btn.secondary{background:#666}.btn.secondary:hover{background:#777}.back-link{text-align:center;margin-top:2rem}.back-link a{color:#667eea;text-decoration:none;font-size:1.1rem}</style></head><body><div class="container"><div class="header"><h1>📚 Platform Demo & Documentation</h1><p class="subtitle">Step-by-step walkthrough of every page and backend process</p></div><div class="intro-box"><p><strong>Welcome to the comprehensive demo system!</strong> This interactive guide walks you through every page of the Tangent Platform, showing you exactly what users see and what happens behind the scenes in the backend.</p><p>Each workflow includes detailed explanations of:</p><ul style="color:#ccc;line-height:2;margin-left:2rem"><li>What the page looks like and its purpose</li><li>What happens when users interact with it</li><li>Backend API calls and database operations</li><li>Data flow and state changes</li><li>Security and validation checks</li></ul></div><div class="workflow-grid"><div class="workflow-card" onclick="window.location.href='/demo/workflow/buyer'"><div class="step-count">8 Steps</div><h3>👤 Buyer Workflow</h3><p>Complete buyer journey from signup to contract completion. See how buyers create contracts, pay deposits, review documents, and release payments.</p><a href="/demo/workflow/buyer" class="btn">Start Buyer Demo →</a></div><div class="workflow-card" onclick="window.location.href='/demo/workflow/supplier'"><div class="step-count">7 Steps</div><h3>🏭 Supplier Workflow</h3><p>Supplier journey from registration to receiving payments. Learn how suppliers confirm contracts, upload documents, and get paid.</p><a href="/demo/workflow/supplier" class="btn">Start Supplier Demo →</a></div><div class="workflow-card" onclick="window.location.href='/demo/workflow/trader'"><div class="step-count">9 Steps</div><h3>🤝 Trader Workflow</h3><p>Trader dual-role workflow. See how traders manage contracts as both buyer and supplier simultaneously.</p><a href="/demo/workflow/trader" class="btn">Start Trader Demo →</a></div><div class="workflow-card" onclick="window.location.href='/demo/workflow/admin'"><div class="step-count">6 Sections</div><h3>⚙️ Admin Dashboard</h3><p>Complete admin overview. Explore user management, KYC review, contract oversight, and platform configuration.</p><a href="/demo/workflow/admin" class="btn">Start Admin Demo →</a></div></div><div class="back-link"><a href="/landing-two">← Back to Access Portal</a></div></div><script>console.log('Demo workflow index loaded')</script></body></html>`;
+    res.end(html, 'utf8');
+});
+
+// Demo Buyer Workflow - Step by Step
+app.get('/demo/workflow/buyer', (req, res) => {
+    const step = parseInt(req.query.step) || 1;
+    const totalSteps = 9;
+    
+    const steps = [
+        {
+            title: 'Step 1: Sign Up Page',
+            pageUrl: '/signup',
+            description: 'The buyer starts by creating an account on the signup page.',
+            frontend: {
+                what: 'User sees a clean signup form with email, password, and role selection fields. The form includes a 4-step journey indicator showing: Sign Up → KYC Docs → Wallet Setup → Dashboard.',
+                features: ['Email validation', 'Password strength requirements', 'Role selector (Buyer/Supplier/Trader/Insurer)', '4-step progress indicator']
+            },
+            backend: {
+                endpoint: 'POST /api/auth/register',
+                process: [
+                    'Validates email format and checks if email already exists',
+                    'Hashes password using bcrypt (10 rounds)',
+                    'Normalizes role to lowercase for validation',
+                    'Creates user record in database.users Map',
+                    'Generates JWT token with 7-day expiration',
+                    'Sets initial KYC status to "pending"',
+                    'Returns token and user data (without password)'
+                ],
+                database: {
+                    table: 'database.users',
+                    action: 'Create new user record',
+                    fields: ['id', 'email', 'hashedPassword', 'role', 'kycStatus: "pending"', 'verified: false', 'createdAt']
+                }
+            },
+            nextAction: 'User is redirected to /dashboard/kyc with token in URL'
+        },
+        {
+            title: 'Step 2: KYC Document Upload',
+            pageUrl: '/dashboard/kyc',
+            description: 'Buyer must complete KYC verification by uploading required documents.',
+            frontend: {
+                what: 'User sees KYC form with company type selection (Listed Company or Private Company). Each type has different document requirements. Form includes file upload fields for passport, incorporation documents, financial statements, etc.',
+                features: ['Company type selection', 'Document upload (PDF, JPG, PNG)', 'Real-time file validation', 'Progress tracking']
+            },
+            backend: {
+                endpoint: 'POST /api/kyc/submit',
+                process: [
+                    'Authenticates user via JWT token',
+                    'Receives uploaded files via Multer middleware',
+                    'Validates file types and sizes',
+                    'Stores files in /uploads directory',
+                    'Creates KYC record in database.kyc Map',
+                    'Updates user.kycStatus to "pending"',
+                    'Stores document metadata (filename, path, type)',
+                    'Triggers compliance checks (OFAC screening)'
+                ],
+                database: {
+                    table: 'database.kyc',
+                    action: 'Create KYC submission record',
+                    fields: ['id', 'userId', 'companyType', 'documents[]', 'status: "pending"', 'submittedAt']
+                }
+            },
+            nextAction: 'User is redirected to /wallet-setup after KYC submission'
+        },
+        {
+            title: 'Step 3: Wallet Setup',
+            pageUrl: '/wallet-setup',
+            description: 'Buyer sets up their cryptocurrency wallet to enable payments.',
+            frontend: {
+                what: 'User sees two options: "I have a wallet" (manual entry) or "Help me set up wallet" (MetaMask integration). For manual entry, user inputs wallet address and type. MetaMask option connects to browser extension.',
+                features: ['Manual wallet entry', 'MetaMask integration', 'Ethereum address validation (0x + 40 hex chars)', 'Wallet type selection']
+            },
+            backend: {
+                endpoint: 'POST /api/wallet/create',
+                process: [
+                    'Validates wallet address format (Ethereum: 0x + 40 hex)',
+                    'Creates wallet record in database.wallets Map',
+                    'Links wallet to user via email',
+                    'Sets initial TGT balance (demo: $100,000)',
+                    'Updates user.hasWallet = true',
+                    'Stores wallet type (Manual/MetaMask)'
+                ],
+                database: {
+                    table: 'database.wallets',
+                    action: 'Create wallet record',
+                    fields: ['id: "wallet-{email}"', 'address', 'type', 'tgtBalance: 100000', 'createdAt']
+                }
+            },
+            nextAction: 'User is redirected to /dashboard/authenticated (main dashboard)'
+        },
+        {
+            title: 'Step 4: Dashboard Overview',
+            pageUrl: '/dashboard/authenticated',
+            description: 'Buyer sees their main dashboard with contract management interface.',
+            frontend: {
+                what: 'Dashboard shows: User role badge, notification bell, contract list table, "Create New Contract" button, and contract action buttons (Pay Deposit, Manage, etc.). Each contract displays: ID, product, value, status, counterparty, flags, and actions.',
+                features: ['Contract list with filters', 'Real-time status updates', 'Action buttons per contract', 'Notifications system', 'Role-based UI']
+            },
+            backend: {
+                endpoint: 'GET /api/contracts',
+                process: [
+                    'Authenticates user via JWT',
+                    'Queries database.contracts Map',
+                    'Filters contracts where user is buyerEmail or supplierEmail',
+                    'Enriches contract data with status, flags, and actions',
+                    'Returns JSON array of user contracts'
+                ],
+                database: {
+                    table: 'database.contracts',
+                    action: 'Query user contracts',
+                    filter: 'contract.buyerEmail === userEmail OR contract.supplierEmail === userEmail'
+                }
+            },
+            nextAction: 'User clicks "Create New Contract" button'
+        },
+        {
+            title: 'Step 5: Create Contract Page',
+            pageUrl: '/create-contract',
+            description: 'Buyer creates a new contract with product details, pricing, and counterparty information. When contract is created, an email notification is automatically sent to the supplier.',
+            frontend: {
+                what: 'Form includes: PDF upload (optional auto-fill), product dropdown (Rice, Wheat, Corn, etc. or "Other"), quantity, unit, price per unit with market comparison, currency selection (TGT/USDT/USDC), counterparty email, deposit percentage, voyage time, and description. Price comparison shows market average and variance warning if >5%. After submission, buyer sees confirmation message.',
+                features: ['PDF contract upload with auto-extraction', 'Product dropdown with "Other" option', 'Real-time price comparison with exchanges', 'Currency selection (TGT/USDT/USDC)', 'Form validation', 'Email notification to supplier']
+            },
+            backend: {
+                endpoint: 'POST /api/contracts/create',
+                process: [
+                    'Validates all required fields',
+                    'Checks counterparty exists in database',
+                    'Calculates totalValue = quantity × price',
+                    'Calculates depositAmount = totalValue × (depositPercent/100)',
+                    'Creates contract in database.contracts Map',
+                    'Sets status: "pending_supplier_confirmation"',
+                    'Sends email notification to supplier email address',
+                    'Email contains contract details and link to dashboard',
+                    'Logs audit event: contract_created',
+                    'Returns contract ID and full contract object'
+                ],
+                database: {
+                    table: 'database.contracts',
+                    action: 'Create new contract',
+                    fields: ['id', 'product', 'quantity', 'unit', 'pricePerUnit', 'totalValue', 'currency', 'buyerEmail', 'supplierEmail', 'depositPercent', 'depositAmount', 'status', 'createdAt']
+                }
+            },
+            nextAction: 'Email sent to supplier. Contract appears in supplier dashboard waiting for confirmation. Contract also appears in buyer dashboard with status "Waiting for Supplier Confirmation".'
+        },
+        {
+            title: 'Step 6: Pay Deposit (30%)',
+            pageUrl: '/dashboard/authenticated (contract action)',
+            description: 'After supplier confirms, buyer pays the 30% deposit. The deposit goes to the pool wallet. Once paid, contract becomes ACTIVE and supplier immediately sees the status change in their dashboard.',
+            frontend: {
+                what: 'Buyer sees "Pay Deposit ($X)" button on contract. Clicking it shows MetaMask option (if available) or proceeds with simulation. Button is only visible when contract status is "pending_deposit". After payment, contract status changes to "ACTIVE" in green. Supplier dashboard automatically updates to show "ACTIVE" status with "Deposit Received" indicator.',
+                features: ['MetaMask integration (optional)', 'Blockchain payment support', 'Simulation mode fallback', 'Balance validation', 'Real-time status update for supplier', 'Pool wallet deposit']
+            },
+            backend: {
+                endpoint: 'POST /api/contracts/:contractId/deposit',
+                process: [
+                    'Validates user is the buyer',
+                    'Checks contract status allows deposit',
+                    'Validates wallet balance (wallet.tgtBalance >= depositAmount)',
+                    'Deducts depositAmount (30%) from buyer wallet',
+                    'Transfers depositAmount to pool wallet (escrow)',
+                    'Updates contract: depositPaid = true, status = "active", depositPaidAt = timestamp',
+                    'Pool wallet finances 100% to supplier immediately (supplier receives full amount)',
+                    'Creates transaction record in database.transactions',
+                    'Sends notification to supplier: "Deposit received, contract is now active"',
+                    'Logs audit event: deposit_paid',
+                    'Returns success with updated contract'
+                ],
+                database: {
+                    tables: ['database.contracts (update)', 'database.wallets (buyer deduction, pool deposit, supplier credit)', 'database.transactions (create)'],
+                    actions: ['Update contract status to active', 'Deduct 30% from buyer wallet', 'Add 30% to pool wallet', 'Credit 100% to supplier wallet', 'Create transaction records']
+                }
+            },
+            nextAction: 'Contract is now ACTIVE. Supplier sees active status and can prepare shipment. Supplier has already received 100% payment (30% from pool + 70% financed). Buyer must pay remaining 70% + fees before delivery period ends.'
+        },
+        {
+            title: 'Step 7: Document Upload & Automatic Payment',
+            pageUrl: '/manage-contract/:contractId (supplier) → /dashboard/authenticated (buyer)',
+            description: 'When delivery period arrives, supplier uploads shipping documents. Upon upload, payment request automatically appears in buyer dashboard with countdown timer. Supplier automatically receives 100% funds (30% from pool + 70% financed).',
+            frontend: {
+                what: 'Supplier uploads documents via file upload interface. Documents are stored in /uploads directory on server. After upload, buyer dashboard shows: "Payment Request: $X (70% + fees)" with countdown timer = (voyage time - 3 days). Countdown shows days/hours remaining. If countdown expires, contract automatically moves to auction page. Supplier dashboard shows "Documents Uploaded" and "Payment Received: 100%" status.',
+                features: ['Document upload interface', 'File storage in /uploads directory', 'Automatic payment request to buyer', 'Countdown timer (voyage time - 3 days)', 'Automatic fund release to supplier', 'Auction trigger on timeout']
+            },
+            backend: {
+                endpoint: 'POST /api/contracts/:contractId/documents',
+                process: [
+                    'Validates user is supplier',
+                    'Receives files via Multer middleware',
+                    'Stores files in /uploads directory on server filesystem',
+                    'File path format: /uploads/contracts/{contractId}/{timestamp}-{filename}',
+                    'Creates document records in database.documents Map',
+                    'Each document record stores: id, contractId, filename, originalName, path, size, mimetype, uploadedBy, uploadedAt',
+                    'Updates contract: documentsUploaded = true, documentsUploadedAt = timestamp',
+                    'Calculates paymentDueDate = documentsUploadedAt + (voyageTime - 3 days)',
+                    'Automatically transfers 30% from pool wallet to supplier wallet',
+                    'Automatically transfers 70% (financed amount) to supplier wallet',
+                    'Supplier receives 100% total payment immediately',
+                    'Sends payment request notification to buyer with countdown',
+                    'Logs audit event: documents_uploaded',
+                    'Returns success with document metadata'
+                ],
+                database: {
+                    tables: ['database.documents (create records)', 'database.contracts (update)', 'database.wallets (transfer 30% from pool + 70% to supplier)', 'database.transactions (create)'],
+                    actions: ['Store documents in /uploads directory', 'Create document records', 'Update contract status', 'Transfer 100% to supplier', 'Create payment request for buyer']
+                }
+            },
+            nextAction: 'Buyer sees payment request with countdown. If buyer pays within countdown, contract completes. If countdown expires, contract automatically moves to auction with minimum bid = 70% + fees.'
+        },
+        {
+            title: 'Step 8: Contract Completion',
+            pageUrl: '/dashboard/authenticated',
+            description: 'Contract is fully completed. Both buyer and supplier can view the completed contract in their dashboard.',
+            frontend: {
+                what: 'Completed contracts show status "COMPLETED" in green. All action buttons are removed. Contract details show full transaction history. Both parties can download documents and view audit trail.',
+                features: ['Completed status display', 'Transaction history', 'Document download', 'Audit trail view']
+            },
+            backend: {
+                endpoint: 'GET /api/contracts (with completed status)',
+                process: [
+                    'Returns contracts with status "completed"',
+                    'Includes all transaction records',
+                    'Includes document metadata',
+                    'Includes audit log entries',
+                    'Shows final payment details'
+                ],
+                database: {
+                    tables: ['database.contracts', 'database.transactions', 'database.documents', 'database.auditLogs'],
+                    action: 'Query and join related data for completed contracts'
+                }
+            },
+            nextAction: 'Workflow complete! Buyer can create new contracts.'
+        }
+    ];
+    
+    const currentStep = steps[step - 1];
+    const prevStep = step > 1 ? step - 1 : null;
+    const nextStep = step < totalSteps ? step + 1 : null;
+    
+    // Helper function to generate page mockup HTML
+    function generatePageMockup(step) {
+        const pageType = step.pageUrl.toLowerCase();
+        if (pageType.includes('signup')) {
+            return `<div class="mockup-form"><div class="form-field"><label>Email Address *</label><input type="email" value="buyer@example.com" readonly></div><div class="form-field"><label>Password *</label><input type="password" value="••••••••" readonly></div><div class="form-field"><label>Your Role *</label><select><option selected>Buyer</option><option>Supplier</option><option>Trader</option></select></div><button class="mockup-button">Create Account</button><div style="margin-top:1rem;padding:1rem;background:#e3f2fd;border-radius:4px;color:#333"><strong>Your Registration Journey:</strong><br>1. Sign Up → 2. KYC Docs → 3. Wallet Setup → 4. Dashboard</div></div>`;
+        } else if (pageType.includes('kyc') || pageType.includes('dashboard/kyc')) {
+            return `<div class="mockup-form"><h3 style="color:#333;margin-bottom:1rem">KYC Document Upload</h3><div class="form-field"><label>Company Type</label><select><option>Listed Company</option><option>Private Company</option></select></div><div class="form-field"><label>Passport/ID</label><input type="file" readonly></div><div class="form-field"><label>Incorporation Documents</label><input type="file" readonly></div><div class="form-field"><label>Financial Statements</label><input type="file" readonly></div><button class="mockup-button">Submit KYC</button></div>`;
+        } else if (pageType.includes('wallet')) {
+            return `<div style="display:flex;gap:1rem;margin:1rem 0"><div style="flex:1;background:#f5f5f5;padding:1.5rem;border-radius:6px;text-align:center"><h4 style="color:#333;margin-bottom:0.5rem">I have a wallet</h4><p style="color:#666;font-size:0.9rem">Enter your existing wallet address</p></div><div style="flex:1;background:#f5f5f5;padding:1.5rem;border-radius:6px;text-align:center"><h4 style="color:#333;margin-bottom:0.5rem">Help me set up wallet</h4><p style="color:#666;font-size:0.9rem">Connect with MetaMask</p></div></div><div class="mockup-form"><div class="form-field"><label>Wallet Address *</label><input type="text" value="0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb" readonly></div><div class="form-field"><label>Wallet Type</label><input type="text" value="MetaMask" readonly></div><button class="mockup-button">Save Wallet</button></div>`;
+        } else if (pageType.includes('dashboard') || pageType.includes('authenticated')) {
+            return `<div style="background:#f5f5f5;padding:1rem;border-radius:6px;margin-bottom:1rem"><div style="display:flex;justify-content:space-between;align-items:center"><span style="color:#333;font-weight:600">BUYER</span><span style="color:#333">🔔 Notifications</span></div></div><div style="display:flex;justify-content:space-between;margin-bottom:1rem"><h3 style="color:#333;margin:0">My Contracts</h3><button class="mockup-button" style="padding:8px 16px;font-size:0.9rem">Create New Contract</button></div><table style="width:100%;border-collapse:collapse;background:#fff;color:#333"><thead><tr style="background:#1a1a1a;color:#fff"><th style="padding:8px;text-align:left">Contract ID</th><th style="padding:8px;text-align:left">Product</th><th style="padding:8px;text-align:left">Value</th><th style="padding:8px;text-align:left">Status</th><th style="padding:8px;text-align:left">Actions</th></tr></thead><tbody><tr><td style="padding:8px;border-bottom:1px solid #ddd">contract-001</td><td style="padding:8px;border-bottom:1px solid #ddd">Wheat</td><td style="padding:8px;border-bottom:1px solid #ddd">$2,627,500</td><td style="padding:8px;border-bottom:1px solid #ddd">PENDING DEPOSIT</td><td style="padding:8px;border-bottom:1px solid #ddd"><button style="background:#666;color:#fff;padding:4px 8px;border:none;border-radius:4px;font-size:0.85rem">Pay Deposit</button></td></tr></tbody></table>`;
+        } else if (pageType.includes('create-contract')) {
+            return `<div class="mockup-form"><div class="form-field"><label>Product/Commodity *</label><select><option>Rice</option><option selected>Wheat</option><option>Corn</option></select></div><div class="form-field"><label>Quantity *</label><input type="number" value="5000" readonly></div><div class="form-field"><label>Unit *</label><select><option selected>Metric Tons (MT)</option></select></div><div class="form-field"><label>Price per Unit *</label><input type="number" value="525.50" readonly><div style="margin-top:0.5rem;padding:0.5rem;background:#fff3cd;border-radius:4px;color:#856404;font-size:0.85rem">Market Average: $520.00 | Difference: 1.06% above market ✓</div></div><div style="display:flex;gap:0.5rem;margin:1rem 0"><div style="flex:1;background:#667eea;color:#fff;padding:1rem;border-radius:6px;text-align:center"><strong>TGT</strong><br><small>Tangent Token</small></div><div style="flex:1;background:#333;color:#fff;padding:1rem;border-radius:6px;text-align:center"><strong>USDT</strong><br><small>Tether USD</small></div><div style="flex:1;background:#333;color:#fff;padding:1rem;border-radius:6px;text-align:center"><strong>USDC</strong><br><small>USD Coin</small></div></div><div class="form-field"><label>Counterparty Email *</label><input type="email" value="supplier@example.com" readonly></div><button class="mockup-button">Create Contract</button></div>`;
+        } else {
+            return `<div class="mockup-form"><p style="color:#333;text-align:center;padding:2rem">Visual representation of ${step.title}</p><div style="background:#f5f5f5;padding:1rem;border-radius:6px;margin-top:1rem"><p style="color:#666;font-size:0.9rem;margin:0">This page shows: ${step.frontend.what.substring(0, 100)}...</p></div></div>`;
+        }
+    }
+    
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+    const pageUrl = currentStep.pageUrl.includes(' → ') ? currentStep.pageUrl.split(' → ')[0] : currentStep.pageUrl.includes('(') ? currentStep.pageUrl.split(' (')[0] : currentStep.pageUrl;
+    const cleanUrl = pageUrl.startsWith('/') ? pageUrl : '/' + pageUrl;
+    
+    const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>${currentStep.title} - Buyer Demo</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;background:#000;min-height:100vh;color:#fff;padding:2rem}.container{max-width:1400px;margin:0 auto}.header{text-align:center;margin-bottom:2rem}h1{color:#fff;font-size:2rem;margin-bottom:0.5rem}.step-indicator{color:#667eea;font-size:1.1rem;margin-bottom:2rem}.content{background:#1a1a1a;padding:2rem;border-radius:15px;margin-bottom:2rem}.section{margin-bottom:2rem}.section h3{color:#fff;font-size:1.3rem;margin-bottom:1rem;border-bottom:2px solid #333;padding-bottom:0.5rem}.section p{color:#ccc;line-height:1.8;margin-bottom:1rem}.section ul{color:#ccc;line-height:2;margin-left:2rem;margin-bottom:1rem}.code-block{background:#0a0a0a;padding:1rem;border-radius:8px;border:1px solid #333;margin:1rem 0;font-family:monospace;font-size:0.9rem;overflow-x:auto}.code-block code{color:#51cf66}.endpoint{color:#ffd43b}.action{color:#4dabf7}.page-visual{background:#0a0a0a;border:2px solid #333;border-radius:8px;padding:2rem;margin:1rem 0}.page-visual h4{color:#fff;margin-bottom:1.5rem;font-size:1.2rem}.mockup-container{background:#fff;border-radius:8px;padding:2rem;color:#000;position:relative;min-height:400px}.mockup-header{background:#1a1a1a;color:#fff;padding:1rem;border-radius:6px 6px 0 0;margin:-2rem -2rem 1rem -2rem}.mockup-content{padding:1rem 0}.mockup-form{background:#f5f5f5;padding:1.5rem;border-radius:6px;margin:1rem 0}.form-field{margin-bottom:1rem}.form-field label{display:block;color:#333;font-weight:600;margin-bottom:0.5rem;font-size:0.9rem}.form-field input,.form-field select{width:100%;padding:10px;background:#fff;border:1px solid #ddd;border-radius:4px;color:#333}.mockup-button{background:#667eea;color:#fff;padding:12px 24px;border:none;border-radius:6px;cursor:pointer;font-weight:600;margin-top:1rem}.visual-description{background:#2a2a2a;padding:1.5rem;border-radius:8px;margin:1rem 0;border-left:4px solid #667eea}.visual-description h4{color:#fff;margin-bottom:0.5rem}.visual-description p{color:#ccc;line-height:1.6}.navigation{display:flex;justify-content:space-between;margin-top:2rem}.btn{padding:12px 24px;background:#667eea;color:#fff;border:none;border-radius:8px;font-size:1rem;font-weight:600;cursor:pointer;text-decoration:none;display:inline-block}.btn:hover{background:#5a6fd8}.btn.secondary{background:#666}.btn.secondary:hover{background:#777}.btn:disabled{opacity:0.5;cursor:not-allowed}.back-link{text-align:center;margin-top:2rem}.back-link a{color:#667eea;text-decoration:none}table{width:100%;border-collapse:collapse}th,td{padding:8px;text-align:left;border-bottom:1px solid #ddd}th{background:#1a1a1a;color:#fff}</style></head><body><div class="container"><div class="header"><div class="step-indicator">Step ${step} of ${totalSteps}</div><h1>${currentStep.title}</h1><p style="color:#ccc">${currentStep.description}</p></div><div class="content"><div class="section"><h3>📍 Page Location</h3><p><strong>URL:</strong> <code class="endpoint">${currentStep.pageUrl}</code></p><div class="page-visual"><h4>📸 Visual Representation of the Page</h4><div class="mockup-container"><div class="mockup-header">${currentStep.title}</div><div class="mockup-content">${generatePageMockup(currentStep)}</div></div></div><div class="visual-description"><h4>🎨 Detailed Visual Description</h4><p>${currentStep.frontend.what}</p><p><strong>Key Visual Elements:</strong></p><ul>${currentStep.frontend.features.map(f => `<li>${f}</li>`).join('')}</ul></div><div class="section"><h3>⚙️ Backend Process</h3><p><strong>API Endpoint:</strong> <code class="endpoint">${currentStep.backend.endpoint}</code></p><div class="code-block"><code><strong>Process Flow:</strong><br>${currentStep.backend.process.map((p, i) => `${i + 1}. ${p}`).join('<br>')}</code></div><p><strong>Database Operations:</strong></p><ul><li><strong>Table:</strong> <code>${currentStep.backend.database.table || currentStep.backend.database.tables || 'N/A'}</code></li><li><strong>Action:</strong> ${currentStep.backend.database.action}</li>${currentStep.backend.database.fields ? `<li><strong>Fields:</strong> ${Array.isArray(currentStep.backend.database.fields) ? currentStep.backend.database.fields.join(', ') : currentStep.backend.database.fields}</li>` : ''}</ul></div><div class="section"><h3>➡️ Next Action</h3><p>${currentStep.nextAction}</p></div></div><div class="navigation">${prevStep ? `<a href="/demo/workflow/buyer?step=${prevStep}" class="btn secondary">← Previous Step</a>` : '<span></span>'}${nextStep ? `<a href="/demo/workflow/buyer?step=${nextStep}" class="btn">Next Step →</a>` : `<a href="/demo/workflow" class="btn">Back to Demo Index</a>`}</div><div class="back-link"><a href="/demo/workflow">← Back to All Demos</a> | <a href="/landing-two">Back to Portal</a></div></div><script>console.log('Buyer demo step ${step} loaded')</script></body></html>`;
+    res.end(html, 'utf8');
+});
+
+// Demo Supplier Workflow - Step by Step
+app.get('/demo/workflow/supplier', (req, res) => {
+    const step = parseInt(req.query.step) || 1;
+    const totalSteps = 7;
+    
+    const steps = [
+        {
+            title: 'Step 1: Sign Up & KYC',
+            pageUrl: '/signup → /dashboard/kyc',
+            description: 'Supplier registers and completes KYC verification (same process as buyer).',
+            frontend: { what: 'Same as buyer: signup form, KYC document upload, wallet setup.', features: ['Company type selection', 'Document upload', 'Wallet setup'] },
+            backend: { endpoint: 'POST /api/auth/register, POST /api/kyc/submit', process: ['User registration', 'KYC submission', 'Document storage'], database: { table: 'database.users, database.kyc', action: 'Create user and KYC records' } },
+            nextAction: 'Supplier completes KYC and wallet setup'
+        },
+        {
+            title: 'Step 2: Receive Contract Request',
+            pageUrl: '/dashboard/authenticated',
+            description: 'Supplier receives a contract request from a buyer and sees it in their dashboard.',
+            frontend: { what: 'Dashboard shows contract with status "PENDING_SUPPLIER_CONFIRMATION". Contract displays: product, quantity, price, total value, buyer email, deposit percentage. "Confirm Contract" button is visible.', features: ['Contract notification', 'Contract details view', 'Confirm button'] },
+            backend: { endpoint: 'GET /api/contracts', process: ['Queries contracts where supplierEmail matches', 'Filters by status', 'Returns pending contracts'], database: { table: 'database.contracts', action: 'Query contracts where supplierEmail === userEmail' } },
+            nextAction: 'Supplier clicks "Confirm Contract"'
+        },
+        {
+            title: 'Step 3: Confirm Contract',
+            pageUrl: '/dashboard/authenticated (contract action)',
+            description: 'Supplier confirms the contract, making it active and ready for buyer deposit.',
+            frontend: { what: 'After clicking "Confirm Contract", status changes to "PENDING_DEPOSIT". Button disappears, replaced with "Awaiting Buyer Deposit" status.', features: ['One-click confirmation', 'Status update', 'Visual feedback'] },
+            backend: { endpoint: 'POST /api/contracts/:contractId/confirm', process: ['Validates user is the supplier', 'Updates contract.status to "pending_deposit"', 'Logs audit event: contract_confirmed', 'Returns updated contract'], database: { table: 'database.contracts', action: 'Update contract status' } },
+            nextAction: 'Contract status changes, buyer can now pay deposit'
+        },
+        {
+            title: 'Step 4: Receive Deposit Payment & Contract Activation',
+            pageUrl: '/dashboard/authenticated',
+            description: 'After buyer pays 30% deposit, contract becomes ACTIVE. Supplier immediately sees status change in dashboard. Pool wallet finances 100% to supplier (30% from deposit + 70% financed).',
+            frontend: { 
+                what: 'Contract status automatically changes to "ACTIVE" with "Deposit Paid" indicator in green. "Upload Shipping Docs" button appears. Contract shows: "Deposit Received: 30%" and "Payment Status: 100% Financed to Supplier". Supplier dashboard updates in real-time showing active status.', 
+                features: ['Active status display', 'Deposit confirmation (30%)', 'Upload documents button', 'Real-time status update', 'Payment status: 100% received'] 
+            },
+            backend: { 
+                endpoint: 'POST /api/contracts/:contractId/deposit (buyer action)', 
+                process: [
+                    'Buyer pays 30% deposit',
+                    'Deposit goes to pool wallet (escrow)',
+                    'Pool wallet immediately finances 100% to supplier',
+                    'Supplier receives: 30% (from deposit) + 70% (financed) = 100% total',
+                    'Contract.depositPaid = true',
+                    'Contract.status = "active"',
+                    'Contract.depositPaidAt = timestamp',
+                    'Sends notification to supplier: "Deposit received, contract is active"',
+                    'Transaction recorded in database.transactions',
+                    'Logs audit event: deposit_paid'
+                ], 
+                database: { 
+                    table: 'database.contracts (update), database.wallets (pool deposit, supplier credit), database.transactions (create)', 
+                    action: 'Update contract to active, transfer 100% to supplier, create transaction records' 
+                } 
+            },
+            nextAction: 'Contract is ACTIVE. Supplier has received 100% payment. Supplier can now prepare shipment and upload documents when delivery period arrives.'
+        },
+        {
+            title: 'Step 5: Upload Shipping Documents & Automatic Payment',
+            pageUrl: '/manage-contract/:contractId',
+            description: 'When delivery period arrives, supplier uploads shipping documents. Documents are stored in uploads/ directory on server filesystem. Upon upload, supplier automatically receives 100% payment (already received at deposit, but confirmed). Payment request with countdown automatically appears in buyer dashboard.',
+            frontend: { 
+                what: 'Document upload page shows contract details and file upload interface. Supplier can upload multiple files (PDF, JPG, PNG). Files are stored in uploads/ directory on server. File path format: uploads/{timestamp}-{originalFilename}. After upload, supplier dashboard shows "Documents Uploaded" and "Payment Status: 100% Received". Buyer dashboard automatically shows payment request with countdown timer = (voyage time - 3 days).', 
+                features: ['Multiple file upload', 'File type validation', 'Upload progress', 'Document list', 'Document storage in uploads/ directory', 'Automatic payment confirmation', 'Payment request to buyer with countdown'] 
+            },
+            backend: { 
+                endpoint: 'POST /api/contracts/:contractId/documents', 
+                process: [
+                    'Receives files via Multer middleware',
+                    'Validates file types (PDF, JPG, PNG) and sizes (max 10MB)',
+                    'Stores files in filesystem: uploads/{timestamp}_{safeFilename}',
+                    'File naming format: {timestamp}_{originalName} (e.g., uploads/1734567890_Bill_of_Lading.pdf)',
+                    'Creates document records in database.documents Map',
+                    'Each document record stores: id, contractId, filename (stored name), originalName (user filename), path (e.g., uploads/1734567890_Bill_of_Lading.pdf), size, mimetype, uploadedBy, uploadedAt',
+                    'Updates contract: documentsUploaded = true, documentsUploadedAt = timestamp',
+                    'Calculates paymentDueDate = documentsUploadedAt + (voyageTime - 3 days)',
+                    'Supplier has already received 100% at deposit stage (30% from pool + 70% financed)',
+                    'Payment is confirmed and supplier sees "Payment Received: 100%"',
+                    'Sends payment request notification to buyer with countdown timer',
+                    'Buyer dashboard shows: "Payment Due: $X (70% + fees)" with countdown',
+                    'Logs audit event: documents_uploaded',
+                    'Returns success with document metadata and storage paths'
+                ], 
+                database: { 
+                    table: 'database.documents (create), database.contracts (update)', 
+                    action: 'Store documents in uploads/ directory, create document records, update contract status, create payment request for buyer',
+                    documentStorage: 'Physical files stored in: uploads/{timestamp}_{safeFilename} (e.g., uploads/1734567890_Bill_of_Lading.pdf). Document metadata stored in: database.documents Map with path field pointing to file location. Files accessible via GET /uploads/{filename} or through document API endpoints.'
+                } 
+            },
+            nextAction: 'Supplier has received 100% payment. Buyer sees payment request with countdown. If buyer pays within countdown, contract completes. If countdown expires, contract goes to auction with minimum bid = 70% + fees.'
+        },
+        {
+            title: 'Step 6: Payment Received & Document Access',
+            pageUrl: '/dashboard/authenticated',
+            description: 'Supplier has already received 100% payment automatically when documents were uploaded. Supplier can view completed contract and access stored documents from /uploads directory.',
+            frontend: { 
+                what: 'Contract shows "COMPLETED" status in green. Payment status shows "Payment Received: 100% (30% from pool + 70% financed)". Document section shows list of uploaded documents with download links. Documents are accessible from /uploads/contracts/{contractId}/ directory. Each document shows: filename, upload date, file size, download button.', 
+                features: ['Completed status', 'Payment confirmation (100% received)', 'Document list with download links', 'Document storage location display', 'Transaction history'] 
+            },
+            backend: { 
+                endpoint: 'GET /api/contracts/:contractId/documents, GET /api/contracts', 
+                process: [
+                    'Returns contract with status "completed"',
+                    'Queries database.documents for all contract documents',
+                    'Returns document metadata: id, filename, path, size, uploadedAt',
+                    'Document files accessible from: /uploads/contracts/{contractId}/{timestamp}-{filename}',
+                    'Shows payment history: 30% from pool, 70% financed',
+                    'Includes all transaction records'
+                ], 
+                database: { 
+                    table: 'database.contracts, database.documents, database.transactions', 
+                    action: 'Query completed contract with documents. Documents stored in /uploads/contracts/{contractId}/ directory.',
+                    documentStorage: 'Physical files: /uploads/contracts/{contractId}/{timestamp}-{filename}. Metadata: database.documents Map'
+                } 
+            },
+            nextAction: 'Contract completed! Supplier can download documents and view transaction history. Documents remain stored in /uploads directory.'
+        },
+        {
+            title: 'Step 7: Buyer Payment & Auction System',
+            pageUrl: '/dashboard/authenticated (buyer)',
+            description: 'Buyer sees payment request with countdown timer. If buyer pays within countdown, contract completes. If countdown expires, contract automatically moves to auction with minimum bid = 70% + fees.',
+            frontend: { 
+                what: 'Buyer dashboard shows: "Payment Due: $X (70% + fees)" with countdown timer displaying days/hours/minutes remaining. Countdown = (voyage time - 3 days) from document upload date. "Pay Remaining Amount" button visible. If countdown reaches zero, contract automatically moves to "Auction Board" with status "IN AUCTION". Auction page shows minimum bid = 70% + fees. If buyer pays before countdown expires, contract shows "COMPLETED" status.', 
+                features: ['Countdown timer (voyage time - 3 days)', 'Payment due amount display', 'Automatic auction trigger on timeout', 'Auction board with minimum bid', 'Real-time countdown updates'] 
+            },
+            backend: { 
+                endpoint: 'POST /api/contracts/:contractId/release-payment (if paid) OR Automatic auction creation (if timeout)', 
+                process: [
+                    'If buyer pays before countdown expires:',
+                    '  - Validates payment amount (70% + fees)',
+                    '  - Updates contract: status = "completed", finalPaymentReleased = true',
+                    '  - Creates transaction record',
+                    '  - Logs audit event: payment_released',
+                    'If countdown expires (paymentDueDate < now):',
+                    '  - Automatically creates auction in database.auctions Map',
+                    '  - Sets auction.minimumBid = (totalValue - depositAmount) + fees = 70% + fees',
+                    '  - Sets auction.startingBid = 70% + fees',
+                    '  - Updates contract: status = "in_auction", auctionId = auction.id',
+                    '  - Removes contract from buyer active contracts list',
+                    '  - Adds contract to auction board',
+                    '  - Sends notification to all users about new auction',
+                    '  - Logs audit event: contract_moved_to_auction'
+                ], 
+                database: { 
+                    table: 'database.contracts (update), database.auctions (create if timeout), database.transactions (create if paid)', 
+                    action: 'Complete contract if paid, or create auction if timeout'
+                } 
+            },
+            nextAction: 'If paid: Contract completed. If timeout: Contract in auction. Auction bidders can bid minimum 70% + fees to acquire the goods.'
+        }
+    ];
+    
+    const currentStep = steps[step - 1];
+    const prevStep = step > 1 ? step - 1 : null;
+    const nextStep = step < totalSteps ? step + 1 : null;
+    
+    // Helper function to generate page mockup HTML
+    function generatePageMockup(step) {
+        const pageType = step.pageUrl.toLowerCase();
+        if (pageType.includes('signup')) {
+            return `<div class="mockup-form"><div class="form-field"><label>Email Address *</label><input type="email" value="supplier@example.com" readonly></div><div class="form-field"><label>Password *</label><input type="password" value="••••••••" readonly></div><div class="form-field"><label>Your Role *</label><select><option>Buyer</option><option selected>Supplier</option><option>Trader</option></select></div><button class="mockup-button">Create Account</button></div>`;
+        } else if (pageType.includes('dashboard') || pageType.includes('authenticated')) {
+            return `<div style="background:#f5f5f5;padding:1rem;border-radius:6px;margin-bottom:1rem"><div style="display:flex;justify-content:space-between;align-items:center"><span style="color:#333;font-weight:600">SUPPLIER</span><span style="color:#333">🔔 Notifications</span></div></div><div style="display:flex;justify-content:space-between;margin-bottom:1rem"><h3 style="color:#333;margin:0">My Contracts</h3></div><table style="width:100%;border-collapse:collapse;background:#fff;color:#333"><thead><tr style="background:#1a1a1a;color:#fff"><th style="padding:8px;text-align:left">Contract ID</th><th style="padding:8px;text-align:left">Product</th><th style="padding:8px;text-align:left">Value</th><th style="padding:8px;text-align:left">Status</th><th style="padding:8px;text-align:left">Actions</th></tr></thead><tbody><tr><td style="padding:8px;border-bottom:1px solid #ddd">contract-001</td><td style="padding:8px;border-bottom:1px solid #ddd">Wheat</td><td style="padding:8px;border-bottom:1px solid #ddd">$2,627,500</td><td style="padding:8px;border-bottom:1px solid #ddd">PENDING SUPPLIER CONFIRMATION</td><td style="padding:8px;border-bottom:1px solid #ddd"><button style="background:#51cf66;color:#fff;padding:4px 8px;border:none;border-radius:4px;font-size:0.85rem">Confirm Contract</button></td></tr></tbody></table>`;
+        } else if (pageType.includes('manage-contract')) {
+            return `<div class="mockup-form"><h3 style="color:#333;margin-bottom:1rem">Manage Contract</h3><div style="background:#e3f2fd;padding:1rem;border-radius:4px;margin-bottom:1rem"><strong>Contract Details:</strong><br>Product: Wheat<br>Quantity: 5000 MT<br>Total Value: $2,627,500</div><div class="form-field"><label>Upload Shipping Documents</label><input type="file" multiple readonly></div><button class="mockup-button">Upload Documents</button></div>`;
+        } else {
+            return `<div class="mockup-form"><p style="color:#333;text-align:center;padding:2rem">Visual representation of ${step.title}</p><div style="background:#f5f5f5;padding:1rem;border-radius:6px;margin-top:1rem"><p style="color:#666;font-size:0.9rem;margin:0">This page shows: ${step.frontend.what.substring(0, 100)}...</p></div></div>`;
+        }
+    }
+    
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+    const pageUrl = currentStep.pageUrl.includes(' → ') ? currentStep.pageUrl.split(' → ')[0] : currentStep.pageUrl.includes('(') ? currentStep.pageUrl.split(' (')[0] : currentStep.pageUrl;
+    const cleanUrl = pageUrl.startsWith('/') ? pageUrl : '/' + pageUrl;
+    
+    const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>${currentStep.title} - Supplier Demo</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;background:#000;min-height:100vh;color:#fff;padding:2rem}.container{max-width:1400px;margin:0 auto}.header{text-align:center;margin-bottom:2rem}h1{color:#fff;font-size:2rem;margin-bottom:0.5rem}.step-indicator{color:#667eea;font-size:1.1rem;margin-bottom:2rem}.content{background:#1a1a1a;padding:2rem;border-radius:15px;margin-bottom:2rem}.section{margin-bottom:2rem}.section h3{color:#fff;font-size:1.3rem;margin-bottom:1rem;border-bottom:2px solid #333;padding-bottom:0.5rem}.section p{color:#ccc;line-height:1.8;margin-bottom:1rem}.section ul{color:#ccc;line-height:2;margin-left:2rem;margin-bottom:1rem}.code-block{background:#0a0a0a;padding:1rem;border-radius:8px;border:1px solid #333;margin:1rem 0;font-family:monospace;font-size:0.9rem;overflow-x:auto}.code-block code{color:#51cf66}.endpoint{color:#ffd43b}.page-visual{background:#0a0a0a;border:2px solid #333;border-radius:8px;padding:2rem;margin:1rem 0}.page-visual h4{color:#fff;margin-bottom:1.5rem;font-size:1.2rem}.mockup-container{background:#fff;border-radius:8px;padding:2rem;color:#000;position:relative;min-height:400px}.mockup-header{background:#1a1a1a;color:#fff;padding:1rem;border-radius:6px 6px 0 0;margin:-2rem -2rem 1rem -2rem}.mockup-content{padding:1rem 0}.mockup-form{background:#f5f5f5;padding:1.5rem;border-radius:6px;margin:1rem 0}.form-field{margin-bottom:1rem}.form-field label{display:block;color:#333;font-weight:600;margin-bottom:0.5rem;font-size:0.9rem}.form-field input,.form-field select{width:100%;padding:10px;background:#fff;border:1px solid #ddd;border-radius:4px;color:#333}.mockup-button{background:#667eea;color:#fff;padding:12px 24px;border:none;border-radius:6px;cursor:pointer;font-weight:600;margin-top:1rem}.visual-description{background:#2a2a2a;padding:1.5rem;border-radius:8px;margin:1rem 0;border-left:4px solid #667eea}.visual-description h4{color:#fff;margin-bottom:0.5rem}.visual-description p{color:#ccc;line-height:1.6}.navigation{display:flex;justify-content:space-between;margin-top:2rem}.btn{padding:12px 24px;background:#667eea;color:#fff;border:none;border-radius:8px;font-size:1rem;font-weight:600;cursor:pointer;text-decoration:none;display:inline-block}.btn:hover{background:#5a6fd8}.btn.secondary{background:#666}.btn.secondary:hover{background:#777}.back-link{text-align:center;margin-top:2rem}.back-link a{color:#667eea;text-decoration:none}table{width:100%;border-collapse:collapse}th,td{padding:8px;text-align:left;border-bottom:1px solid #ddd}th{background:#1a1a1a;color:#fff}</style></head><body><div class="container"><div class="header"><div class="step-indicator">Step ${step} of ${totalSteps}</div><h1>${currentStep.title}</h1><p style="color:#ccc">${currentStep.description}</p></div><div class="content"><div class="section"><h3>📍 Page Location</h3><p><strong>URL:</strong> <code class="endpoint">${currentStep.pageUrl}</code></p><div class="page-visual"><h4>📸 Visual Representation of the Page</h4><div class="mockup-container"><div class="mockup-header">${currentStep.title}</div><div class="mockup-content">${generatePageMockup(currentStep)}</div></div></div><div class="visual-description"><h4>🎨 Detailed Visual Description</h4><p>${currentStep.frontend.what}</p><p><strong>Key Visual Elements:</strong></p><ul>${currentStep.frontend.features.map(f => `<li>${f}</li>`).join('')}</ul></div><div class="section"><h3>⚙️ Backend Process</h3><p><strong>API Endpoint:</strong> <code class="endpoint">${currentStep.backend.endpoint}</code></p><div class="code-block"><code><strong>Process Flow:</strong><br>${Array.isArray(currentStep.backend.process) ? currentStep.backend.process.map((p, i) => `${i + 1}. ${p}`).join('<br>') : currentStep.backend.process}</code></div><p><strong>Database Operations:</strong></p><ul><li><strong>Table:</strong> <code>${currentStep.backend.database.table || currentStep.backend.database.tables || 'N/A'}</code></li><li><strong>Action:</strong> ${currentStep.backend.database.action}</li>${currentStep.backend.database.fields ? `<li><strong>Fields:</strong> ${Array.isArray(currentStep.backend.database.fields) ? currentStep.backend.database.fields.join(', ') : currentStep.backend.database.fields}</li>` : ''}</ul></div><div class="section"><h3>➡️ Next Action</h3><p>${currentStep.nextAction}</p></div></div><div class="navigation">${prevStep ? `<a href="/demo/workflow/supplier?step=${prevStep}" class="btn secondary">← Previous Step</a>` : '<span></span>'}${nextStep ? `<a href="/demo/workflow/supplier?step=${nextStep}" class="btn">Next Step →</a>` : `<a href="/demo/workflow" class="btn">Back to Demo Index</a>`}</div><div class="back-link"><a href="/demo/workflow">← Back to All Demos</a> | <a href="/landing-two">Back to Portal</a></div></div></body></html>`;
+    res.end(html, 'utf8');
+});
+
+// Demo Trader Workflow - Step by Step  
+app.get('/demo/workflow/trader', (req, res) => {
+    const step = parseInt(req.query.step) || 1;
+    const totalSteps = 9;
+    
+    const steps = [
+        {
+            title: 'Step 1: Trader Registration',
+            pageUrl: '/signup',
+            description: 'Trader signs up with role "trader" to enable dual-contract functionality.',
+            frontend: { what: 'Same signup form, but trader selects "Trader" role. This enables them to act as both buyer and supplier.', features: ['Role selection', 'Trader-specific permissions'] },
+            backend: { endpoint: 'POST /api/auth/register', process: ['Creates user with role: "trader"', 'Sets up trader permissions', 'Enables dual-contract access'], database: { table: 'database.users', action: 'Create trader user' } },
+            nextAction: 'Trader completes KYC and wallet setup'
+        },
+        {
+            title: 'Step 2: Create Dual Contracts',
+            pageUrl: '/create-contract',
+            description: 'Trader can create contracts as either buyer or supplier, managing both sides of trades.',
+            frontend: { what: 'Contract creation form works the same, but trader can specify their role. They can create contracts where they are the buyer (with external supplier) or supplier (with external buyer).', features: ['Dual role selection', 'Flexible contract creation', 'Counterparty management'] },
+            backend: { endpoint: 'POST /api/contracts', process: ['Trader can set buyerEmail or supplierEmail to their own email', 'System allows trader in both roles', 'Creates contract with trader as one party'], database: { table: 'database.contracts', action: 'Create trader contract' } },
+            nextAction: 'Trader manages contracts from both perspectives'
+        },
+        {
+            title: 'Step 3: Trader Dashboard - Dual View',
+            pageUrl: '/dashboard/authenticated',
+            description: 'Trader sees all contracts where they are involved as either buyer or supplier.',
+            frontend: { what: 'Dashboard shows contracts with "My Role" column indicating "Buyer" or "Supplier". Each contract shows appropriate action buttons based on trader role in that contract. "Dual Contract" button available for managing both sides.', features: ['Dual role display', 'Role-based actions', 'Dual contract management'] },
+            backend: { endpoint: 'GET /api/contracts', process: ['Queries contracts where trader email appears in buyerEmail OR supplierEmail', 'Returns all trader contracts', 'Enriches with role information'], database: { table: 'database.contracts', action: 'Query trader contracts (both roles)' } },
+            nextAction: 'Trader can act as buyer or supplier per contract'
+        },
+        {
+            title: 'Step 4: Act as Buyer - Pay Deposit',
+            pageUrl: '/dashboard/authenticated',
+            description: 'For contracts where trader is buyer, they can pay deposits like any buyer.',
+            frontend: { what: 'Contracts with trader as buyer show "Pay Deposit" button. Same buyer workflow applies.', features: ['Buyer actions', 'Deposit payment', 'MetaMask support'] },
+            backend: { endpoint: 'POST /api/contracts/:contractId/deposit', process: ['Validates trader is buyerEmail', 'Processes deposit payment', 'Updates contract status'], database: { table: 'database.contracts, database.wallets', action: 'Process deposit as buyer' } },
+            nextAction: 'Deposit paid, contract becomes active'
+        },
+        {
+            title: 'Step 5: Act as Supplier - Confirm Contract',
+            pageUrl: '/dashboard/authenticated',
+            description: 'For contracts where trader is supplier, they can confirm contracts like any supplier.',
+            frontend: { what: 'Contracts with trader as supplier show "Confirm as Supplier" button. Same supplier workflow applies.', features: ['Supplier actions', 'Contract confirmation', 'Status updates'] },
+            backend: { endpoint: 'POST /api/contracts/:contractId/confirm', process: ['Validates trader is supplierEmail', 'Confirms contract', 'Updates status to pending_deposit'], database: { table: 'database.contracts', action: 'Confirm contract as supplier' } },
+            nextAction: 'Contract confirmed, waiting for buyer deposit'
+        },
+        {
+            title: 'Step 6: Act as Supplier - Upload Documents',
+            pageUrl: '/manage-contract/:contractId',
+            description: 'When trader is supplier and deposit is paid, they upload shipping documents.',
+            frontend: { what: 'Same document upload interface. Trader uploads documents as supplier would.', features: ['Document upload', 'Multiple files', 'File validation'] },
+            backend: { endpoint: 'POST /api/contracts/:contractId/documents', process: ['Validates trader is supplierEmail', 'Stores documents', 'Updates contract.documentsUploaded'], database: { table: 'database.documents, database.contracts', action: 'Upload documents as supplier' } },
+            nextAction: 'Documents uploaded, buyer can release payment'
+        },
+        {
+            title: 'Step 7: Act as Buyer - Release Payment',
+            pageUrl: '/dashboard/authenticated',
+            description: 'When trader is buyer and documents are uploaded, they release final payment.',
+            frontend: { what: 'Same payment release interface. Trader releases payment as buyer would.', features: ['Payment release', 'Final payment', 'Contract completion'] },
+            backend: { endpoint: 'POST /api/contracts/:contractId/release-payment', process: ['Validates trader is buyerEmail', 'Releases payment to supplier', 'Completes contract'], database: { table: 'database.contracts, database.wallets', action: 'Release payment as buyer' } },
+            nextAction: 'Payment released, contract completed'
+        },
+        {
+            title: 'Step 8: Dual Contract Management',
+            pageUrl: '/dashboard/authenticated',
+            description: 'Trader can manage both sides of a trade simultaneously using "Dual Contract" feature.',
+            frontend: { what: '"Dual Contract" button opens special view showing both buyer and supplier perspectives of the same contract. Trader can perform actions from either role.', features: ['Dual perspective view', 'Role switching', 'Unified management'] },
+            backend: { endpoint: 'GET /api/contracts/:contractId', process: ['Returns contract with both buyer and supplier actions', 'Shows trader permissions for both roles', 'Enables dual management'], database: { table: 'database.contracts', action: 'Query contract with dual role data' } },
+            nextAction: 'Trader manages complete trade lifecycle'
+        },
+        {
+            title: 'Step 9: Complete Trade Cycle',
+            pageUrl: '/dashboard/authenticated',
+            description: 'Trader completes full trade cycle managing both buyer and supplier sides.',
+            frontend: { what: 'Completed contracts show full transaction history from both perspectives. Trader can see all actions they performed as both buyer and supplier.', features: ['Complete history', 'Dual role tracking', 'Trade completion'] },
+            backend: { endpoint: 'GET /api/contracts', process: ['Returns completed contracts', 'Includes all transactions', 'Shows dual role activity'], database: { table: 'database.contracts, database.transactions', action: 'Query completed trader contracts' } },
+            nextAction: 'Trade cycle complete! Trader can create new dual contracts.'
+        }
+    ];
+    
+    const currentStep = steps[step - 1];
+    const prevStep = step > 1 ? step - 1 : null;
+    const nextStep = step < totalSteps ? step + 1 : null;
+    
+    // Helper function to generate page mockup HTML
+    function generatePageMockup(step) {
+        const pageType = step.pageUrl.toLowerCase();
+        if (pageType.includes('signup')) {
+            return `<div class="mockup-form"><div class="form-field"><label>Email Address *</label><input type="email" value="trader@example.com" readonly></div><div class="form-field"><label>Password *</label><input type="password" value="••••••••" readonly></div><div class="form-field"><label>Your Role *</label><select><option>Buyer</option><option>Supplier</option><option selected>Trader</option></select></div><button class="mockup-button">Create Account</button></div>`;
+        } else if (pageType.includes('dashboard') || pageType.includes('authenticated')) {
+            return `<div style="background:#f5f5f5;padding:1rem;border-radius:6px;margin-bottom:1rem"><div style="display:flex;justify-content:space-between;align-items:center"><span style="color:#333;font-weight:600">TRADER</span><span style="color:#333">🔔 Notifications</span></div></div><div style="display:flex;justify-content:space-between;margin-bottom:1rem"><h3 style="color:#333;margin:0">My Contracts (Dual Role)</h3><button class="mockup-button" style="padding:8px 16px;font-size:0.9rem">Create Contract</button></div><table style="width:100%;border-collapse:collapse;background:#fff;color:#333"><thead><tr style="background:#1a1a1a;color:#fff"><th style="padding:8px;text-align:left">Contract ID</th><th style="padding:8px;text-align:left">My Role</th><th style="padding:8px;text-align:left">Product</th><th style="padding:8px;text-align:left">Status</th><th style="padding:8px;text-align:left">Actions</th></tr></thead><tbody><tr><td style="padding:8px;border-bottom:1px solid #ddd">contract-001</td><td style="padding:8px;border-bottom:1px solid #ddd"><span style="background:#667eea;color:#fff;padding:2px 6px;border-radius:3px;font-size:0.8rem">BUYER</span></td><td style="padding:8px;border-bottom:1px solid #ddd">Wheat</td><td style="padding:8px;border-bottom:1px solid #ddd">PENDING DEPOSIT</td><td style="padding:8px;border-bottom:1px solid #ddd"><button style="background:#666;color:#fff;padding:4px 8px;border:none;border-radius:4px;font-size:0.85rem">Pay Deposit</button></td></tr><tr><td style="padding:8px;border-bottom:1px solid #ddd">contract-002</td><td style="padding:8px;border-bottom:1px solid #ddd"><span style="background:#51cf66;color:#fff;padding:2px 6px;border-radius:3px;font-size:0.8rem">SUPPLIER</span></td><td style="padding:8px;border-bottom:1px solid #ddd">Rice</td><td style="padding:8px;border-bottom:1px solid #ddd">PENDING CONFIRMATION</td><td style="padding:8px;border-bottom:1px solid #ddd"><button style="background:#51cf66;color:#fff;padding:4px 8px;border:none;border-radius:4px;font-size:0.85rem">Confirm</button></td></tr></tbody></table>`;
+        } else {
+            return `<div class="mockup-form"><p style="color:#333;text-align:center;padding:2rem">Visual representation of ${step.title}</p><div style="background:#f5f5f5;padding:1rem;border-radius:6px;margin-top:1rem"><p style="color:#666;font-size:0.9rem;margin:0">This page shows: ${step.frontend.what.substring(0, 100)}...</p></div></div>`;
+        }
+    }
+    
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+    const pageUrl = currentStep.pageUrl.includes(' → ') ? currentStep.pageUrl.split(' → ')[0] : currentStep.pageUrl.includes('(') ? currentStep.pageUrl.split(' (')[0] : currentStep.pageUrl;
+    const cleanUrl = pageUrl.startsWith('/') ? pageUrl : '/' + pageUrl;
+    
+    const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>${currentStep.title} - Trader Demo</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;background:#000;min-height:100vh;color:#fff;padding:2rem}.container{max-width:1400px;margin:0 auto}.header{text-align:center;margin-bottom:2rem}h1{color:#fff;font-size:2rem;margin-bottom:0.5rem}.step-indicator{color:#667eea;font-size:1.1rem;margin-bottom:2rem}.content{background:#1a1a1a;padding:2rem;border-radius:15px;margin-bottom:2rem}.section{margin-bottom:2rem}.section h3{color:#fff;font-size:1.3rem;margin-bottom:1rem;border-bottom:2px solid #333;padding-bottom:0.5rem}.section p{color:#ccc;line-height:1.8;margin-bottom:1rem}.section ul{color:#ccc;line-height:2;margin-left:2rem;margin-bottom:1rem}.code-block{background:#0a0a0a;padding:1rem;border-radius:8px;border:1px solid #333;margin:1rem 0;font-family:monospace;font-size:0.9rem;overflow-x:auto}.code-block code{color:#51cf66}.endpoint{color:#ffd43b}.page-visual{background:#0a0a0a;border:2px solid #333;border-radius:8px;padding:2rem;margin:1rem 0}.page-visual h4{color:#fff;margin-bottom:1.5rem;font-size:1.2rem}.mockup-container{background:#fff;border-radius:8px;padding:2rem;color:#000;position:relative;min-height:400px}.mockup-header{background:#1a1a1a;color:#fff;padding:1rem;border-radius:6px 6px 0 0;margin:-2rem -2rem 1rem -2rem}.mockup-content{padding:1rem 0}.mockup-form{background:#f5f5f5;padding:1.5rem;border-radius:6px;margin:1rem 0}.form-field{margin-bottom:1rem}.form-field label{display:block;color:#333;font-weight:600;margin-bottom:0.5rem;font-size:0.9rem}.form-field input,.form-field select{width:100%;padding:10px;background:#fff;border:1px solid #ddd;border-radius:4px;color:#333}.mockup-button{background:#667eea;color:#fff;padding:12px 24px;border:none;border-radius:6px;cursor:pointer;font-weight:600;margin-top:1rem}.visual-description{background:#2a2a2a;padding:1.5rem;border-radius:8px;margin:1rem 0;border-left:4px solid #667eea}.visual-description h4{color:#fff;margin-bottom:0.5rem}.visual-description p{color:#ccc;line-height:1.6}.navigation{display:flex;justify-content:space-between;margin-top:2rem}.btn{padding:12px 24px;background:#667eea;color:#fff;border:none;border-radius:8px;font-size:1rem;font-weight:600;cursor:pointer;text-decoration:none;display:inline-block}.btn:hover{background:#5a6fd8}.btn.secondary{background:#666}.btn.secondary:hover{background:#777}.back-link{text-align:center;margin-top:2rem}.back-link a{color:#667eea;text-decoration:none}table{width:100%;border-collapse:collapse}th,td{padding:8px;text-align:left;border-bottom:1px solid #ddd}th{background:#1a1a1a;color:#fff}</style></head><body><div class="container"><div class="header"><div class="step-indicator">Step ${step} of ${totalSteps}</div><h1>${currentStep.title}</h1><p style="color:#ccc">${currentStep.description}</p></div><div class="content"><div class="section"><h3>📍 Page Location</h3><p><strong>URL:</strong> <code class="endpoint">${currentStep.pageUrl}</code></p><div class="page-visual"><h4>📸 Visual Representation of the Page</h4><div class="mockup-container"><div class="mockup-header">${currentStep.title}</div><div class="mockup-content">${generatePageMockup(currentStep)}</div></div></div><div class="visual-description"><h4>🎨 Detailed Visual Description</h4><p>${currentStep.frontend.what}</p><p><strong>Key Visual Elements:</strong></p><ul>${currentStep.frontend.features.map(f => `<li>${f}</li>`).join('')}</ul></div><div class="section"><h3>⚙️ Backend Process</h3><p><strong>API Endpoint:</strong> <code class="endpoint">${currentStep.backend.endpoint}</code></p><div class="code-block"><code><strong>Process Flow:</strong><br>${Array.isArray(currentStep.backend.process) ? currentStep.backend.process.map((p, i) => `${i + 1}. ${p}`).join('<br>') : currentStep.backend.process}</code></div><p><strong>Database Operations:</strong></p><ul><li><strong>Table:</strong> <code>${currentStep.backend.database.table || currentStep.backend.database.tables || 'N/A'}</code></li><li><strong>Action:</strong> ${currentStep.backend.database.action}</li>${currentStep.backend.database.fields ? `<li><strong>Fields:</strong> ${Array.isArray(currentStep.backend.database.fields) ? currentStep.backend.database.fields.join(', ') : currentStep.backend.database.fields}</li>` : ''}</ul></div><div class="section"><h3>➡️ Next Action</h3><p>${currentStep.nextAction}</p></div></div><div class="navigation">${prevStep ? `<a href="/demo/workflow/trader?step=${prevStep}" class="btn secondary">← Previous Step</a>` : '<span></span>'}${nextStep ? `<a href="/demo/workflow/trader?step=${nextStep}" class="btn">Next Step →</a>` : `<a href="/demo/workflow" class="btn">Back to Demo Index</a>`}</div><div class="back-link"><a href="/demo/workflow">← Back to All Demos</a> | <a href="/landing-two">Back to Portal</a></div></div></body></html>`;
+    res.end(html, 'utf8');
+});
+
+// Demo Admin Workflow - Step by Step
+app.get('/demo/workflow/admin', (req, res) => {
+    const step = parseInt(req.query.step) || 1;
+    const totalSteps = 6;
+    
+    const steps = [
+        {
+            title: 'Section 1: Admin Dashboard Overview',
+            pageUrl: '/dashboard/authenticated (admin role)',
+            description: 'Admin sees comprehensive platform overview with statistics and management tools.',
+            frontend: { what: 'Dashboard shows: Platform statistics (total users, contracts, transactions), system alerts, admin tools grid with buttons for: View Users, View All Trades, Auction Board, KYC Reports, OFAC Screening, Blockchain, Manage Fees, Voyage Times, Basis Points, Review Flags, Credit Assessments, Insurance Opportunities.', features: ['Platform statistics', 'System alerts', 'Admin tools grid', 'Quick access buttons'] },
+            backend: { endpoint: 'GET /dashboard/authenticated', process: ['Validates admin role', 'Queries platform statistics', 'Loads system alerts', 'Renders admin dashboard'], database: { table: 'database.users, database.contracts, database.transactions', action: 'Query platform statistics' } },
+            nextAction: 'Admin navigates to specific management sections'
+        },
+        {
+            title: 'Section 2: User Management & KYC',
+            pageUrl: '/admin/users, /admin/kyc-reports',
+            description: 'Admin manages all platform users and reviews KYC submissions.',
+            frontend: { what: 'User Management page shows table of all users with: email, role, KYC status, created date. KYC Reports page shows pending KYC submissions with document previews, approve/reject buttons, and OFAC screening results.', features: ['User list table', 'KYC review interface', 'Document preview', 'Approve/reject workflow', 'OFAC screening display'] },
+            backend: { endpoint: 'GET /admin/users, GET /admin/kyc-reports, POST /api/admin/kyc/approve', process: ['Queries all users from database', 'Loads KYC submissions with documents', 'Shows OFAC screening results', 'Processes approve/reject actions', 'Updates user.kycStatus'], database: { table: 'database.users, database.kyc, database.complianceReports', action: 'Query users, review KYC, update status' } },
+            nextAction: 'Admin reviews and approves/rejects KYC submissions'
+        },
+        {
+            title: 'Section 3: Contract Oversight',
+            pageUrl: '/admin/active-trades',
+            description: 'Admin views all contracts and trades across the platform.',
+            frontend: { what: 'Active Trades page shows comprehensive table of all contracts with: Contract ID, Product, Value, Buyer, Supplier, Status, Created date. Admin can filter by status, search by ID, and view contract details.', features: ['All contracts table', 'Status filters', 'Search functionality', 'Contract details view'] },
+            backend: { endpoint: 'GET /api/admin/contracts', process: ['Queries all contracts from database', 'Enriches with user information', 'Applies filters if provided', 'Returns contract list'], database: { table: 'database.contracts', action: 'Query all contracts' } },
+            nextAction: 'Admin monitors contract activity and status'
+        },
+        {
+            title: 'Section 4: Auction Management',
+            pageUrl: '/admin/auction',
+            description: 'Admin manages auction board for contracts with payment timeouts.',
+            frontend: { what: 'Auction Board shows contracts that went to auction due to payment timeouts. Displays: contract details, current highest bid, bidder information, countdown timer, auction status. Admin can view bidding activity and manage auctions.', features: ['Auction list', 'Bidding activity', 'Countdown timers', 'Auction controls'] },
+            backend: { endpoint: 'GET /api/admin/auctions, POST /api/auctions/:id/bid', process: ['Queries contracts with payment timeout', 'Loads auction data and bids', 'Tracks bidding activity', 'Manages auction lifecycle'], database: { table: 'database.contracts, database.auctions', action: 'Query auctions, manage bidding' } },
+            nextAction: 'Admin oversees auction process and bidding'
+        },
+        {
+            title: 'Section 5: Platform Settings',
+            pageUrl: '/admin/fees, /admin/voyage-times, /admin/basis-points',
+            description: 'Admin configures platform fees, voyage times, and price comparison settings.',
+            frontend: { what: 'Settings pages allow admin to configure: Platform fees (percentage), Interest rates, Transaction limits, Voyage times (default days), Basis points for price comparison, Price variance threshold (default 5%). All settings are editable with save functionality.', features: ['Fee configuration', 'Voyage time settings', 'Basis points configuration', 'Price variance threshold', 'Save/update functionality'] },
+            backend: { endpoint: 'GET /api/admin/settings, POST /api/admin/settings', process: ['Loads current platform settings', 'Validates new settings', 'Updates settings in database', 'Returns updated settings'], database: { table: 'database.settings (or admin config)', action: 'Read/update platform settings' } },
+            nextAction: 'Admin configures platform parameters'
+        },
+        {
+            title: 'Section 6: Compliance & Monitoring',
+            pageUrl: '/admin/ofac-management, /admin/flags, /admin/credit-assessments',
+            description: 'Admin manages compliance screening, flags, and credit assessments.',
+            frontend: { what: 'OFAC Management shows sanctions screening results, flagged entities, and screening history. Review Flags page shows compliance flags requiring attention. Credit Assessments displays credit risk scores and assessment results for all contracts.', features: ['OFAC screening results', 'Flag review interface', 'Credit assessment display', 'Compliance monitoring'] },
+            backend: { endpoint: 'GET /api/admin/ofac, GET /api/admin/flags, GET /api/admin/credit-assessments', process: ['Queries OFAC screening data', 'Loads compliance flags', 'Retrieves credit assessments', 'Shows risk scores and details'], database: { table: 'database.complianceReports, database.creditAssessments', action: 'Query compliance and credit data' } },
+            nextAction: 'Admin monitors and manages platform compliance'
+        }
+    ];
+    
+    const currentStep = steps[step - 1];
+    const prevStep = step > 1 ? step - 1 : null;
+    const nextStep = step < totalSteps ? step + 1 : null;
+    
+    // Helper function to generate page mockup HTML
+    function generatePageMockup(step) {
+        const pageType = step.pageUrl.toLowerCase();
+        if (pageType.includes('dashboard') || pageType.includes('authenticated')) {
+            return `<div style="background:#f5f5f5;padding:1rem;border-radius:6px;margin-bottom:1rem"><div style="display:flex;justify-content:space-between;align-items:center"><span style="color:#333;font-weight:600">ADMIN</span><span style="color:#333">🔔 Notifications</span></div></div><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin-bottom:1rem"><div style="background:#e3f2fd;padding:1rem;border-radius:6px;text-align:center"><strong style="color:#333">Total Users</strong><br><span style="font-size:1.5rem;color:#1976d2">1,234</span></div><div style="background:#fff3e0;padding:1rem;border-radius:6px;text-align:center"><strong style="color:#333">Active Contracts</strong><br><span style="font-size:1.5rem;color:#f57c00">56</span></div><div style="background:#e8f5e9;padding:1rem;border-radius:6px;text-align:center"><strong style="color:#333">Pending KYC</strong><br><span style="font-size:1.5rem;color:#388e3c">12</span></div></div><div style="background:#fff;padding:1rem;border-radius:6px"><h4 style="color:#333;margin-bottom:0.5rem">Admin Tools</h4><div style="display:flex;flex-wrap:wrap;gap:0.5rem"><button style="background:#666;color:#fff;padding:8px 12px;border:none;border-radius:4px;font-size:0.85rem">View Users</button><button style="background:#666;color:#fff;padding:8px 12px;border:none;border-radius:4px;font-size:0.85rem">KYC Reports</button><button style="background:#666;color:#fff;padding:8px 12px;border:none;border-radius:4px;font-size:0.85rem">Manage Fees</button><button style="background:#666;color:#fff;padding:8px 12px;border:none;border-radius:4px;font-size:0.85rem">Auction Board</button></div></div>`;
+        } else if (pageType.includes('fees') || pageType.includes('voyage') || pageType.includes('basis')) {
+            return `<div class="mockup-form"><h3 style="color:#333;margin-bottom:1rem">Platform Settings</h3><div class="form-field"><label>Trading Fee (%)</label><input type="number" value="0.5" readonly></div><div class="form-field"><label>Platform Fee (%)</label><input type="number" value="1.0" readonly></div><div class="form-field"><label>Voyage Times (days)</label><div style="display:flex;gap:0.5rem"><input type="number" value="30" placeholder="Short" readonly style="flex:1"><input type="number" value="60" placeholder="Medium" readonly style="flex:1"><input type="number" value="90" placeholder="Long" readonly style="flex:1"></div></div><button class="mockup-button">Save Changes</button></div>`;
+        } else {
+            return `<div class="mockup-form"><p style="color:#333;text-align:center;padding:2rem">Visual representation of ${step.title}</p><div style="background:#f5f5f5;padding:1rem;border-radius:6px;margin-top:1rem"><p style="color:#666;font-size:0.9rem;margin:0">This page shows: ${step.frontend.what.substring(0, 100)}...</p></div></div>`;
+        }
+    }
+    
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+    const pageUrl = currentStep.pageUrl.includes(',') ? currentStep.pageUrl.split(',')[0].trim() : currentStep.pageUrl.includes('(') ? currentStep.pageUrl.split(' (')[0] : currentStep.pageUrl;
+    const cleanUrl = pageUrl.startsWith('/') ? pageUrl : '/' + pageUrl;
+    
+    const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>${currentStep.title} - Admin Demo</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;background:#000;min-height:100vh;color:#fff;padding:2rem}.container{max-width:1400px;margin:0 auto}.header{text-align:center;margin-bottom:2rem}h1{color:#fff;font-size:2rem;margin-bottom:0.5rem}.step-indicator{color:#667eea;font-size:1.1rem;margin-bottom:2rem}.content{background:#1a1a1a;padding:2rem;border-radius:15px;margin-bottom:2rem}.section{margin-bottom:2rem}.section h3{color:#fff;font-size:1.3rem;margin-bottom:1rem;border-bottom:2px solid #333;padding-bottom:0.5rem}.section p{color:#ccc;line-height:1.8;margin-bottom:1rem}.section ul{color:#ccc;line-height:2;margin-left:2rem;margin-bottom:1rem}.code-block{background:#0a0a0a;padding:1rem;border-radius:8px;border:1px solid #333;margin:1rem 0;font-family:monospace;font-size:0.9rem;overflow-x:auto}.code-block code{color:#51cf66}.endpoint{color:#ffd43b}.page-visual{background:#0a0a0a;border:2px solid #333;border-radius:8px;padding:2rem;margin:1rem 0}.page-visual h4{color:#fff;margin-bottom:1.5rem;font-size:1.2rem}.mockup-container{background:#fff;border-radius:8px;padding:2rem;color:#000;position:relative;min-height:400px}.mockup-header{background:#1a1a1a;color:#fff;padding:1rem;border-radius:6px 6px 0 0;margin:-2rem -2rem 1rem -2rem}.mockup-content{padding:1rem 0}.mockup-form{background:#f5f5f5;padding:1.5rem;border-radius:6px;margin:1rem 0}.form-field{margin-bottom:1rem}.form-field label{display:block;color:#333;font-weight:600;margin-bottom:0.5rem;font-size:0.9rem}.form-field input,.form-field select{width:100%;padding:10px;background:#fff;border:1px solid #ddd;border-radius:4px;color:#333}.mockup-button{background:#667eea;color:#fff;padding:12px 24px;border:none;border-radius:6px;cursor:pointer;font-weight:600;margin-top:1rem}.visual-description{background:#2a2a2a;padding:1.5rem;border-radius:8px;margin:1rem 0;border-left:4px solid #667eea}.visual-description h4{color:#fff;margin-bottom:0.5rem}.visual-description p{color:#ccc;line-height:1.6}.navigation{display:flex;justify-content:space-between;margin-top:2rem}.btn{padding:12px 24px;background:#667eea;color:#fff;border:none;border-radius:8px;font-size:1rem;font-weight:600;cursor:pointer;text-decoration:none;display:inline-block}.btn:hover{background:#5a6fd8}.btn.secondary{background:#666}.btn.secondary:hover{background:#777}.back-link{text-align:center;margin-top:2rem}.back-link a{color:#667eea;text-decoration:none}table{width:100%;border-collapse:collapse}th,td{padding:8px;text-align:left;border-bottom:1px solid #ddd}th{background:#1a1a1a;color:#fff}</style></head><body><div class="container"><div class="header"><div class="step-indicator">Section ${step} of ${totalSteps}</div><h1>${currentStep.title}</h1><p style="color:#ccc">${currentStep.description}</p></div><div class="content"><div class="section"><h3>📍 Page Location</h3><p><strong>URL:</strong> <code class="endpoint">${currentStep.pageUrl}</code></p><div class="page-visual"><h4>📸 Visual Representation of the Page</h4><div class="mockup-container"><div class="mockup-header">${currentStep.title}</div><div class="mockup-content">${generatePageMockup(currentStep)}</div></div></div><div class="visual-description"><h4>🎨 Detailed Visual Description</h4><p>${currentStep.frontend.what}</p><p><strong>Key Visual Elements:</strong></p><ul>${currentStep.frontend.features.map(f => `<li>${f}</li>`).join('')}</ul></div><div class="section"><h3>⚙️ Backend Process</h3><p><strong>API Endpoint:</strong> <code class="endpoint">${currentStep.backend.endpoint}</code></p><div class="code-block"><code><strong>Process Flow:</strong><br>${Array.isArray(currentStep.backend.process) ? currentStep.backend.process.map((p, i) => `${i + 1}. ${p}`).join('<br>') : currentStep.backend.process}</code></div><p><strong>Database Operations:</strong></p><ul><li><strong>Table:</strong> <code>${currentStep.backend.database.table || currentStep.backend.database.tables || 'N/A'}</code></li><li><strong>Action:</strong> ${currentStep.backend.database.action}</li>${currentStep.backend.database.fields ? `<li><strong>Fields:</strong> ${Array.isArray(currentStep.backend.database.fields) ? currentStep.backend.database.fields.join(', ') : currentStep.backend.database.fields}</li>` : ''}</ul></div><div class="section"><h3>➡️ Next Action</h3><p>${currentStep.nextAction}</p></div></div><div class="navigation">${prevStep ? `<a href="/demo/workflow/admin?step=${prevStep}" class="btn secondary">← Previous Section</a>` : '<span></span>'}${nextStep ? `<a href="/demo/workflow/admin?step=${nextStep}" class="btn">Next Section →</a>` : `<a href="/demo/workflow" class="btn">Back to Demo Index</a>`}</div><div class="back-link"><a href="/demo/workflow">← Back to All Demos</a> | <a href="/landing-two">Back to Portal</a></div></div></body></html>`;
     res.end(html, 'utf8');
 });
 
@@ -1355,8 +2078,11 @@ app.post('/api/auth/register', async (req, res) => {
             return res.status(400).json({ error: 'Email and password are required' });
         }
         
+        // Normalize role to lowercase for validation
+        const normalizedRole = (role || 'buyer').toLowerCase();
+        
         // Validate role
-        if (!['buyer', 'supplier', 'trader', 'insurer'].includes(role)) {
+        if (!['buyer', 'supplier', 'trader', 'insurer'].includes(normalizedRole)) {
             return res.status(400).json({ error: 'Invalid role' });
         }
         
@@ -1373,7 +2099,7 @@ app.post('/api/auth/register', async (req, res) => {
             id: 'user-' + Date.now(),
             email: email,
             password: hashedPassword,
-            role: role,
+            role: normalizedRole,
             verified: false,
             kycStatus: 'pending',
             createdAt: new Date().toISOString()
@@ -1398,7 +2124,12 @@ app.post('/api/auth/register', async (req, res) => {
         });
     } catch (error) {
         console.error('[ERROR] Registration error:', error);
-        res.status(500).json({ error: 'Registration failed' });
+        console.error('[ERROR] Registration error stack:', error.stack);
+        res.status(500).json({ 
+            error: 'Registration failed',
+            message: error.message || 'Unknown error occurred',
+            details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+        });
     }
 });
 
@@ -1457,9 +2188,1023 @@ app.post('/api/auth/login', async (req, res) => {
 });
 
 // ================================
+// KYC API ROUTES
+// ================================
+// KYC Submission endpoint
+app.post('/api/kyc/submit', authenticateToken, upload.any(), async (req, res) => {
+    try {
+        // Check if user is authenticated
+        if (!req.user || !req.user.email) {
+            console.error('[KYC] No user in request object');
+            return res.status(401).json({ error: 'Authentication required' });
+        }
+        
+        let userEmail = req.user.email;
+        console.log('[KYC] Submitting KYC for user:', userEmail);
+        console.log('[KYC] Token decoded user:', req.user);
+        
+        let user = database.users.get(userEmail);
+        
+        if (!user) {
+            console.error('[KYC] User not found in database:', userEmail);
+            console.log('[KYC] Available users:', Array.from(database.users.keys()));
+            
+            // Try to find user by ID if email lookup fails
+            if (req.user.id) {
+                const usersArray = Array.from(database.users.values());
+                user = usersArray.find(u => u.id === req.user.id);
+                if (user) {
+                    console.log('[KYC] Found user by ID:', user.id);
+                    userEmail = user.email; // Update email to match database
+                }
+            }
+            
+            if (!user) {
+                return res.status(404).json({ 
+                    error: 'User not found. Please register again or contact support.',
+                    details: 'Your session may have expired. Please sign up again.'
+                });
+            }
+        }
+        
+        // Parse form data
+        const formData = req.body;
+        const files = req.files || [];
+        
+        // Organize files by category
+        const fileMap = {};
+        files.forEach(file => {
+            const fieldName = file.fieldname;
+            if (!fileMap[fieldName]) {
+                fileMap[fieldName] = [];
+            }
+            fileMap[fieldName].push({
+                filename: file.filename,
+                originalname: file.originalname,
+                path: file.path,
+                size: file.size,
+                mimetype: file.mimetype
+            });
+        });
+        
+        // Create KYC submission record
+        const kycId = `kyc-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        const kycData = {
+            id: kycId,
+            userEmail: userEmail,
+            companyType: formData.companyType || 'private',
+            companyName: formData.companyName || '',
+            registrationNumber: formData.registrationNumber || '',
+            country: formData.country || '',
+            address: formData.address || '',
+            contactPerson: formData.contactPerson || '',
+            phone: formData.phone || '',
+            email: formData.email || userEmail,
+            files: fileMap,
+            status: 'pending',
+            submittedAt: new Date().toISOString(),
+            reviewedAt: null,
+            reviewedBy: null
+        };
+        
+        // Store KYC data
+        database.kyc.set(kycId, kycData);
+        
+        // Perform OFAC Sanctions Screening (async, non-blocking)
+        let complianceReport = null;
+        let hasFlags = false;
+        
+        if (sanctionsAPI) {
+            try {
+                const companyName = formData.companyName || user.name || userEmail;
+                const contactPerson = formData.contactPerson || user.name || '';
+                
+                // Screen company name and contact person
+                const screeningResult = await sanctionsAPI.screenSanctions(companyName);
+                const personScreening = contactPerson ? await sanctionsAPI.screenSanctions(contactPerson) : { cleared: true, matches: [] };
+                
+                // Check for flags
+                const ofacMatch = !screeningResult.cleared || !personScreening.cleared;
+                hasFlags = ofacMatch;
+                
+                // Create compliance report
+                const reportId = `compliance-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+                complianceReport = {
+                    id: reportId,
+                    kycId: kycId,
+                    userId: userEmail,
+                    companyName: companyName,
+                    contactPerson: contactPerson,
+                    screeningDate: new Date().toISOString(),
+                    ofacMatch: ofacMatch,
+                    matches: [...(screeningResult.matches || []), ...(personScreening.matches || [])],
+                    riskLevel: ofacMatch ? 'high' : 'low',
+                    totalChecked: (screeningResult.totalChecked || 0) + (personScreening.totalChecked || 0),
+                    status: 'completed'
+                };
+                
+                database.complianceReports.set(reportId, complianceReport);
+                console.log(`[OFAC] Screening completed for ${userEmail}: ${complianceReport.ofacMatch ? 'MATCH FOUND - FLAGGED' : 'CLEARED'}`);
+                
+            } catch (error) {
+                console.error('[ERROR] OFAC screening error:', error);
+                // If screening fails, treat as flagged for safety
+                hasFlags = true;
+            }
+        }
+        
+        // Auto-approve if no flags, otherwise set to pending for manual review
+        let finalStatus = 'pending';
+        let autoApproved = false;
+        
+        if (!hasFlags) {
+            // No flags found - auto-approve
+            finalStatus = 'approved';
+            autoApproved = true;
+            kycData.status = 'approved';
+            kycData.reviewedAt = new Date().toISOString();
+            kycData.reviewedBy = 'system';
+            kycData.autoApproved = true;
+            database.kyc.set(kycId, kycData);
+            
+            // Update user's KYC status
+            user.kycStatus = 'approved';
+            user.kycSubmissionId = kycId;
+            database.users.set(userEmail, user);
+            
+            // Process any pending contracts for this user
+            processPendingContractsForUser(userEmail);
+            
+            console.log(`[KYC] Auto-approved for ${userEmail} (no flags found)`);
+        } else {
+            // Flags found - requires manual review
+            finalStatus = 'pending';
+            user.kycStatus = 'pending';
+            user.kycSubmissionId = kycId;
+            database.users.set(userEmail, user);
+            
+            console.log(`[KYC] Flagged for manual review: ${userEmail} (OFAC match or risk detected)`);
+        }
+        
+        // Log audit event
+        logAuditEvent('kyc_submitted', userEmail, {
+            kycId: kycId,
+            companyType: formData.companyType,
+            fileCount: files.length,
+            ofacScreened: complianceReport !== null,
+            ofacMatch: complianceReport?.ofacMatch || false,
+            autoApproved: autoApproved,
+            status: finalStatus
+        });
+        
+        console.log(`[KYC] Submission received for ${userEmail}, KYC ID: ${kycId}, Status: ${finalStatus}`);
+        
+        res.status(200).json({
+            success: true,
+            message: autoApproved ? 'KYC submission approved automatically' : 'KYC submission received and pending review',
+            kycId: kycId,
+            status: finalStatus,
+            autoApproved: autoApproved,
+            ofacScreened: complianceReport !== null,
+            ofacMatch: complianceReport?.ofacMatch || false,
+            flags: hasFlags
+        });
+        
+    } catch (error) {
+        console.error('[ERROR] KYC submission error:', error);
+        res.status(500).json({ 
+            error: 'KYC submission failed',
+            message: error.message || 'Unknown error occurred'
+        });
+    }
+});
+
+// PDF Contract Extraction API
+app.post('/api/contracts/extract-from-pdf', authenticateToken, upload.single('pdf'), async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ error: 'No PDF file uploaded' });
+        }
+        
+        if (!contractExtractor) {
+            return res.status(503).json({ error: 'PDF extraction service not available' });
+        }
+        
+        const filePath = req.file.path;
+        const extractedData = await contractExtractor.extractContractFromPDF(filePath);
+        
+        // Store the PDF in documents database
+        const docId = `doc-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        database.documents.set(docId, {
+            id: docId,
+            contractId: null, // Will be linked when contract is created
+            type: 'contract_pdf',
+            filename: req.file.filename,
+            originalName: req.file.originalname,
+            path: filePath,
+            uploadedBy: req.user.email,
+            uploadedAt: new Date().toISOString(),
+            extractedData: extractedData
+        });
+        
+        console.log(`[PDF] Contract extracted from PDF: ${req.file.originalname}`);
+        
+        res.json({
+            success: true,
+            extracted: extractedData,
+            documentId: docId,
+            message: 'Contract data extracted successfully'
+        });
+        
+    } catch (error) {
+        console.error('[ERROR] PDF extraction error:', error);
+        res.status(500).json({ 
+            error: 'Failed to extract contract from PDF',
+            message: error.message || 'Unknown error occurred'
+        });
+    }
+});
+
+// Document Upload API
+app.post('/api/contracts/:contractId/documents', authenticateToken, upload.array('documents', 10), async (req, res) => {
+    try {
+        console.log('[DOCS] Document upload request received for contract:', req.params.contractId);
+        console.log('[DOCS] User:', req.user?.email);
+        const { contractId } = req.params;
+        const userEmail = req.user?.email;
+        
+        if (!userEmail) {
+            console.error('[DOCS] No user email in request');
+            return res.status(401).json({ error: 'Authentication required', message: 'Please sign in to upload documents' });
+        }
+        
+        const contract = database.contracts.get(contractId);
+        if (!contract) {
+            return res.status(404).json({ error: 'Contract not found' });
+        }
+        
+        // Verify user has permission (supplier or trader)
+        if (contract.supplierEmail !== userEmail && req.user.role !== 'trader' && req.user.role !== 'admin') {
+            return res.status(403).json({ error: 'Unauthorized to upload documents for this contract' });
+        }
+        
+        const uploadedDocs = [];
+        if (req.files && req.files.length > 0) {
+            req.files.forEach(file => {
+                const docId = `doc-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+                const document = {
+                    id: docId,
+                    contractId: contractId,
+                    type: 'shipping_document',
+                    filename: file.filename,
+                    originalName: file.originalname,
+                    path: file.path,
+                    size: file.size,
+                    mimetype: file.mimetype,
+                    uploadedBy: userEmail,
+                    uploadedAt: new Date().toISOString()
+                };
+                
+                database.documents.set(docId, document);
+                uploadedDocs.push(document);
+            });
+            
+            // Update contract status
+            contract.documentsUploaded = true;
+            contract.documentsUploadedAt = new Date().toISOString();
+            database.contracts.set(contractId, contract);
+            
+            // Log audit event
+            logAuditEvent('documents_uploaded', userEmail, {
+                contractId: contractId,
+                documentCount: req.files.length
+            });
+        }
+        
+        res.json({
+            success: true,
+            documents: uploadedDocs,
+            message: `${uploadedDocs.length} document(s) uploaded successfully`
+        });
+        
+    } catch (error) {
+        console.error('[ERROR] Document upload error:', error);
+        res.status(500).json({ 
+            error: 'Failed to upload documents',
+            message: error.message || 'Unknown error occurred'
+        });
+    }
+});
+
+// ================================
+// WALLET API ROUTES
+// ================================
+// Create or update wallet
+app.post('/api/wallet/create', authenticateToken, async (req, res) => {
+    try {
+        const userEmail = req.user.email;
+        const { address, type = 'Manual' } = req.body;
+        
+        if (!address) {
+            return res.status(400).json({ error: 'Wallet address is required' });
+        }
+        
+        // Validate wallet address format (basic check)
+        if (!address.match(/^0x[a-fA-F0-9]{40}$/)) {
+            return res.status(400).json({ error: 'Invalid wallet address format' });
+        }
+        
+        // Get or create wallet record
+        const walletId = `wallet-${userEmail}`;
+        const wallet = {
+            id: walletId,
+            userEmail: userEmail,
+            address: address,
+            type: type,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+        };
+        
+        database.wallets.set(walletId, wallet);
+        
+        // Update user's wallet status
+        const user = database.users.get(userEmail);
+        if (user) {
+            user.hasWallet = true;
+            user.walletAddress = address;
+            database.users.set(userEmail, user);
+        }
+        
+        // Log audit event
+        logAuditEvent('wallet_created', userEmail, {
+            walletAddress: address,
+            walletType: type
+        });
+        
+        console.log(`[WALLET] Wallet created for ${userEmail}, Address: ${address}`);
+        
+        res.status(200).json({
+            success: true,
+            message: 'Wallet saved successfully',
+            wallet: wallet
+        });
+        
+    } catch (error) {
+        console.error('[ERROR] Wallet creation error:', error);
+        res.status(500).json({ 
+            error: 'Wallet creation failed',
+            message: error.message || 'Unknown error occurred'
+        });
+    }
+});
+
+// Get wallet status
+app.get('/api/wallet/status', authenticateToken, (req, res) => {
+    try {
+        const userEmail = req.user.email;
+        const walletId = `wallet-${userEmail}`;
+        const wallet = database.wallets.get(walletId);
+        
+        if (!wallet) {
+            return res.json({
+                hasWallet: false,
+                wallet: null
+            });
+        }
+        
+        res.json({
+            hasWallet: true,
+            wallet: wallet
+        });
+        
+    } catch (error) {
+        console.error('[ERROR] Wallet status error:', error);
+        res.status(500).json({ error: 'Failed to get wallet status' });
+    }
+});
+
+// ================================
 // CONTRACT API ROUTES
 // ================================
 // Get contracts for user (buyer, supplier, trader)
+// Create Contract API
+app.post('/api/contracts', authenticateToken, async (req, res) => {
+    try {
+        const userEmail = req.user.email;
+        const userRole = req.user.role;
+        const {
+            product,
+            quantity,
+            unit,
+            price,
+            currency = 'TGT',
+            counterparty,
+            depositPercent = 30,
+            voyageTime = 30,
+            description = '',
+            totalValue,
+            depositAmount
+        } = req.body;
+        
+        // Validate required fields
+        if (!product || !quantity || !unit || !price || !counterparty) {
+            return res.status(400).json({ error: 'Missing required fields: product, quantity, unit, price, and counterparty are required' });
+        }
+        
+        // Validate counterparty exists
+        const counterpartyUser = database.users.get(counterparty);
+        if (!counterpartyUser) {
+            return res.status(400).json({ error: 'Counterparty email not found. Please ensure the user is registered.' });
+        }
+        
+        // Determine buyer and supplier based on user role
+        let buyerEmail, supplierEmail;
+        if (userRole === 'buyer') {
+            buyerEmail = userEmail;
+            supplierEmail = counterparty;
+        } else if (userRole === 'supplier') {
+            supplierEmail = userEmail;
+            buyerEmail = counterparty;
+        } else if (userRole === 'trader') {
+            // Trader can be either, default to supplier
+            supplierEmail = userEmail;
+            buyerEmail = counterparty;
+        } else {
+            return res.status(400).json({ error: 'Invalid role for contract creation' });
+        }
+        
+        // Calculate values
+        const calculatedTotalValue = parseFloat(quantity) * parseFloat(price);
+        const calculatedDepositAmount = (calculatedTotalValue * parseFloat(depositPercent)) / 100;
+        
+        // Create contract
+        const contractId = `contract-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        const contract = {
+            id: contractId,
+            product: product,
+            quantity: parseFloat(quantity),
+            unit: unit,
+            pricePerUnit: parseFloat(price),
+            totalValue: totalValue || calculatedTotalValue,
+            currency: currency,
+            buyerEmail: buyerEmail,
+            supplierEmail: supplierEmail,
+            depositPercent: parseFloat(depositPercent),
+            depositAmount: depositAmount || calculatedDepositAmount,
+            voyageTime: parseInt(voyageTime),
+            description: description,
+            status: userRole === 'supplier' ? 'pending_buyer_confirmation' : 'pending_supplier_confirmation',
+            depositPaid: false,
+            documentsUploaded: false,
+            createdAt: new Date().toISOString(),
+            createdBy: userEmail
+        };
+        
+        database.contracts.set(contractId, contract);
+        
+        // Perform Credit Assessment (async, non-blocking)
+        let creditAssessment = null;
+        if (creditIntegration && creditServiceAvailable) {
+            try {
+                const buyer = database.users.get(buyerEmail);
+                const contractData = {
+                    amount: contract.totalValue,
+                    tenor_days: contract.voyageTime,
+                    inventory_value: contract.totalValue * 0.8,
+                    inventory_type: contract.product,
+                    inventory_location: 'warehouse',
+                    buyer_deposit: contract.depositAmount,
+                    is_exchange_traded: false
+                };
+                
+                const userData = {
+                    name: buyer?.name || buyer?.companyName || buyerEmail,
+                    company: buyer?.companyName || buyerEmail,
+                    country: buyer?.country || 'Unknown',
+                    email: buyerEmail,
+                    phone: buyer?.phone || ''
+                };
+                
+                // Perform credit assessment integration
+                const creditResult = await creditIntegration.integrateCreditAssessment(contractData, userData);
+                
+                if (creditResult.success && creditResult.assessment) {
+                    // Store credit assessment
+                    const assessmentId = `credit-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+                    creditAssessment = {
+                        id: assessmentId,
+                        contractId: contractId,
+                        buyerEmail: buyerEmail,
+                        assessmentDate: new Date().toISOString(),
+                        creditScore: creditResult.assessment.credit_score || 0,
+                        riskLevel: creditResult.assessment.risk_level || 'unknown',
+                        recommendation: creditResult.assessment.recommendation || 'pending',
+                        details: creditResult.assessment,
+                        entityId: creditResult.entityId,
+                        tradeId: creditResult.tradeId
+                    };
+                    
+                    database.creditAssessments.set(assessmentId, creditAssessment);
+                    contract.creditAssessment = creditAssessment;
+                    database.contracts.set(contractId, contract);
+                    
+                    console.log(`[CREDIT] Assessment completed for contract ${contractId}: Score ${creditAssessment.creditScore}, Risk ${creditAssessment.riskLevel}`);
+                } else {
+                    console.log(`[CREDIT] Assessment skipped for contract ${contractId}: ${creditResult.reason || 'Service unavailable'}`);
+                }
+                
+            } catch (error) {
+                console.error('[ERROR] Credit assessment error:', error);
+                // Continue even if credit assessment fails
+            }
+        }
+        
+        // Log audit event
+        logAuditEvent('contract_created', userEmail, {
+            contractId: contractId,
+            product: product,
+            totalValue: contract.totalValue,
+            counterparty: counterparty,
+            creditAssessed: creditAssessment !== null
+        });
+        
+        console.log(`[CONTRACT] Contract created: ${contractId} by ${userEmail}`);
+        
+        res.status(201).json({
+            success: true,
+            id: contractId,
+            contract: contract,
+            creditAssessed: creditAssessment !== null
+        });
+        
+    } catch (error) {
+        console.error('[ERROR] Create contract error:', error);
+        res.status(500).json({ 
+            error: 'Failed to create contract',
+            message: error.message || 'Unknown error occurred'
+        });
+    }
+});
+
+// Create Dual Contract API (for traders)
+app.post('/api/contracts/create-dual', authenticateToken, async (req, res) => {
+    try {
+        const userEmail = req.user.email;
+        const userRole = req.user.role;
+        
+        if (userRole !== 'trader') {
+            return res.status(403).json({ error: 'Only traders can create dual contracts' });
+        }
+        
+        const {
+            product,
+            quantity,
+            unit,
+            price,
+            currency = 'TGT',
+            counterparty,
+            depositPercent = 30,
+            voyageTime = 30,
+            description = '',
+            totalValue,
+            depositAmount,
+            sourceContractId
+        } = req.body;
+        
+        // Validate required fields
+        if (!product || !quantity || !unit || !price || !counterparty || !sourceContractId) {
+            return res.status(400).json({ error: 'Missing required fields: product, quantity, unit, price, counterparty, and sourceContractId are required' });
+        }
+        
+        // Get source contract
+        const sourceContract = database.contracts.get(sourceContractId);
+        if (!sourceContract) {
+            return res.status(404).json({ error: 'Source contract not found' });
+        }
+        
+        // Verify trader is a party to source contract
+        if (sourceContract.buyerEmail !== userEmail && sourceContract.supplierEmail !== userEmail) {
+            return res.status(403).json({ error: 'You must be a party to the source contract to create a dual contract' });
+        }
+        
+        // Determine opposite role
+        const isBuyerInSource = sourceContract.buyerEmail === userEmail;
+        const oppositeRole = isBuyerInSource ? 'supplier' : 'buyer';
+        
+        // Determine buyer and supplier for new contract
+        let buyerEmail, supplierEmail;
+        if (oppositeRole === 'supplier') {
+            supplierEmail = userEmail;
+            buyerEmail = counterparty;
+        } else {
+            buyerEmail = userEmail;
+            supplierEmail = counterparty;
+        }
+        
+        // Validate counterparty exists
+        const counterpartyUser = database.users.get(counterparty);
+        if (!counterpartyUser) {
+            return res.status(400).json({ error: 'Counterparty email not found. Please ensure the user is registered.' });
+        }
+        
+        // Calculate values
+        const calculatedTotalValue = parseFloat(quantity) * parseFloat(price);
+        const calculatedDepositAmount = (calculatedTotalValue * parseFloat(depositPercent)) / 100;
+        
+        // Create dual contract
+        const contractId = `contract-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        const contract = {
+            id: contractId,
+            product: product,
+            quantity: parseFloat(quantity),
+            unit: unit,
+            pricePerUnit: parseFloat(price),
+            totalValue: totalValue || calculatedTotalValue,
+            currency: currency,
+            buyerEmail: buyerEmail,
+            supplierEmail: supplierEmail,
+            depositPercent: parseFloat(depositPercent),
+            depositAmount: depositAmount || calculatedDepositAmount,
+            voyageTime: parseInt(voyageTime),
+            description: description,
+            status: oppositeRole === 'supplier' ? 'pending_buyer_confirmation' : 'pending_supplier_confirmation',
+            depositPaid: false,
+            documentsUploaded: false,
+            createdAt: new Date().toISOString(),
+            createdBy: userEmail,
+            linkedContract: true,
+            sourceContractId: sourceContractId,
+            linkedContractId: null // Will be set when documents are transferred
+        };
+        
+        // Link contracts bidirectionally
+        if (!sourceContract.linkedContracts) {
+            sourceContract.linkedContracts = [];
+        }
+        sourceContract.linkedContracts.push(contractId);
+        database.contracts.set(sourceContractId, sourceContract);
+        
+        contract.linkedContracts = [sourceContractId];
+        database.contracts.set(contractId, contract);
+        
+        saveDatabase();
+        
+        // Log audit event
+        logAuditEvent('dual_contract_created', userEmail, {
+            contractId: contractId,
+            sourceContractId: sourceContractId,
+            product: product,
+            totalValue: contract.totalValue,
+            counterparty: counterparty
+        });
+        
+        console.log(`[DUAL CONTRACT] Dual contract created: ${contractId} linked to ${sourceContractId} by ${userEmail}`);
+        
+        res.status(201).json({
+            success: true,
+            id: contractId,
+            contract: contract,
+            message: 'Dual contract created and linked successfully'
+        });
+    } catch (error) {
+        console.error('[ERROR] Dual contract creation error:', error);
+        res.status(500).json({ 
+            error: 'Failed to create dual contract',
+            message: error.message || 'Unknown error occurred'
+        });
+    }
+});
+
+// Pay Deposit API
+app.post('/api/contracts/:contractId/deposit', authenticateToken, async (req, res) => {
+    try {
+        const { contractId } = req.params;
+        const userEmail = req.user.email;
+        const { useBlockchain = false } = req.body;
+        
+        const contract = database.contracts.get(contractId);
+        if (!contract) {
+            return res.status(404).json({ error: 'Contract not found' });
+        }
+        
+        // Verify user is the buyer
+        if (contract.buyerEmail !== userEmail && req.user.role !== 'admin' && req.user.role !== 'trader') {
+            return res.status(403).json({ error: 'Only the buyer can pay the deposit' });
+        }
+        
+        // Check if deposit already paid
+        if (contract.depositPaid) {
+            return res.status(400).json({ error: 'Deposit already paid for this contract' });
+        }
+        
+        // Check contract status
+        if (contract.status !== 'pending_deposit' && contract.status !== 'pending_buyer_confirmation') {
+            return res.status(400).json({ error: 'Contract is not in a state that requires deposit payment' });
+        }
+        
+        // Get user wallet
+        const user = database.users.get(userEmail);
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+        
+        const walletId = `wallet-${userEmail}`;
+        const wallet = database.wallets.get(walletId);
+        
+        // Calculate deposit amount
+        const depositAmount = contract.depositAmount || Math.round(contract.totalValue * (contract.depositPercent / 100));
+        
+        // Check wallet balance (if wallet exists)
+        if (wallet && wallet.tgtBalance < depositAmount) {
+            return res.status(400).json({ 
+                error: 'Insufficient balance',
+                action: 'fund_wallet',
+                details: {
+                    required: depositAmount,
+                    available: wallet.tgtBalance || 0
+                }
+            });
+        }
+        
+        // Process blockchain payment if requested
+        let blockchainTxHash = null;
+        let blockchainStatus = 'simulated';
+        
+        if (useBlockchain && blockchain && blockchain.isInitialized) {
+            try {
+                // Get user's wallet address
+                const walletAddress = wallet?.address || user.walletAddress;
+                if (!walletAddress) {
+                    console.warn('[BLOCKCHAIN] No wallet address found, falling back to simulation');
+                } else {
+                    // Create escrow trade on blockchain if not exists
+                    let tradeId = contract.blockchainTradeId;
+                    if (!tradeId) {
+                        // Generate a unique trade ID for blockchain
+                        tradeId = `trade-${contractId}-${Date.now()}`;
+                        const tradeData = {
+                            tradeId: tradeId,
+                            buyer: walletAddress, // Use wallet address, not email
+                            supplier: database.wallets.get(`wallet-${contract.supplierEmail}`)?.address || contract.supplierEmail,
+                            totalAmount: contract.totalValue,
+                            depositAmount: depositAmount,
+                            commodity: contract.product,
+                            quantity: contract.quantity.toString()
+                        };
+                        try {
+                            const tradeTx = await blockchain.createEscrowTrade(tradeData);
+                            if (tradeTx && tradeTx.hash) {
+                                contract.blockchainTradeId = tradeId;
+                                contract.blockchainTradeTxHash = tradeTx.hash;
+                                console.log(`[BLOCKCHAIN] Escrow trade created: ${tradeId}, tx: ${tradeTx.hash}`);
+                            }
+                        } catch (error) {
+                            console.warn('[BLOCKCHAIN] Failed to create escrow trade, using simulation:', error.message);
+                        }
+                    }
+                    
+                    // Make deposit to escrow
+                    if (tradeId) {
+                        try {
+                            const depositTx = await blockchain.depositToEscrow(tradeId, depositAmount);
+                            if (depositTx && depositTx.hash) {
+                                blockchainTxHash = depositTx.hash;
+                                blockchainStatus = 'confirmed';
+                                console.log(`[BLOCKCHAIN] Deposit transaction: ${blockchainTxHash}`);
+                            }
+                        } catch (error) {
+                            console.warn('[BLOCKCHAIN] Deposit failed, falling back to simulation:', error.message);
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('[ERROR] Blockchain deposit error:', error);
+                console.log('[INFO] Falling back to simulation mode');
+                // Continue with simulation if blockchain fails
+            }
+        }
+        
+        // Update wallet balance (simulate payment or after blockchain confirmation)
+        if (wallet) {
+            wallet.tgtBalance = (wallet.tgtBalance || 0) - depositAmount;
+            database.wallets.set(walletId, wallet);
+        }
+        
+        // Update contract
+        contract.depositPaid = true;
+        contract.depositPaidAt = new Date().toISOString();
+        contract.status = contract.status === 'pending_deposit' ? 'active' : 'active';
+        if (contract.supplierEmail && database.users.get(contract.supplierEmail)) {
+            // Contract is active, supplier can now upload documents
+        }
+        database.contracts.set(contractId, contract);
+        
+        // Create transaction record
+        const transactionId = `tx-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        database.transactions.set(transactionId, {
+            id: transactionId,
+            contractId: contractId,
+            type: 'deposit',
+            amount: depositAmount,
+            currency: contract.currency,
+            from: userEmail,
+            to: 'escrow',
+            status: blockchainStatus === 'confirmed' ? 'confirmed' : 'completed',
+            blockchain: useBlockchain,
+            blockchainTxHash: blockchainTxHash,
+            blockchainStatus: blockchainStatus,
+            createdAt: new Date().toISOString()
+        });
+        
+        // Log audit event
+        logAuditEvent('deposit_paid', userEmail, {
+            contractId: contractId,
+            amount: depositAmount,
+            currency: contract.currency,
+            blockchain: useBlockchain
+        });
+        
+        console.log(`[CONTRACT] Deposit paid: ${contractId} by ${userEmail}, amount: ${depositAmount}`);
+        
+        res.json({
+            success: true,
+            message: 'Deposit paid successfully',
+            contract: contract,
+            transactionId: transactionId
+        });
+        
+    } catch (error) {
+        console.error('[ERROR] Pay deposit error:', error);
+        res.status(500).json({ 
+            error: 'Failed to process deposit',
+            message: error.message || 'Unknown error occurred'
+        });
+    }
+});
+
+// Confirm Contract API
+app.post('/api/contracts/:contractId/confirm', authenticateToken, async (req, res) => {
+    try {
+        const { contractId } = req.params;
+        const userEmail = req.user.email;
+        
+        const contract = database.contracts.get(contractId);
+        if (!contract) {
+            return res.status(404).json({ error: 'Contract not found' });
+        }
+        
+        // Verify user is the supplier
+        if (contract.supplierEmail !== userEmail && req.user.role !== 'admin' && req.user.role !== 'trader') {
+            return res.status(403).json({ error: 'Only the supplier can confirm the contract' });
+        }
+        
+        // Update contract status
+        if (contract.status === 'pending_supplier_confirmation') {
+            contract.status = 'pending_deposit';
+            database.contracts.set(contractId, contract);
+            
+            // Log audit event
+            logAuditEvent('contract_confirmed', userEmail, {
+                contractId: contractId
+            });
+            
+            res.json({
+                success: true,
+                message: 'Contract confirmed successfully',
+                contract: contract
+            });
+        } else {
+            res.status(400).json({ error: 'Contract cannot be confirmed in its current state' });
+        }
+        
+    } catch (error) {
+        console.error('[ERROR] Confirm contract error:', error);
+        res.status(500).json({ 
+            error: 'Failed to confirm contract',
+            message: error.message || 'Unknown error occurred'
+        });
+    }
+});
+
+// Release Payment API
+// Cancel Contract API
+app.post('/api/contracts/:contractId/cancel', authenticateToken, async (req, res) => {
+    try {
+        const { contractId } = req.params;
+        const userEmail = req.user.email;
+        
+        const contract = database.contracts.get(contractId);
+        if (!contract) {
+            return res.status(404).json({ error: 'Contract not found' });
+        }
+        
+        // Verify user has permission to cancel
+        if (contract.buyerEmail !== userEmail && contract.supplierEmail !== userEmail && req.user.role !== 'admin') {
+            return res.status(403).json({ error: 'Unauthorized to cancel this contract' });
+        }
+        
+        // Only allow cancellation before deposit is paid
+        if (contract.depositPaid) {
+            return res.status(400).json({ error: 'Cannot cancel contract after deposit has been paid' });
+        }
+        
+        // Only allow cancellation in pending states
+        if (!['pending_supplier_confirmation', 'pending_deposit', 'pending_buyer_confirmation'].includes(contract.status)) {
+            return res.status(400).json({ error: 'Cannot cancel contract in current status' });
+        }
+        
+        // Update contract status
+        contract.status = 'cancelled';
+        contract.cancelledAt = new Date().toISOString();
+        contract.cancelledBy = userEmail;
+        database.contracts.set(contractId, contract);
+        saveDatabase();
+        
+        logAuditEvent('contract_cancelled', userEmail, { contractId });
+        
+        res.status(200).json({ success: true, message: 'Contract cancelled successfully', contract });
+    } catch (error) {
+        console.error('[ERROR] Contract cancellation error:', error);
+        res.status(500).json({ error: 'Failed to cancel contract', message: error.message });
+    }
+});
+
+app.post('/api/contracts/:contractId/release-payment', authenticateToken, async (req, res) => {
+    try {
+        const { contractId } = req.params;
+        const userEmail = req.user.email;
+        
+        const contract = database.contracts.get(contractId);
+        if (!contract) {
+            return res.status(404).json({ error: 'Contract not found' });
+        }
+        
+        // Verify user is the buyer
+        if (contract.buyerEmail !== userEmail && req.user.role !== 'admin') {
+            return res.status(403).json({ error: 'Only the buyer can release payment' });
+        }
+        
+        // Check contract status
+        if (!contract.depositPaid || !contract.documentsUploaded) {
+            return res.status(400).json({ error: 'Cannot release payment: deposit must be paid and documents must be uploaded' });
+        }
+        
+        // Calculate remaining amount
+        const remainingAmount = contract.totalValue - (contract.depositAmount || Math.round(contract.totalValue * (contract.depositPercent / 100)));
+        
+        // Update contract status
+        contract.status = 'completed';
+        contract.completedAt = new Date().toISOString();
+        contract.finalPaymentReleased = true;
+        database.contracts.set(contractId, contract);
+        
+        // Create transaction record
+        const transactionId = `tx-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        database.transactions.set(transactionId, {
+            id: transactionId,
+            contractId: contractId,
+            type: 'final_payment',
+            amount: remainingAmount,
+            currency: contract.currency,
+            from: 'escrow',
+            to: contract.supplierEmail,
+            status: 'completed',
+            createdAt: new Date().toISOString()
+        });
+        
+        // Update supplier wallet balance
+        const supplierWalletId = `wallet-${contract.supplierEmail}`;
+        const supplierWallet = database.wallets.get(supplierWalletId);
+        if (supplierWallet) {
+            supplierWallet.tgtBalance = (supplierWallet.tgtBalance || 0) + remainingAmount;
+            database.wallets.set(supplierWalletId, supplierWallet);
+        }
+        
+        // Log audit event
+        logAuditEvent('payment_released', userEmail, {
+            contractId: contractId,
+            amount: remainingAmount,
+            currency: contract.currency
+        });
+        
+        console.log(`[CONTRACT] Payment released: ${contractId} by ${userEmail}, amount: ${remainingAmount}`);
+        
+        res.json({
+            success: true,
+            message: 'Payment released successfully',
+            contract: contract,
+            transactionId: transactionId
+        });
+        
+    } catch (error) {
+        console.error('[ERROR] Release payment error:', error);
+        res.status(500).json({ 
+            error: 'Failed to release payment',
+            message: error.message || 'Unknown error occurred'
+        });
+    }
+});
+
 app.get('/api/contracts', authenticateToken, (req, res) => {
     try {
         const userEmail = req.user.email;
@@ -1549,8 +3294,17 @@ app.get('/admin/active-trades', authenticateToken, requireRole(['admin']), (req,
 app.get('/admin/auction', authenticateToken, requireRole(['admin']), (req, res) => {
     try {
         const token = req.query.token || req.headers.authorization?.replace('Bearer ', '');
+        const auctions = Array.from(database.auctions.values());
+        const activeAuctions = auctions.filter(a => a.status === 'active' || a.status === 'open');
+        
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-        const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Auction Board - Admin</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;background:#000;color:#fff;padding:2rem}.container{max-width:1200px;margin:0 auto}h1{color:#fff;margin-bottom:2rem}.btn{background:#667eea;color:#fff;padding:10px 20px;border:none;border-radius:6px;cursor:pointer;text-decoration:none;display:inline-block;margin:10px 5px}.btn:hover{background:#5a6fd8}</style></head><body><div class="container"><h1>Auction Board</h1><a href="/dashboard/authenticated?token=${token}" class="btn">Back to Dashboard</a><p style="margin-top:2rem;color:#ccc">Auction management interface coming soon...</p></div></body></html>`;
+        const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Auction Board - Admin</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;background:#000;color:#fff;padding:2rem}.container{max-width:1200px;margin:0 auto}h1{color:#fff;margin-bottom:2rem}.btn{background:#667eea;color:#fff;padding:10px 20px;border:none;border-radius:6px;cursor:pointer;text-decoration:none;display:inline-block;margin:10px 5px}.btn:hover{background:#5a6fd8}table{width:100%;border-collapse:collapse;margin-top:20px}th,td{padding:12px;text-align:left;border-bottom:1px solid #333}th{background:#1a1a1a;color:#fff}.status-active{color:#51cf66}.status-closed{color:#ccc}.bid-count{background:#667eea;color:#fff;padding:4px 8px;border-radius:4px;font-size:0.85rem}</style></head><body><div class="container"><h1>Auction Board</h1><a href="/dashboard/authenticated?token=${token}" class="btn">Back to Dashboard</a><table><thead><tr><th>Contract ID</th><th>Product</th><th>Value</th><th>Current Bid</th><th>Bids</th><th>Status</th><th>Ends</th></tr></thead><tbody>${activeAuctions.map(a => {
+            const contract = database.contracts.get(a.contractId);
+            const bidCount = a.bids ? a.bids.length : 0;
+            const currentBid = a.bids && a.bids.length > 0 ? a.bids[a.bids.length - 1].amount : a.startingBid || 0;
+            const statusClass = a.status === 'active' ? 'status-active' : 'status-closed';
+            return `<tr><td>${a.contractId}</td><td>${contract?.product || 'N/A'}</td><td>$${(contract?.totalValue || 0).toLocaleString()}</td><td>$${currentBid.toLocaleString()}</td><td><span class="bid-count">${bidCount} bids</span></td><td class="${statusClass}">${(a.status || 'active').toUpperCase()}</td><td>${a.endTime ? new Date(a.endTime).toLocaleDateString() : 'N/A'}</td></tr>`;
+        }).join('') || '<tr><td colspan="7" style="text-align:center;color:#ccc">No active auctions</td></tr>'}</tbody></table></div></body></html>`;
         res.end(html, 'utf8');
     } catch (error) {
         console.error('[ERROR] Admin auction error:', error);
@@ -1562,12 +3316,80 @@ app.get('/admin/auction', authenticateToken, requireRole(['admin']), (req, res) 
 app.get('/admin/kyc-reports', authenticateToken, requireRole(['admin']), (req, res) => {
     try {
         const token = req.query.token || req.headers.authorization?.replace('Bearer ', '');
+        const kycSubmissions = Array.from(database.kyc.values());
+        const complianceReports = Array.from(database.complianceReports.values());
+        
+        // Build table rows safely
+        let tableRows = '';
+        try {
+            tableRows = kycSubmissions.map(kyc => {
+                try {
+                    const user = database.users.get(kyc.userEmail || kyc.userId) || Array.from(database.users.values()).find(u => u.email === (kyc.userEmail || kyc.userId));
+                    const docCount = kyc.files ? Object.keys(kyc.files).reduce((sum, key) => sum + (kyc.files[key]?.length || 0), 0) : 0;
+                    const statusClass = kyc.status === 'approved' ? 'status-approved' : kyc.status === 'rejected' ? 'status-rejected' : 'status-pending';
+                    
+                    // Get compliance report for this KYC
+                    const complianceReport = complianceReports.find(r => r.kycId === kyc.id);
+                    const ofacStatus = complianceReport ? (complianceReport.ofacMatch ? '⚠️ MATCH' : '✓ Clear') : 'Not Screened';
+                    const riskLevel = complianceReport ? (complianceReport.riskLevel || 'low') : 'unknown';
+                    const riskClass = riskLevel === 'high' ? 'risk-high' : riskLevel === 'medium' ? 'risk-medium' : 'risk-low';
+                    const hasFlags = complianceReport?.ofacMatch || false;
+                    const autoApproved = kyc.autoApproved || false;
+                    
+                    const userEmail = (user?.email || kyc.userEmail || kyc.userId || 'N/A').replace(/'/g, "\\'");
+                    const companyName = (kyc.companyName || 'N/A').replace(/'/g, "\\'");
+                    const companyType = (kyc.companyType || 'N/A').toUpperCase();
+                    const status = (kyc.status || 'pending').toUpperCase();
+                    const kycId = kyc.id.replace(/'/g, "\\'");
+                    
+                    return `<tr><td>${userEmail}</td><td>${companyName}</td><td>${companyType}</td><td>${ofacStatus}${hasFlags ? '<span class="flag-badge">FLAGGED</span>' : ''}</td><td class="${riskClass}">${riskLevel.toUpperCase()}</td><td class="${statusClass}">${status}${autoApproved ? '<br><span class="auto-approved">(Auto-approved)</span>' : ''}</td><td>${new Date(kyc.submittedAt || kyc.createdAt || Date.now()).toLocaleDateString()}</td><td>${docCount} files</td><td>${kyc.status === 'pending' ? `<button class="action-btn approve-btn" onclick="approveKYC('${kycId}')">Approve</button><button class="action-btn reject-btn" onclick="rejectKYC('${kycId}')">Reject</button><button class="action-btn" onclick="viewDetails('${kycId}')" style="background:#667eea;color:#fff">View Details</button>` : kyc.status === 'approved' ? '<span style="color:#51cf66">✓ Approved</span>' : '<span style="color:#ff6b6b">✗ Rejected</span>'}</td></tr>`;
+                } catch (err) {
+                    console.error('[ERROR] Error processing KYC row:', err);
+                    return '<tr><td colspan="9" style="color:#ff6b6b">Error loading KYC data</td></tr>';
+                }
+            }).join('') || '<tr><td colspan="9" style="text-align:center;color:#ccc">No KYC submissions found</td></tr>';
+        } catch (err) {
+            console.error('[ERROR] Error building table rows:', err);
+            tableRows = '<tr><td colspan="9" style="text-align:center;color:#ff6b6b">Error loading KYC data</td></tr>';
+        }
+        
+        // Safely stringify data for JavaScript
+        let kycDataJson = '[]';
+        let complianceDataJson = '[]';
+        try {
+            kycDataJson = JSON.stringify(kycSubmissions.map(k => ({
+                id: k.id,
+                userEmail: k.userEmail || k.userId,
+                companyName: k.companyName || '',
+                companyType: k.companyType || '',
+                registrationNumber: k.registrationNumber || '',
+                country: k.country || '',
+                address: k.address || '',
+                contactPerson: k.contactPerson || '',
+                phone: k.phone || '',
+                files: k.files || {},
+                status: k.status || 'pending',
+                submittedAt: k.submittedAt || k.createdAt,
+                autoApproved: k.autoApproved || false,
+                reviewedAt: k.reviewedAt || null,
+                reviewedBy: k.reviewedBy || null
+            })));
+            complianceDataJson = JSON.stringify(complianceReports.map(r => ({
+                kycId: r.kycId,
+                ofacMatch: r.ofacMatch || false,
+                riskLevel: r.riskLevel || 'low',
+                matches: (r.matches || []).map(m => ({ name: m.name || 'Unknown' }))
+            })));
+        } catch (err) {
+            console.error('[ERROR] Error stringifying data:', err);
+        }
+        
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-        const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>KYC Reports - Admin</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;background:#000;color:#fff;padding:2rem}.container{max-width:1200px;margin:0 auto}h1{color:#fff;margin-bottom:2rem}.btn{background:#667eea;color:#fff;padding:10px 20px;border:none;border-radius:6px;cursor:pointer;text-decoration:none;display:inline-block;margin:10px 5px}.btn:hover{background:#5a6fd8}</style></head><body><div class="container"><h1>KYC Reports</h1><a href="/dashboard/authenticated?token=${token}" class="btn">Back to Dashboard</a><p style="margin-top:2rem;color:#ccc">KYC reports interface coming soon...</p></div></body></html>`;
+        const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>KYC Reports - Admin</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;background:#000;color:#fff;padding:2rem}.container{max-width:1400px;margin:0 auto}h1{color:#fff;margin-bottom:2rem}.btn{background:#667eea;color:#fff;padding:10px 20px;border:none;border-radius:6px;cursor:pointer;text-decoration:none;display:inline-block;margin:10px 5px}.btn:hover{background:#5a6fd8}table{width:100%;border-collapse:collapse;margin-top:20px}th,td{padding:12px;text-align:left;border-bottom:1px solid #333}th{background:#1a1a1a;color:#fff}.status-pending{color:#ffd43b}.status-approved{color:#51cf66}.status-rejected{color:#ff6b6b}.action-btn{padding:6px 12px;margin:0 3px;border:none;border-radius:4px;cursor:pointer;font-size:0.85rem}.approve-btn{background:#51cf66;color:#fff}.reject-btn{background:#ff6b6b;color:#fff}.risk-high{color:#ff6b6b}.risk-medium{color:#ffd43b}.risk-low{color:#51cf66}.flag-badge{background:#ff6b6b;color:#fff;padding:2px 6px;border-radius:3px;font-size:0.75rem;margin-left:5px}.auto-approved{color:#51cf66;font-size:0.85rem;font-style:italic}#detailsModal{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);z-index:1000;padding:2rem}#detailsModal>div{background:#1a1a1a;max-width:800px;margin:0 auto;padding:2rem;border-radius:8px;max-height:90vh;overflow-y:auto}</style></head><body><div class="container"><h1>KYC Reports & Reviews</h1><a href="/dashboard/authenticated?token=${token}" class="btn">Back to Dashboard</a><table><thead><tr><th>User Email</th><th>Company Name</th><th>Company Type</th><th>OFAC Status</th><th>Risk Level</th><th>Status</th><th>Submitted</th><th>Documents</th><th>Actions</th></tr></thead><tbody>${tableRows}</tbody></table></div><div id="detailsModal"><div><h2 style="color:#fff;margin-bottom:1rem">KYC Details</h2><div id="detailsContent"></div><button onclick="closeDetails()" class="btn" style="margin-top:1rem">Close</button></div></div><script>const token='${token}';const kycData=${kycDataJson};const complianceData=${complianceDataJson};function viewDetails(kycId){const kyc=kycData.find(k=>k.id===kycId);const compliance=complianceData.find(c=>c.kycId===kycId);if(!kyc)return;const docCount=kyc.files?Object.keys(kyc.files).reduce((s,k)=>s+(kyc.files[k]?.length||0),0):0;const filesList=kyc.files?Object.keys(kyc.files).map(k=>kyc.files[k].map(f=>f.originalname||f.filename).join(', ')).join(', '):'None';const matchesList=compliance?.matches?.map(m=>m.name||'Unknown').join(', ')||'None';document.getElementById('detailsContent').innerHTML='<div style="color:#fff"><p><strong>User Email:</strong> '+(kyc.userEmail||kyc.userId||'N/A')+'</p><p><strong>Company Name:</strong> '+(kyc.companyName||'N/A')+'</p><p><strong>Company Type:</strong> '+(kyc.companyType||'N/A').toUpperCase()+'</p><p><strong>Registration Number:</strong> '+(kyc.registrationNumber||'N/A')+'</p><p><strong>Country:</strong> '+(kyc.country||'N/A')+'</p><p><strong>Address:</strong> '+(kyc.address||'N/A')+'</p><p><strong>Contact Person:</strong> '+(kyc.contactPerson||'N/A')+'</p><p><strong>Phone:</strong> '+(kyc.phone||'N/A')+'</p><p><strong>Documents:</strong> '+docCount+' files ('+filesList+')</p><p><strong>OFAC Screening:</strong> '+(compliance?(compliance.ofacMatch?'⚠️ MATCH FOUND':'✓ CLEARED'):'Not Screened')+'</p><p><strong>Risk Level:</strong> <span class="'+(compliance?.riskLevel==='high'?'risk-high':compliance?.riskLevel==='medium'?'risk-medium':'risk-low')+'">'+(compliance?.riskLevel||'unknown').toUpperCase()+'</span></p><p><strong>OFAC Matches:</strong> '+matchesList+'</p><p><strong>Submitted:</strong> '+new Date(kyc.submittedAt||Date.now()).toLocaleString()+'</p><p><strong>Status:</strong> <span class="'+(kyc.status==='approved'?'status-approved':kyc.status==='rejected'?'status-rejected':'status-pending')+'">'+(kyc.status||'pending').toUpperCase()+'</span></p>'+(kyc.autoApproved?'<p><strong>Auto-Approved:</strong> Yes (No flags detected)</p>':'')+(kyc.reviewedAt?'<p><strong>Reviewed:</strong> '+new Date(kyc.reviewedAt).toLocaleString()+' by '+(kyc.reviewedBy||'admin')+'</p>':'')+'</div>';document.getElementById('detailsModal').style.display='block';}function closeDetails(){document.getElementById('detailsModal').style.display='none';}async function approveKYC(kycId){if(!confirm('Approve this KYC submission?'))return;try{const res=await fetch('/api/admin/kyc/approve',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({kycId,action:'approve'})});if(res.ok){alert('KYC approved successfully');location.reload()}else{alert('Failed to approve KYC')}}catch(e){alert('Error: '+e.message)}}async function rejectKYC(kycId){const reason=prompt('Rejection reason:');if(!reason)return;try{const res=await fetch('/api/admin/kyc/approve',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({kycId,action:'reject',reason})});if(res.ok){alert('KYC rejected');location.reload()}else{alert('Failed to reject KYC')}}catch(e){alert('Error: '+e.message)}}</script></body></html>`;
         res.end(html, 'utf8');
     } catch (error) {
         console.error('[ERROR] Admin KYC reports error:', error);
-        res.status(500).send('Error loading KYC reports');
+        res.status(500).send('Error loading KYC reports: ' + error.message);
     }
 });
 
@@ -1575,8 +3397,15 @@ app.get('/admin/kyc-reports', authenticateToken, requireRole(['admin']), (req, r
 app.get('/admin/ofac-management', authenticateToken, requireRole(['admin']), (req, res) => {
     try {
         const token = req.query.token || req.headers.authorization?.replace('Bearer ', '');
+        const complianceReports = Array.from(database.complianceReports.values());
+        const flaggedReports = complianceReports.filter(r => r.ofacMatch || r.riskLevel === 'high');
+        
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-        const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>OFAC Screening - Admin</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;background:#000;color:#fff;padding:2rem}.container{max-width:1200px;margin:0 auto}h1{color:#fff;margin-bottom:2rem}.btn{background:#667eea;color:#fff;padding:10px 20px;border:none;border-radius:6px;cursor:pointer;text-decoration:none;display:inline-block;margin:10px 5px}.btn:hover{background:#5a6fd8}</style></head><body><div class="container"><h1>OFAC Screening</h1><a href="/dashboard/authenticated?token=${token}" class="btn">Back to Dashboard</a><p style="margin-top:2rem;color:#ccc">OFAC screening interface coming soon...</p></div></body></html>`;
+        const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>OFAC Screening - Admin</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;background:#000;color:#fff;padding:2rem}.container{max-width:1200px;margin:0 auto}h1{color:#fff;margin-bottom:2rem}.btn{background:#667eea;color:#fff;padding:10px 20px;border:none;border-radius:6px;cursor:pointer;text-decoration:none;display:inline-block;margin:10px 5px}.btn:hover{background:#5a6fd8}table{width:100%;border-collapse:collapse;margin-top:20px}th,td{padding:12px;text-align:left;border-bottom:1px solid #333}th{background:#1a1a1a;color:#fff}.risk-high{color:#ff6b6b}.risk-medium{color:#ffd43b}.risk-low{color:#51cf66}.stats{display:flex;gap:2rem;margin:2rem 0}.stat-box{background:#1a1a1a;padding:1.5rem;border-radius:8px;flex:1}.stat-box h3{color:#fff;margin-bottom:0.5rem}.stat-box p{color:#ccc;font-size:1.5rem;font-weight:600}</style></head><body><div class="container"><h1>OFAC Screening & Compliance</h1><a href="/dashboard/authenticated?token=${token}" class="btn">Back to Dashboard</a><div class="stats"><div class="stat-box"><h3>Total Screened</h3><p>${complianceReports.length}</p></div><div class="stat-box"><h3>Flagged Entities</h3><p class="risk-high">${flaggedReports.length}</p></div><div class="stat-box"><h3>Clear</h3><p class="risk-low">${complianceReports.length - flaggedReports.length}</p></div></div><table><thead><tr><th>User/Entity</th><th>OFAC Match</th><th>Risk Level</th><th>Screened</th><th>Details</th></tr></thead><tbody>${complianceReports.map(r => {
+            const riskClass = r.riskLevel === 'high' ? 'risk-high' : r.riskLevel === 'medium' ? 'risk-medium' : 'risk-low';
+            const matchDetails = r.matches && r.matches.length > 0 ? r.matches[0].name || 'Potential match found' : 'No matches';
+            return `<tr><td>${r.userId || r.companyName || 'N/A'}</td><td>${r.ofacMatch ? '⚠️ MATCH' : '✓ Clear'}</td><td class="${riskClass}">${(r.riskLevel || 'low').toUpperCase()}</td><td>${new Date(r.screeningDate || Date.now()).toLocaleDateString()}</td><td>${r.ofacMatch ? matchDetails : 'No matches'}</td></tr>`;
+        }).join('') || '<tr><td colspan="5" style="text-align:center;color:#ccc">No compliance reports found</td></tr>'}</tbody></table></div></body></html>`;
         res.end(html, 'utf8');
     } catch (error) {
         console.error('[ERROR] Admin OFAC management error:', error);
@@ -1588,8 +3417,15 @@ app.get('/admin/ofac-management', authenticateToken, requireRole(['admin']), (re
 app.get('/admin/blockchain', authenticateToken, requireRole(['admin']), (req, res) => {
     try {
         const token = req.query.token || req.headers.authorization?.replace('Bearer ', '');
+        const blockchainTxs = Array.from(database.transactions.values()).filter(tx => tx.blockchain === true);
+        
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-        const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Blockchain - Admin</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;background:#000;color:#fff;padding:2rem}.container{max-width:1200px;margin:0 auto}h1{color:#fff;margin-bottom:2rem}.btn{background:#667eea;color:#fff;padding:10px 20px;border:none;border-radius:6px;cursor:pointer;text-decoration:none;display:inline-block;margin:10px 5px}.btn:hover{background:#5a6fd8}</style></head><body><div class="container"><h1>Blockchain Management</h1><a href="/dashboard/authenticated?token=${token}" class="btn">Back to Dashboard</a><p style="margin-top:2rem;color:#ccc">Blockchain management interface coming soon...</p></div></body></html>`;
+        const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Blockchain - Admin</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;background:#000;color:#fff;padding:2rem}.container{max-width:1200px;margin:0 auto}h1{color:#fff;margin-bottom:2rem}.btn{background:#667eea;color:#fff;padding:10px 20px;border:none;border-radius:6px;cursor:pointer;text-decoration:none;display:inline-block;margin:10px 5px}.btn:hover{background:#5a6fd8}table{width:100%;border-collapse:collapse;margin-top:20px}th,td{padding:12px;text-align:left;border-bottom:1px solid #333}th{background:#1a1a1a;color:#fff}.status-box{background:#1a1a1a;padding:1.5rem;border-radius:8px;margin:2rem 0}.status-box h3{color:#fff;margin-bottom:1rem}.status-item{display:flex;justify-content:space-between;padding:0.5rem 0;border-bottom:1px solid #333}.status-item:last-child{border-bottom:none}.status-label{color:#ccc}.status-value{color:#fff;font-weight:600}.tx-hash{color:#667eea;font-family:monospace;font-size:0.85rem;word-break:break-all}.tx-hash a{color:#667eea;text-decoration:none}.tx-hash a:hover{text-decoration:underline}.status-confirmed{color:#51cf66}.status-simulated{color:#ffd43b}</style></head><body><div class="container"><h1>Blockchain Management</h1><a href="/dashboard/authenticated?token=${token}" class="btn">Back to Dashboard</a><div class="status-box"><h3>Blockchain Status</h3><div class="status-item"><span class="status-label">Network:</span><span class="status-value">${blockchain && blockchain.isInitialized ? 'Sepolia Testnet (Connected)' : 'Simulation Mode'}</span></div><div class="status-item"><span class="status-label">Contracts Deployed:</span><span class="status-value">TGT Token, Escrow Contract</span></div><div class="status-item"><span class="status-label">Blockchain Transactions:</span><span class="status-value">${blockchainTxs.length}</span></div><div class="status-item"><span class="status-label">Confirmed on Chain:</span><span class="status-value">${blockchainTxs.filter(tx => tx.blockchainTxHash).length}</span></div></div><table><thead><tr><th>Transaction ID</th><th>Type</th><th>Amount</th><th>Contract</th><th>Blockchain TX Hash</th><th>Status</th><th>Date</th></tr></thead><tbody>${blockchainTxs.map(tx => {
+            const txHash = tx.blockchainTxHash || 'Simulated';
+            const txHashDisplay = tx.blockchainTxHash ? `<a href="https://sepolia.etherscan.io/tx/${tx.blockchainTxHash}" target="_blank" class="tx-hash">${tx.blockchainTxHash.substring(0, 20)}...</a>` : '<span class="tx-hash">Simulated</span>';
+            const statusClass = tx.blockchainStatus === 'confirmed' ? 'status-confirmed' : 'status-simulated';
+            return `<tr><td>${tx.id}</td><td>${tx.type}</td><td>$${(tx.amount || 0).toLocaleString()} ${tx.currency || 'TGT'}</td><td>${tx.contractId || 'N/A'}</td><td>${txHashDisplay}</td><td class="${statusClass}">${tx.blockchainStatus === 'confirmed' ? '✓ Confirmed' : 'Simulated'}</td><td>${new Date(tx.createdAt || Date.now()).toLocaleDateString()}</td></tr>`;
+        }).join('') || '<tr><td colspan="7" style="text-align:center;color:#ccc">No blockchain transactions found</td></tr>'}</tbody></table></div></body></html>`;
         res.end(html, 'utf8');
     } catch (error) {
         console.error('[ERROR] Admin blockchain error:', error);
@@ -1601,8 +3437,11 @@ app.get('/admin/blockchain', authenticateToken, requireRole(['admin']), (req, re
 app.get('/admin/fees', authenticateToken, requireRole(['admin']), (req, res) => {
     try {
         const token = req.query.token || req.headers.authorization?.replace('Bearer ', '');
+        const currentFees = database.admin?.fees || { tradingFee: 0.5, platformFee: 1.0 };
+        const currentInterest = database.admin?.interestRates || { deposit: 2.5, lending: 5.0 };
+        
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-        const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Manage Fees - Admin</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;background:#000;color:#fff;padding:2rem}.container{max-width:1200px;margin:0 auto}h1{color:#fff;margin-bottom:2rem}.btn{background:#667eea;color:#fff;padding:10px 20px;border:none;border-radius:6px;cursor:pointer;text-decoration:none;display:inline-block;margin:10px 5px}.btn:hover{background:#5a6fd8}</style></head><body><div class="container"><h1>Manage Fees</h1><a href="/dashboard/authenticated?token=${token}" class="btn">Back to Dashboard</a><p style="margin-top:2rem;color:#ccc">Fee management interface coming soon...</p></div></body></html>`;
+        const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Manage Fees - Admin</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;background:#000;color:#fff;padding:2rem}.container{max-width:1200px;margin:0 auto}h1{color:#fff;margin-bottom:2rem}.btn{background:#667eea;color:#fff;padding:10px 20px;border:none;border-radius:6px;cursor:pointer;text-decoration:none;display:inline-block;margin:10px 5px}.btn:hover{background:#5a6fd8}.form-section{background:#1a1a1a;padding:2rem;border-radius:8px;margin:2rem 0}.form-group{margin-bottom:1.5rem}.form-group label{display:block;color:#fff;margin-bottom:0.5rem;font-weight:600}.form-group input{width:100%;padding:12px;background:#333;border:1px solid #555;border-radius:6px;color:#fff;font-size:1rem}.form-group input:focus{outline:none;border-color:#667eea}.save-btn{background:#51cf66;color:#fff;padding:12px 24px;border:none;border-radius:6px;cursor:pointer;font-size:1rem;font-weight:600}.save-btn:hover{background:#40c057}</style></head><body><div class="container"><h1>Manage Platform Fees</h1><a href="/dashboard/authenticated?token=${token}" class="btn">Back to Dashboard</a><form id="feesForm" class="form-section"><h2 style="color:#fff;margin-bottom:1.5rem">Trading Fees</h2><div class="form-group"><label>Trading Fee (%)</label><input type="number" id="tradingFee" value="${currentFees.tradingFee}" step="0.1" min="0" max="10"></div><div class="form-group"><label>Platform Fee (%)</label><input type="number" id="platformFee" value="${currentFees.platformFee}" step="0.1" min="0" max="10"></div><h2 style="color:#fff;margin-bottom:1.5rem;margin-top:2rem">Interest Rates</h2><div class="form-group"><label>Deposit Interest Rate (%)</label><input type="number" id="depositRate" value="${currentInterest.deposit}" step="0.1" min="0" max="20"></div><div class="form-group"><label>Lending Interest Rate (%)</label><input type="number" id="lendingRate" value="${currentInterest.lending}" step="0.1" min="0" max="20"></div><button type="submit" class="save-btn">Save Changes</button></form></div><script>const token='${token}';document.getElementById('feesForm').addEventListener('submit',async function(e){e.preventDefault();const fees={tradingFee:parseFloat(document.getElementById('tradingFee').value),platformFee:parseFloat(document.getElementById('platformFee').value),interestRates:{deposit:parseFloat(document.getElementById('depositRate').value),lending:parseFloat(document.getElementById('lendingRate').value)}};try{const res=await fetch('/api/admin/settings',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify(fees)});if(res.ok){alert('Fees updated successfully');location.reload()}else{alert('Failed to update fees')}}catch(e){alert('Error: '+e.message)}});</script></body></html>`;
         res.end(html, 'utf8');
     } catch (error) {
         console.error('[ERROR] Admin fees error:', error);
@@ -1614,8 +3453,10 @@ app.get('/admin/fees', authenticateToken, requireRole(['admin']), (req, res) => 
 app.get('/admin/voyage-times', authenticateToken, requireRole(['admin']), (req, res) => {
     try {
         const token = req.query.token || req.headers.authorization?.replace('Bearer ', '');
+        const currentTimes = database.admin?.voyageTimes || { short: 30, medium: 60, long: 90 };
+        
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-        const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Voyage Times - Admin</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;background:#000;color:#fff;padding:2rem}.container{max-width:1200px;margin:0 auto}h1{color:#fff;margin-bottom:2rem}.btn{background:#667eea;color:#fff;padding:10px 20px;border:none;border-radius:6px;cursor:pointer;text-decoration:none;display:inline-block;margin:10px 5px}.btn:hover{background:#5a6fd8}</style></head><body><div class="container"><h1>Voyage Times</h1><a href="/dashboard/authenticated?token=${token}" class="btn">Back to Dashboard</a><p style="margin-top:2rem;color:#ccc">Voyage times management coming soon...</p></div></body></html>`;
+        const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Voyage Times - Admin</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;background:#000;color:#fff;padding:2rem}.container{max-width:1200px;margin:0 auto}h1{color:#fff;margin-bottom:2rem}.btn{background:#667eea;color:#fff;padding:10px 20px;border:none;border-radius:6px;cursor:pointer;text-decoration:none;display:inline-block;margin:10px 5px}.btn:hover{background:#5a6fd8}.form-section{background:#1a1a1a;padding:2rem;border-radius:8px;margin:2rem 0}.form-group{margin-bottom:1.5rem}.form-group label{display:block;color:#fff;margin-bottom:0.5rem;font-weight:600}.form-group input{width:100%;padding:12px;background:#333;border:1px solid #555;border-radius:6px;color:#fff;font-size:1rem}.form-group input:focus{outline:none;border-color:#667eea}.save-btn{background:#51cf66;color:#fff;padding:12px 24px;border:none;border-radius:6px;cursor:pointer;font-size:1rem;font-weight:600}.save-btn:hover{background:#40c057}</style></head><body><div class="container"><h1>Manage Voyage Times</h1><a href="/dashboard/authenticated?token=${token}" class="btn">Back to Dashboard</a><form id="voyageForm" class="form-section"><div class="form-group"><label>Short Voyage (days)</label><input type="number" id="short" value="${currentTimes.short}" min="1" max="365"></div><div class="form-group"><label>Medium Voyage (days)</label><input type="number" id="medium" value="${currentTimes.medium}" min="1" max="365"></div><div class="form-group"><label>Long Voyage (days)</label><input type="number" id="long" value="${currentTimes.long}" min="1" max="365"></div><button type="submit" class="save-btn">Save Changes</button></form></div><script>const token='${token}';document.getElementById('voyageForm').addEventListener('submit',async function(e){e.preventDefault();const times={short:parseInt(document.getElementById('short').value),medium:parseInt(document.getElementById('medium').value),long:parseInt(document.getElementById('long').value)};try{const res=await fetch('/api/admin/settings',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({voyageTimes:times})});if(res.ok){alert('Voyage times updated successfully');location.reload()}else{alert('Failed to update voyage times')}}catch(e){alert('Error: '+e.message)}});</script></body></html>`;
         res.end(html, 'utf8');
     } catch (error) {
         console.error('[ERROR] Admin voyage times error:', error);
@@ -1623,12 +3464,110 @@ app.get('/admin/voyage-times', authenticateToken, requireRole(['admin']), (req, 
     }
 });
 
+// Admin Settings API (for price comparison)
+app.get('/api/admin/settings', authenticateToken, (req, res) => {
+    try {
+        res.json({
+            basisPoints: database.admin?.basisPoints || 100,
+            tradingFee: database.admin?.fees?.tradingFee || 0.5,
+            platformFee: database.admin?.fees?.platformFee || 1.0,
+            interestRates: database.admin?.interestRates || { deposit: 2.5, lending: 5.0 },
+            voyageTimes: database.admin?.voyageTimes || { short: 30, medium: 60, long: 90 },
+            priceVariance: database.admin?.priceVariance || 5
+        });
+    } catch (error) {
+        console.error('[ERROR] Admin settings error:', error);
+        res.status(500).json({ error: 'Failed to get settings' });
+    }
+});
+
+// Admin Settings Update API
+app.post('/api/admin/settings', authenticateToken, requireRole(['admin']), (req, res) => {
+    try {
+        const { basisPoints, tradingFee, platformFee, interestRates, voyageTimes, priceVariance } = req.body;
+        
+        if (!database.admin) {
+            database.admin = {};
+        }
+        
+        if (basisPoints !== undefined) database.admin.basisPoints = basisPoints;
+        if (tradingFee !== undefined || platformFee !== undefined) {
+            if (!database.admin.fees) database.admin.fees = {};
+            if (tradingFee !== undefined) database.admin.fees.tradingFee = tradingFee;
+            if (platformFee !== undefined) database.admin.fees.platformFee = platformFee;
+        }
+        if (interestRates) database.admin.interestRates = interestRates;
+        if (voyageTimes) database.admin.voyageTimes = voyageTimes;
+        if (priceVariance !== undefined) database.admin.priceVariance = priceVariance;
+        
+        res.json({
+            success: true,
+            message: 'Settings updated successfully',
+            settings: database.admin
+        });
+    } catch (error) {
+        console.error('[ERROR] Admin settings update error:', error);
+        res.status(500).json({ error: 'Failed to update settings' });
+    }
+});
+
+// Admin KYC Approve/Reject API
+app.post('/api/admin/kyc/approve', authenticateToken, requireRole(['admin']), (req, res) => {
+    try {
+        const { kycId, action, reason } = req.body;
+        
+        const kyc = database.kyc.get(kycId);
+        if (!kyc) {
+            return res.status(404).json({ error: 'KYC submission not found' });
+        }
+        
+        const user = database.users.get(kyc.userId) || Array.from(database.users.values()).find(u => u.email === kyc.userId);
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+        
+        if (action === 'approve') {
+            kyc.status = 'approved';
+            kyc.approvedAt = new Date().toISOString();
+            kyc.approvedBy = req.user.email;
+            user.kycStatus = 'approved';
+        } else if (action === 'reject') {
+            kyc.status = 'rejected';
+            kyc.rejectedAt = new Date().toISOString();
+            kyc.rejectedBy = req.user.email;
+            kyc.rejectionReason = reason || 'Rejected by admin';
+            user.kycStatus = 'rejected';
+        }
+        
+        database.kyc.set(kycId, kyc);
+        database.users.set(user.email, user);
+        
+        logAuditEvent('kyc_' + action, req.user.email, {
+            kycId: kycId,
+            userId: kyc.userId,
+            reason: reason
+        });
+        
+        res.json({
+            success: true,
+            message: `KYC ${action}d successfully`,
+            kyc: kyc
+        });
+    } catch (error) {
+        console.error('[ERROR] Admin KYC approve error:', error);
+        res.status(500).json({ error: 'Failed to process KYC action' });
+    }
+});
+
 // Admin Basis Points
 app.get('/admin/basis-points', authenticateToken, requireRole(['admin']), (req, res) => {
     try {
         const token = req.query.token || req.headers.authorization?.replace('Bearer ', '');
+        const currentBasisPoints = database.admin?.basisPoints || 100;
+        const priceVariance = 5; // Default 5% variance threshold
+        
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-        const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Basis Points - Admin</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;background:#000;color:#fff;padding:2rem}.container{max-width:1200px;margin:0 auto}h1{color:#fff;margin-bottom:2rem}.btn{background:#667eea;color:#fff;padding:10px 20px;border:none;border-radius:6px;cursor:pointer;text-decoration:none;display:inline-block;margin:10px 5px}.btn:hover{background:#5a6fd8}</style></head><body><div class="container"><h1>Basis Points</h1><a href="/dashboard/authenticated?token=${token}" class="btn">Back to Dashboard</a><p style="margin-top:2rem;color:#ccc">Basis points management coming soon...</p></div></body></html>`;
+        const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Basis Points - Admin</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;background:#000;color:#fff;padding:2rem}.container{max-width:1200px;margin:0 auto}h1{color:#fff;margin-bottom:2rem}.btn{background:#667eea;color:#fff;padding:10px 20px;border:none;border-radius:6px;cursor:pointer;text-decoration:none;display:inline-block;margin:10px 5px}.btn:hover{background:#5a6fd8}.form-section{background:#1a1a1a;padding:2rem;border-radius:8px;margin:2rem 0}.form-group{margin-bottom:1.5rem}.form-group label{display:block;color:#fff;margin-bottom:0.5rem;font-weight:600}.form-group input{width:100%;padding:12px;background:#333;border:1px solid #555;border-radius:6px;color:#fff;font-size:1rem}.form-group input:focus{outline:none;border-color:#667eea}.info-box{background:#2a2a2a;padding:1rem;border-radius:6px;margin:1rem 0;color:#ccc;font-size:0.9rem}.save-btn{background:#51cf66;color:#fff;padding:12px 24px;border:none;border-radius:6px;cursor:pointer;font-size:1rem;font-weight:600}.save-btn:hover{background:#40c057}</style></head><body><div class="container"><h1>Basis Points & Price Validation</h1><a href="/dashboard/authenticated?token=${token}" class="btn">Back to Dashboard</a><form id="basisForm" class="form-section"><div class="form-group"><label>Basis Points (for price comparison)</label><input type="number" id="basisPoints" value="${currentBasisPoints}" min="1" max="1000"><div class="info-box">Basis points used for price comparison calculations. 100 basis points = 1%.</div></div><div class="form-group"><label>Price Variance Threshold (%)</label><input type="number" id="variance" value="${priceVariance}" step="0.1" min="0" max="50"><div class="info-box">Contracts with price variance above this percentage will be flagged for review.</div></div><button type="submit" class="save-btn">Save Changes</button></form></div><script>const token='${token}';document.getElementById('basisForm').addEventListener('submit',async function(e){e.preventDefault();const settings={basisPoints:parseInt(document.getElementById('basisPoints').value),priceVariance:parseFloat(document.getElementById('variance').value)};try{const res=await fetch('/api/admin/settings',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify(settings)});if(res.ok){alert('Settings updated successfully');location.reload()}else{alert('Failed to update settings')}}catch(e){alert('Error: '+e.message)}});</script></body></html>`;
         res.end(html, 'utf8');
     } catch (error) {
         console.error('[ERROR] Admin basis points error:', error);
@@ -1640,8 +3579,16 @@ app.get('/admin/basis-points', authenticateToken, requireRole(['admin']), (req, 
 app.get('/admin/flags', authenticateToken, requireRole(['admin']), (req, res) => {
     try {
         const token = req.query.token || req.headers.authorization?.replace('Bearer ', '');
+        const contracts = Array.from(database.contracts.values());
+        const flaggedContracts = contracts.filter(c => c.buyerFlag || c.supplierFlag);
+        
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-        const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Review Flags - Admin</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;background:#000;color:#fff;padding:2rem}.container{max-width:1200px;margin:0 auto}h1{color:#fff;margin-bottom:2rem}.btn{background:#667eea;color:#fff;padding:10px 20px;border:none;border-radius:6px;cursor:pointer;text-decoration:none;display:inline-block;margin:10px 5px}.btn:hover{background:#5a6fd8}</style></head><body><div class="container"><h1>Review Flags</h1><a href="/dashboard/authenticated?token=${token}" class="btn">Back to Dashboard</a><p style="margin-top:2rem;color:#ccc">Flag review interface coming soon...</p></div></body></html>`;
+        const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Review Flags - Admin</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;background:#000;color:#fff;padding:2rem}.container{max-width:1200px;margin:0 auto}h1{color:#fff;margin-bottom:2rem}.btn{background:#667eea;color:#fff;padding:10px 20px;border:none;border-radius:6px;cursor:pointer;text-decoration:none;display:inline-block;margin:10px 5px}.btn:hover{background:#5a6fd8}table{width:100%;border-collapse:collapse;margin-top:20px}th,td{padding:12px;text-align:left;border-bottom:1px solid #333}th{background:#1a1a1a;color:#fff}.flag-badge{background:#ff6b6b;color:#fff;padding:4px 8px;border-radius:4px;font-size:0.85rem;margin:0 3px}.flag-message{color:#ffd43b;font-size:0.9rem}</style></head><body><div class="container"><h1>Review Flags</h1><a href="/dashboard/authenticated?token=${token}" class="btn">Back to Dashboard</a><table><thead><tr><th>Contract ID</th><th>Product</th><th>Buyer Flag</th><th>Supplier Flag</th><th>Flag Message</th><th>Date</th></tr></thead><tbody>${flaggedContracts.map(c => {
+            const buyerFlag = c.buyerFlag ? `<span class="flag-badge">Buyer</span>` : '';
+            const supplierFlag = c.supplierFlag ? `<span class="flag-badge">Supplier</span>` : '';
+            const flagMsg = (c.buyerFlag?.message || c.supplierFlag?.message || 'Flagged for review');
+            return `<tr><td>${c.id || 'N/A'}</td><td>${c.product || 'N/A'}</td><td>${buyerFlag || '-'}</td><td>${supplierFlag || '-'}</td><td class="flag-message">${flagMsg}</td><td>${new Date(c.buyerFlag?.timestamp || c.supplierFlag?.timestamp || Date.now()).toLocaleDateString()}</td></tr>`;
+        }).join('') || '<tr><td colspan="6" style="text-align:center;color:#ccc">No flags found</td></tr>'}</tbody></table></div></body></html>`;
         res.end(html, 'utf8');
     } catch (error) {
         console.error('[ERROR] Admin flags error:', error);
@@ -1653,8 +3600,16 @@ app.get('/admin/flags', authenticateToken, requireRole(['admin']), (req, res) =>
 app.get('/admin/credit-assessments', authenticateToken, requireRole(['admin']), (req, res) => {
     try {
         const token = req.query.token || req.headers.authorization?.replace('Bearer ', '');
+        const creditAssessments = Array.from(database.creditAssessments.values());
+        
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-        const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Credit Assessments - Admin</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;background:#000;color:#fff;padding:2rem}.container{max-width:1200px;margin:0 auto}h1{color:#fff;margin-bottom:2rem}.btn{background:#667eea;color:#fff;padding:10px 20px;border:none;border-radius:6px;cursor:pointer;text-decoration:none;display:inline-block;margin:10px 5px}.btn:hover{background:#5a6fd8}</style></head><body><div class="container"><h1>Credit Assessments</h1><a href="/dashboard/authenticated?token=${token}" class="btn">Back to Dashboard</a><p style="margin-top:2rem;color:#ccc">Credit assessments interface coming soon...</p></div></body></html>`;
+        const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Credit Assessments - Admin</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;background:#000;color:#fff;padding:2rem}.container{max-width:1200px;margin:0 auto}h1{color:#fff;margin-bottom:2rem}.btn{background:#667eea;color:#fff;padding:10px 20px;border:none;border-radius:6px;cursor:pointer;text-decoration:none;display:inline-block;margin:10px 5px}.btn:hover{background:#5a6fd8}table{width:100%;border-collapse:collapse;margin-top:20px}th,td{padding:12px;text-align:left;border-bottom:1px solid #333}th{background:#1a1a1a;color:#fff}.risk-high{color:#ff6b6b}.risk-medium{color:#ffd43b}.risk-low{color:#51cf66}.score-badge{padding:4px 8px;border-radius:4px;font-size:0.85rem;font-weight:600}.stats{display:flex;gap:2rem;margin:2rem 0}.stat-box{background:#1a1a1a;padding:1.5rem;border-radius:8px;flex:1}.stat-box h3{color:#fff;margin-bottom:0.5rem}.stat-box p{color:#ccc;font-size:1.5rem;font-weight:600}</style></head><body><div class="container"><h1>Credit Assessments</h1><a href="/dashboard/authenticated?token=${token}" class="btn">Back to Dashboard</a><div class="stats"><div class="stat-box"><h3>Total Assessments</h3><p>${creditAssessments.length}</p></div><div class="stat-box"><h3>High Risk</h3><p>${creditAssessments.filter(a => a.riskLevel === 'high').length}</p></div><div class="stat-box"><h3>Average Score</h3><p>${creditAssessments.length > 0 ? Math.round(creditAssessments.reduce((sum, a) => sum + (a.creditScore || 0), 0) / creditAssessments.length) : 0}</p></div></div><table><thead><tr><th>Contract ID</th><th>Buyer Email</th><th>Credit Score</th><th>Risk Level</th><th>Recommendation</th><th>Assessment Date</th></tr></thead><tbody>${creditAssessments.map(assessment => {
+            const score = assessment.creditScore || 0;
+            const riskLevel = assessment.riskLevel || 'medium';
+            const riskClass = riskLevel === 'high' ? 'risk-high' : riskLevel === 'medium' ? 'risk-medium' : 'risk-low';
+            const scoreClass = score >= 700 ? 'risk-low' : score >= 600 ? 'risk-medium' : 'risk-high';
+            return `<tr><td>${assessment.contractId || 'N/A'}</td><td>${assessment.buyerEmail || 'N/A'}</td><td><span class="score-badge ${scoreClass}">${score}</span></td><td class="${riskClass}">${riskLevel.toUpperCase()}</td><td>${assessment.recommendation || 'Pending'}</td><td>${new Date(assessment.assessmentDate || Date.now()).toLocaleDateString()}</td></tr>`;
+        }).join('') || '<tr><td colspan="6" style="text-align:center;color:#ccc">No credit assessments found</td></tr>'}</tbody></table></div></body></html>`;
         res.end(html, 'utf8');
     } catch (error) {
         console.error('[ERROR] Admin credit assessments error:', error);
@@ -2491,10 +4446,17 @@ app.get('/dashboard/authenticated', (req, res) => {
         });
         
         // Check if user needs KYC (redirect new users to KYC)  
-        if (user.kycStatus !== 'approved' && user.role !== 'admin') {
+        // Allow access if KYC is pending AND wallet is set up (user completed both steps)
+        const hasWallet = user.hasWallet || user.walletAddress;
+        if (user.kycStatus !== 'approved' && user.role !== 'admin' && !hasWallet) {
             console.log('[INFO] User needs KYC verification, showing KYC page directly');
             // Show KYC page directly instead of redirecting to avoid loops
             return res.send(getFullKYCPageHTML(user.email, token));
+        }
+        
+        // If KYC is pending but wallet is set up, allow access to dashboard (for demo/testing)
+        if (user.kycStatus === 'pending' && hasWallet && user.role !== 'admin') {
+            console.log('[INFO] User has pending KYC but wallet is set up, allowing dashboard access');
         }
         
         console.log('[OK] User KYC approved, showing dashboard');
@@ -2748,9 +4710,13 @@ app.get('/dashboard/authenticated', (req, res) => {
         
         function getActionButtons(contract, userRole) {
             const token = localStorage.getItem('token');
-            let buttons = '<a href="/manage-contract/' + contract.id + '?token=' + encodeURIComponent(token) + '" class="btn small">Manage</a>';
+            let buttons = '';
             
             if (userRole === 'buyer') {
+                // Allow cancellation only before deposit is paid
+                if (contract.status === 'pending_supplier_confirmation' || contract.status === 'pending_deposit' || contract.status === 'pending_buyer_confirmation') {
+                    buttons += '<button class="btn secondary small" onclick="cancelContract(\\''+contract.id+'\\')" style="background: #dc2626;">Cancel Contract</button>';
+                }
                 // Step 1: Pay Deposit (10-30% of total value)
                 if (contract.status === 'pending_deposit' || contract.status === 'pending_buyer_confirmation') {
                     const depositAmount = Math.round(contract.totalValue * 0.20); // 20% deposit
@@ -2766,42 +4732,57 @@ app.get('/dashboard/authenticated', (req, res) => {
                     buttons += '<span class="btn small" style="background: #6b7280; cursor: default;">Awaiting Shipping Docs</span>';
                 }
             } else if (userRole === 'supplier') {
+                // Allow cancellation only before deposit is paid
+                if (contract.status === 'pending_supplier_confirmation' || contract.status === 'pending_deposit') {
+                    buttons += '<button class="btn secondary small" onclick="cancelContract(\\''+contract.id+'\\')" style="background: #dc2626;">Cancel Contract</button>';
+                }
                 // Step 2: Confirm Contract
                 if (contract.status === 'pending_supplier_confirmation') {
                     buttons += '<button class="btn secondary small" onclick="confirmContract(\\''+contract.id+'\\')">Confirm Contract</button>';
                 }
-                // Step 3: Upload Shipping Documents (after deposit received)
+                // Step 3: Upload Shipping Documents (after deposit received) - Use Manage button for this
                 if (contract.status === 'active' && contract.depositPaid && !contract.documentsUploaded) {
-                    buttons += '<button class="btn secondary small" onclick="uploadDocuments(\\''+contract.id+'\\')">Upload Shipping Docs</button>';
+                    buttons += '<a href="/manage-contract/' + contract.id + '?token=' + encodeURIComponent(token) + '" class="btn secondary small">Upload Shipping Docs</a>';
                 }
                 // Show waiting for deposit
                 if (contract.status === 'pending_deposit') {
                     buttons += '<span class="btn small" style="background: #6b7280; cursor: default;">Awaiting Buyer Deposit</span>';
                 }
             } else if (userRole === 'trader') {
-                // Traders can act as both buyer and supplier
+                // Determine trader's role in this contract
+                const isBuyer = contract.buyerEmail === user.email;
+                const isSupplier = contract.supplierEmail === user.email;
+                
+                // Allow cancellation only before deposit is paid
+                if ((contract.status === 'pending_supplier_confirmation' || contract.status === 'pending_deposit' || contract.status === 'pending_buyer_confirmation') && !contract.depositPaid) {
+                    buttons += '<button class="btn secondary small" onclick="cancelContract(\\''+contract.id+'\\')" style="background: #dc2626;">Cancel Contract</button>';
+                }
+                
                 // Supplier actions
-                if (contract.status === 'pending_supplier_confirmation') {
+                if (isSupplier && contract.status === 'pending_supplier_confirmation') {
                     buttons += '<button class="btn secondary small" onclick="confirmContract(\\''+contract.id+'\\')">Confirm as Supplier</button>';
                 }
-                if (contract.status === 'active' && contract.depositPaid && !contract.documentsUploaded) {
-                    buttons += '<button class="btn secondary small" onclick="uploadDocuments(\\''+contract.id+'\\')">Upload Shipping Docs</button>';
+                if (isSupplier && contract.status === 'active' && contract.depositPaid && !contract.documentsUploaded) {
+                    buttons += '<a href="/manage-contract/' + contract.id + '?token=' + encodeURIComponent(token) + '" class="btn secondary small">Upload Shipping Docs</a>';
                 }
                 
                 // Buyer actions
-                if (contract.status === 'pending_deposit' || contract.status === 'pending_buyer_confirmation') {
+                if (isBuyer && (contract.status === 'pending_deposit' || contract.status === 'pending_buyer_confirmation')) {
                     const depositAmount = Math.round(contract.totalValue * 0.20);
                     buttons += '<button class="btn secondary small" onclick="payDeposit(\\''+contract.id+'\\', '+depositAmount+')" style="background: #666666;">Pay Deposit ($'+depositAmount.toLocaleString()+')</button>';
                 }
-                if (contract.status === 'active' && contract.depositPaid && contract.documentsUploaded) {
+                if (isBuyer && contract.status === 'active' && contract.depositPaid && contract.documentsUploaded) {
                     const remainingAmount = contract.totalValue - (contract.depositAmount || Math.round(contract.totalValue * 0.20));
                     buttons += '<button class="btn secondary small" onclick="releasePayment(\\''+contract.id+'\\', '+remainingAmount+')" style="background: #666666;">Release Payment ($'+remainingAmount.toLocaleString()+')</button>';
                 }
                 
-                buttons += '<button class="btn secondary small" onclick="manageTraderContract(\\''+contract.id+'\\')">Dual Contract</button>';
+                // Dual Contract button - create opposite contract
+                if (contract.status === 'active' && contract.depositPaid) {
+                    buttons += '<button class="btn secondary small" onclick="createDualContract(\\''+contract.id+'\\')" style="background: #667eea;">Create Dual Contract</button>';
+                }
             }
             
-            return buttons;
+            return buttons || '<span class="btn small" style="background: #6b7280; cursor: default;">No Actions</span>';
         }
         
         function getUserRole(contract, userEmail) {
@@ -2982,11 +4963,48 @@ app.get('/dashboard/authenticated', (req, res) => {
         }
         
         function uploadDocuments(id) { 
-            window.location.href = '/manage-contract/' + id; 
+            const token = localStorage.getItem('token') || '';
+            if (!token) {
+                alert('Please sign in to upload documents');
+                window.location.href = '/landing-two';
+                return;
+            }
+            window.location.href = '/manage-contract/' + id + '?token=' + encodeURIComponent(token); 
         }
         
-        function manageTraderContract(id) { 
-            window.location.href = '/manage-contract/' + id; 
+        function createDualContract(contractId) {
+            const token = localStorage.getItem('token') || '';
+            if (!token) {
+                alert('Please sign in to create dual contract');
+                window.location.href = '/landing-two';
+                return;
+            }
+            window.location.href = '/create-dual-contract/' + contractId + '?token=' + encodeURIComponent(token);
+        }
+        
+        async function cancelContract(contractId) {
+            if (!confirm('Are you sure you want to cancel this contract? This action cannot be undone.')) {
+                return;
+            }
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch('/api/contracts/' + contractId + '/cancel', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + token
+                    }
+                });
+                if (response.ok) {
+                    alert('Contract cancelled successfully');
+                    loadContracts();
+                } else {
+                    const error = await response.json();
+                    alert('Error: ' + (error.error || 'Failed to cancel contract'));
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
         }
         function logout() { localStorage.removeItem('token'); localStorage.removeItem('user'); window.location.href = '/landing-two'; }
         
@@ -3192,6 +5210,39 @@ app.get('/dashboard/insurer', authenticateToken, (req, res) => {
     }
     
     res.sendFile(path.join(__dirname, 'insurer-dashboard.html'));
+});
+
+// KYC Dashboard Route - MUST BE BEFORE /dashboard/:role
+app.get('/dashboard/kyc', (req, res) => {
+    console.log('[KYC] KYC route hit');
+    
+    // Get token from query parameter, Authorization header, or cookie
+    const token = req.query.token || req.headers.authorization?.replace('Bearer ', '') || req.cookies?.token;
+    
+    if (!token) {
+        console.log('[ERROR] No token provided to KYC route');
+        return res.redirect('/landing-two');
+    }
+    
+    let user = null;
+    
+    try {
+        // Verify token and get user data
+        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'tangent-secret-key');
+        user = database.users.get(decoded.email);
+        
+        if (!user) {
+            console.log('[ERROR] User not found in database:', decoded.email);
+            return res.redirect('/landing-two');
+        }
+        
+        console.log('[OK] KYC page access granted for:', user.email);
+        return res.send(getFullKYCPageHTML(user.email, token));
+        
+    } catch (error) {
+        console.log('[ERROR] Token verification failed in KYC route:', error.message);
+        return res.redirect('/landing-two');
+    }
 });
 
 app.get('/dashboard/:role', authenticateToken, (req, res) => {
