@@ -1,7 +1,8 @@
 # 🚀 Tangent Platform - Complete Status Report for First Pilot
 **Date:** November 24, 2025  
-**Commit:** 0a486f1b  
-**Deployment:** Railway (Production) + Vercel (Proxy)
+**Latest Commit:** 4efa994e (includes Signatures button fix)  
+**Deployment:** Railway (Production) + Vercel (Proxy)  
+**Status:** ✅ All features complete, infrastructure migration needed
 
 ---
 
@@ -606,7 +607,27 @@ BLOCKCHAIN_ENABLED=true
 ---
 
 **Document Created:** November 24, 2025  
-**Last Updated:** After commit `0a486f1b`  
+**Last Updated:** November 24, 2025 (commit `4efa994e`)  
 **Platform Version:** 1.0.0  
 **Status:** ✅ Feature Complete, ⚠️ Infrastructure Migration Needed
+
+---
+
+## 📌 QUICK REFERENCE
+
+### **Current Deployment URLs:**
+- **Railway Backend**: `https://tangent-platform-production.up.railway.app`
+- **Vercel Proxy**: `https://traidefi.ai` (proxies to Railway)
+- **GitHub Repo**: `https://github.com/zalmanollech/Tangent-Platform.git`
+
+### **Test Accounts:**
+- **Admin**: `admin@tangent.com` / `TangentAdmin2024!`
+- **Buyer**: `buyer@test.com` / `TestUser2024!`
+- **Supplier**: `supplier@test.com` / `TestUser2024!`
+- **Trader**: `trader@test.com` / `TestUser2024!`
+
+### **Key Files:**
+- **Main Server**: `server.js` (Railway entry point)
+- **Working Copy**: `server-WORKING-FIXED.js` (development)
+- **Status Report**: `PLATFORM-STATUS-FOR-PILOT.md` (this document)
 
