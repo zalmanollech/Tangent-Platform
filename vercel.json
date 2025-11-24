@@ -1,0 +1,9 @@
+{
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "https://tangent-platform-production.up.railway.app/$1"
+    }
+  ]
+}
+
