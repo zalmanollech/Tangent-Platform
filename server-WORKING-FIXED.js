@@ -60,6 +60,26 @@ let insuranceIntegration = null;
 let insuranceServiceAvailable = false;
 let insuranceServiceProcess = null; // For auto-start functionality
 
+// Signature Registry Integration
+let signatureRegistry = null;
+try {
+    signatureRegistry = require('./lib/signature-registry');
+    console.log('[INFO] Signature Registry loaded successfully');
+} catch (error) {
+    console.warn('[WARN] Signature Registry not available:', error.message);
+    signatureRegistry = null;
+}
+
+// QR Code Reader Integration
+let qrReader = null;
+try {
+    qrReader = require('./lib/qr-reader');
+    console.log('[INFO] QR Code Reader loaded successfully');
+} catch (error) {
+    console.warn('[WARN] QR Code Reader not available:', error.message);
+    qrReader = null;
+}
+
 // Function to auto-start credit service
 function startCreditService() {
     // Always attempt to auto-start credit service (required for automatic credit assessments)
@@ -420,6 +440,8 @@ const database = {
     creditAssessments: new Map(), // Credit risk assessments
     auditLogs: new Map(), // Audit trail system
     sessions: new Map(), // Session management
+    signatureRegistry: new Map(), // Document signature registry
+    documentSignatures: new Map(), // documentId -> array of signatureIds
     admin: {
         fees: { tradingFee: 0.5, platformFee: 1.0 },
         interestRates: { deposit: 2.5, lending: 5.0 },
@@ -1408,8 +1430,39 @@ app.get('/manage-contract/:contractId', (req, res) => {
         return res.status(403).send('Unauthorized');
     }
     
+    // Get all documents for this contract
+    const contractDocuments = Array.from(database.documents.values())
+        .filter(doc => doc.contractId === contractId)
+        .sort((a, b) => new Date(b.uploadedAt) - new Date(a.uploadedAt));
+    
+    // Get signature data for each document
+    const documentsWithSignatures = contractDocuments.map(doc => {
+        let signatures = [];
+        let verifiedCount = 0;
+        if (signatureRegistry && doc.signatures && doc.signatures.length > 0) {
+            signatures = doc.signatures.map(sigId => {
+                const sig = signatureRegistry.signatures.get(sigId);
+                if (sig && sig.verified) verifiedCount++;
+                return sig;
+            }).filter(Boolean);
+        }
+        return {
+            ...doc,
+            signatures,
+            verifiedCount,
+            totalSignatures: signatures.length
+        };
+    });
+    
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-    const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Manage Contract - traidefi</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;background:#000;min-height:100vh;padding:2rem;color:#fff}.container{max-width:800px;margin:0 auto;background:#1a1a1a;padding:3rem;border-radius:15px;box-shadow:0 20px 40px rgba(0,0,0,0.5)}h1{color:#fff;font-size:2.2rem;margin-bottom:1rem}.contract-info{background:#2a2a2a;padding:1.5rem;border-radius:8px;margin-bottom:2rem}.contract-info h3{color:#fff;margin-bottom:1rem}.info-row{display:flex;justify-content:space-between;padding:0.5rem 0;border-bottom:1px solid #333}.info-row:last-child{border-bottom:none}.info-label{color:#ccc}.info-value{color:#fff;font-weight:600}.document-upload{background:#2a2a2a;padding:1.5rem;border-radius:8px;margin-bottom:2rem}.document-upload h3{color:#fff;margin-bottom:1rem}.file-input-wrapper{position:relative;display:inline-block;width:100%}.file-input-wrapper input[type=file]{position:absolute;opacity:0;width:100%;height:100%;cursor:pointer}.file-input-label{display:block;padding:12px;background:#333;border:1px solid #555;border-radius:8px;text-align:center;cursor:pointer;color:#fff}.file-input-label:hover{background:#444;border-color:#667eea}.uploaded-docs{margin-top:1.5rem}.doc-item{background:#333;padding:1rem;border-radius:8px;margin-bottom:0.5rem;display:flex;justify-content:space-between;align-items:center}.doc-name{color:#fff}.doc-date{color:#ccc;font-size:0.9rem}.btn{width:100%;padding:15px;background:#667eea;color:#fff;border:none;border-radius:8px;font-size:1.1rem;font-weight:600;cursor:pointer;margin-top:1rem}.btn:hover{background:#5a6fd8}.btn.secondary{background:#666;margin-top:0.5rem}.btn.secondary:hover{background:#777}.message{padding:1rem;margin-bottom:1rem;border-radius:8px;display:none}.success{background:#d4edda;color:#155724;border:1px solid #c3e6cb}.error{background:#f8d7da;color:#721c24;border:1px solid #f5c6cb}.back-link{text-align:center;margin-top:2rem}.back-link a{color:#667eea;text-decoration:none}</style></head><body><div class="container"><h1>Manage Contract</h1><div id="message" class="message"></div><div class="contract-info"><h3>Contract Details</h3><div class="info-row"><span class="info-label">Product:</span><span class="info-value">${contract.product}</span></div><div class="info-row"><span class="info-label">Quantity:</span><span class="info-value">${contract.quantity} ${contract.unit}</span></div><div class="info-row"><span class="info-label">Total Value:</span><span class="info-value">$${contract.totalValue.toLocaleString()} ${contract.currency}</span></div><div class="info-row"><span class="info-label">Status:</span><span class="info-value">${contract.status}</span></div></div><div class="document-upload"><h3>📄 Upload Shipping Documents</h3><p style="color:#ccc;margin-bottom:1rem">Upload shipping documents (Bill of Lading, Commercial Invoice, Packing List, etc.)</p><div class="file-input-wrapper"><input type="file" id="documentUpload" multiple accept=".pdf,.jpg,.jpeg,.png" onchange="handleFileSelect(event)"><label for="documentUpload" class="file-input-label">Choose Files (PDF, JPG, PNG)</label></div><div id="selectedFiles" style="margin-top:1rem;color:#ccc"></div><button class="btn" onclick="uploadDocuments()">Upload Documents</button><div id="uploadedDocs" class="uploaded-docs"></div></div><button class="btn secondary" onclick="window.location.href='/dashboard/authenticated?token='+encodeURIComponent('${token}')">Back to Dashboard</button></div><script>let token='${token}'||localStorage.getItem('token')||'';const contractId='${contractId}';let selectedFiles=[];function handleFileSelect(event){selectedFiles=Array.from(event.target.files);const filesDiv=document.getElementById('selectedFiles');if(selectedFiles.length>0){filesDiv.innerHTML='<strong>Selected files:</strong><br>'+selectedFiles.map(f=>f.name).join('<br>')}else{filesDiv.innerHTML=''}}async function uploadDocuments(){if(selectedFiles.length===0){showMessage('Please select at least one file','error');return}if(!token){token=localStorage.getItem('token')||'';if(!token){showMessage('Authentication required. Please sign in again.','error');setTimeout(()=>{window.location.href='/landing-two'},2000);return}}const formData=new FormData();selectedFiles.forEach(file=>{formData.append('documents',file)});try{showMessage('Uploading documents...','success');const response=await fetch('/api/contracts/'+contractId+'/documents',{method:'POST',headers:{'Authorization':'Bearer '+token},body:formData});if(!response.ok){if(response.status===401||response.status===403){const errorData=await response.json().catch(()=>({error:'Authentication failed'}));showMessage(errorData.error||'Session expired. Please sign in again.','error');setTimeout(()=>{window.location.href='/landing-two'},2000);return}const errorData=await response.json().catch(()=>({error:'Upload failed'}));showMessage(errorData.error||'Failed to upload documents','error');return}const result=await response.json();if(result.success){showMessage(result.message||'Documents uploaded successfully!','success');selectedFiles=[];document.getElementById('documentUpload').value='';document.getElementById('selectedFiles').innerHTML='';setTimeout(()=>{const finalToken=token||localStorage.getItem('token')||'';window.location.href='/dashboard/authenticated?token='+encodeURIComponent(finalToken)},2000)}else{showMessage(result.error||'Failed to upload documents','error')}}catch(error){console.error('Upload error:',error);showMessage('Network error: '+error.message+'. Please check your connection and try again.','error')}}function showMessage(text,type){const messageDiv=document.getElementById('message');messageDiv.textContent=text;messageDiv.className='message '+type;messageDiv.style.display='block';setTimeout(()=>{messageDiv.style.display='none'},5000)}</script></body></html>`;
+    const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Manage Contract - traidefi</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;background:#000;min-height:100vh;padding:2rem;color:#fff}.container{max-width:1000px;margin:0 auto;background:#1a1a1a;padding:3rem;border-radius:15px;box-shadow:0 20px 40px rgba(0,0,0,0.5)}h1{color:#fff;font-size:2.2rem;margin-bottom:1rem}.contract-info{background:#2a2a2a;padding:1.5rem;border-radius:8px;margin-bottom:2rem}.contract-info h3{color:#fff;margin-bottom:1rem}.info-row{display:flex;justify-content:space-between;padding:0.5rem 0;border-bottom:1px solid #333}.info-row:last-child{border-bottom:none}.info-label{color:#ccc}.info-value{color:#fff;font-weight:600}.document-upload{background:#2a2a2a;padding:1.5rem;border-radius:8px;margin-bottom:2rem}.document-upload h3{color:#fff;margin-bottom:1rem}.file-input-wrapper{position:relative;display:inline-block;width:100%}.file-input-wrapper input[type=file]{position:absolute;opacity:0;width:100%;height:100%;cursor:pointer}.file-input-label{display:block;padding:12px;background:#333;border:1px solid #555;border-radius:8px;text-align:center;cursor:pointer;color:#fff}.file-input-label:hover{background:#444;border-color:#667eea}.uploaded-docs{margin-top:1.5rem}.doc-item{background:#333;padding:1rem;border-radius:8px;margin-bottom:0.5rem}.doc-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem}.doc-name{color:#fff;font-weight:600}.doc-date{color:#ccc;font-size:0.9rem}.doc-signatures{margin-top:0.75rem;padding-top:0.75rem;border-top:1px solid #444}.signature-item{display:flex;justify-content:space-between;align-items:center;padding:0.5rem;background:#2a2a2a;border-radius:4px;margin-bottom:0.5rem;font-size:0.85rem}.signature-item:last-child{margin-bottom:0}.signature-info{flex:1}.signature-signer{color:#fff;font-weight:600}.signature-method{color:#999;font-size:0.8rem;margin-top:0.25rem}.signature-status{display:inline-block;padding:4px 8px;border-radius:12px;font-size:0.75rem;font-weight:600}.status-verified{background:#51cf66;color:#000}.status-pending{background:#ffd43b;color:#000}.status-auto{background:#667eea;color:#fff}.signature-badge{display:inline-block;padding:2px 6px;background:#444;border-radius:4px;font-size:0.7rem;margin-left:0.5rem}.no-signatures{color:#999;font-size:0.85rem;font-style:italic}.btn{width:100%;padding:15px;background:#667eea;color:#fff;border:none;border-radius:8px;font-size:1.1rem;font-weight:600;cursor:pointer;margin-top:1rem}.btn:hover{background:#5a6fd8}.btn.secondary{background:#666;margin-top:0.5rem}.btn.secondary:hover{background:#777}.btn.small{padding:8px 16px;font-size:0.9rem;width:auto;margin:0}.message{padding:1rem;margin-bottom:1rem;border-radius:8px;display:none}.success{background:#d4edda;color:#155724;border:1px solid #c3e6cb}.error{background:#f8d7da;color:#721c24;border:1px solid #f5c6cb}.back-link{text-align:center;margin-top:2rem}.back-link a{color:#667eea;text-decoration:none}.documents-section{background:#2a2a2a;padding:1.5rem;border-radius:8px;margin-bottom:2rem}.documents-section h3{color:#fff;margin-bottom:1rem}.documents-list{margin-top:1rem}</style></head><body><div class="container"><h1>Manage Contract</h1><div id="message" class="message"></div><div class="contract-info"><h3>Contract Details</h3><div class="info-row"><span class="info-label">Product:</span><span class="info-value">${contract.product}</span></div><div class="info-row"><span class="info-label">Quantity:</span><span class="info-value">${contract.quantity} ${contract.unit}</span></div><div class="info-row"><span class="info-label">Total Value:</span><span class="info-value">$${contract.totalValue.toLocaleString()} ${contract.currency}</span></div><div class="info-row"><span class="info-label">Status:</span><span class="info-value">${contract.status}</span></div></div>${documentsWithSignatures.length > 0 ? `<div class="documents-section"><h3>📄 Uploaded Documents (${documentsWithSignatures.length})</h3><div class="documents-list">${documentsWithSignatures.map(doc => {
+        const signatureHTML = doc.totalSignatures > 0 ? `<div class="doc-signatures"><div style="color:#ccc;font-size:0.85rem;margin-bottom:0.5rem">Signatures: ${doc.verifiedCount}/${doc.totalSignatures} verified</div>${doc.signatures.map(sig => {
+            const statusClass = sig.verified ? (sig.autoApproved ? 'status-auto' : 'status-verified') : 'status-pending';
+            const statusText = sig.verified ? (sig.autoApproved ? '✅ Auto-Approved' : '✅ Verified') : '⏳ Pending';
+            return `<div class="signature-item"><div class="signature-info"><div class="signature-signer">${sig.signerName || sig.signerEmail}</div><div class="signature-method">Method: ${sig.signatureMethod}</div></div><span class="signature-status ${statusClass}">${statusText}</span></div>`;
+        }).join('')}</div>` : `<div class="doc-signatures"><div class="no-signatures">No signatures registered</div></div>`;
+        return `<div class="doc-item"><div class="doc-header"><span class="doc-name">${doc.originalName || doc.filename}</span><span class="doc-date">${new Date(doc.uploadedAt).toLocaleString()}</span></div>${signatureHTML}</div>`;
+    }).join('')}</div></div>` : ''}<div class="document-upload"><h3>📄 Upload Shipping Documents</h3><p style="color:#ccc;margin-bottom:1rem">Upload shipping documents (Bill of Lading, Commercial Invoice, Packing List, etc.)</p><div class="file-input-wrapper"><input type="file" id="documentUpload" multiple accept=".pdf,.jpg,.jpeg,.png" onchange="handleFileSelect(event)"><label for="documentUpload" class="file-input-label">Choose Files (PDF, JPG, PNG)</label></div><div id="selectedFiles" style="margin-top:1rem;color:#ccc"></div><button class="btn" onclick="uploadDocuments()">Upload Documents</button><div id="uploadedDocs" class="uploaded-docs"></div></div><button class="btn secondary" onclick="window.location.href='/dashboard/authenticated?token='+encodeURIComponent('${token}')">Back to Dashboard</button></div><script>let token='${token}'||localStorage.getItem('token')||'';const contractId='${contractId}';let selectedFiles=[];function handleFileSelect(event){selectedFiles=Array.from(event.target.files);const filesDiv=document.getElementById('selectedFiles');if(selectedFiles.length>0){filesDiv.innerHTML='<strong>Selected files:</strong><br>'+selectedFiles.map(f=>f.name).join('<br>')}else{filesDiv.innerHTML=''}}async function uploadDocuments(){if(selectedFiles.length===0){showMessage('Please select at least one file','error');return}if(!token){token=localStorage.getItem('token')||'';if(!token){showMessage('Authentication required. Please sign in again.','error');setTimeout(()=>{window.location.href='/landing-two'},2000);return}}const formData=new FormData();selectedFiles.forEach(file=>{formData.append('documents',file)});try{showMessage('Uploading documents...','success');const response=await fetch('/api/contracts/'+contractId+'/documents',{method:'POST',headers:{'Authorization':'Bearer '+token},body:formData});if(!response.ok){if(response.status===401||response.status===403){const errorData=await response.json().catch(()=>({error:'Authentication failed'}));showMessage(errorData.error||'Session expired. Please sign in again.','error');setTimeout(()=>{window.location.href='/landing-two'},2000);return}const errorData=await response.json().catch(()=>({error:'Upload failed'}));showMessage(errorData.error||'Failed to upload documents','error');return}const result=await response.json();if(result.success){showMessage(result.message||'Documents uploaded successfully!','success');selectedFiles=[];document.getElementById('documentUpload').value='';document.getElementById('selectedFiles').innerHTML='';setTimeout(()=>{location.reload()},1500)}else{showMessage(result.error||'Failed to upload documents','error')}}catch(error){console.error('Upload error:',error);showMessage('Network error: '+error.message+'. Please check your connection and try again.','error')}}function showMessage(text,type){const messageDiv=document.getElementById('message');messageDiv.textContent=text;messageDiv.className='message '+type;messageDiv.style.display='block';setTimeout(()=>{messageDiv.style.display='none'},5000)}</script></body></html>`;
     res.end(html, 'utf8');
 });
 
@@ -2450,7 +2503,7 @@ app.post('/api/contracts/:contractId/documents', authenticateToken, upload.array
         
         const uploadedDocs = [];
         if (req.files && req.files.length > 0) {
-            req.files.forEach(file => {
+            for (const file of req.files) {
                 const docId = `doc-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
                 const document = {
                     id: docId,
@@ -2462,12 +2515,77 @@ app.post('/api/contracts/:contractId/documents', authenticateToken, upload.array
                     size: file.size,
                     mimetype: file.mimetype,
                     uploadedBy: userEmail,
-                    uploadedAt: new Date().toISOString()
+                    uploadedAt: new Date().toISOString(),
+                    qrCodeScanned: false,
+                    qrCodeData: null,
+                    signatures: []
                 };
+                
+                // Scan for QR codes in document (if QR reader is available)
+                if (qrReader && (file.mimetype.startsWith('image/') || file.mimetype === 'application/pdf')) {
+                    try {
+                        const qrResult = await qrReader.readQRCode(file.path, file.mimetype);
+                        if (qrResult.success && qrResult.data) {
+                            document.qrCodeScanned = true;
+                            document.qrCodeData = qrResult.data;
+                            
+                            // If QR code contains signature data, register it with auto-approval
+                            const signatureData = qrReader.parseSignatureQR(qrResult.data);
+                            if (signatureData.isValid && signatureRegistry) {
+                                const signature = signatureRegistry.registerSignature({
+                                    documentId: docId,
+                                    signerEmail: signatureData.signerEmail,
+                                    signerName: req.user?.name || signatureData.signerEmail,
+                                    signerRole: req.user?.role || 'user',
+                                    signatureMethod: 'qr_code',
+                                    signatureHash: signatureData.signatureHash,
+                                    metadata: {
+                                        ipAddress: req.ip,
+                                        userAgent: req.get('user-agent'),
+                                        contractId: contractId,
+                                        qrCodeData: qrResult.data,
+                                        ...signatureData.metadata
+                                    }
+                                }, { autoApprove: true }); // Enable auto-approval
+                                document.signatures.push(signature.id);
+                                if (signature.autoApproved) {
+                                    console.log(`[SIGNATURE] ✅ Auto-approved QR code signature: ${signature.id} for document ${docId}`);
+                                } else {
+                                    console.log(`[SIGNATURE] QR code signature registered: ${signature.id} for document ${docId} (pending verification)`);
+                                }
+                            }
+                        }
+                    } catch (qrError) {
+                        console.warn(`[WARN] QR code scanning failed for ${file.originalname}:`, qrError.message);
+                    }
+                }
+                
+                // Register manual signature (uploader signs the document) with auto-approval
+                if (signatureRegistry) {
+                    const manualSignature = signatureRegistry.registerSignature({
+                        documentId: docId,
+                        signerEmail: userEmail,
+                        signerName: req.user?.name || userEmail,
+                        signerRole: req.user?.role || 'user',
+                        signatureMethod: 'manual',
+                        metadata: {
+                            ipAddress: req.ip,
+                            userAgent: req.get('user-agent'),
+                            contractId: contractId,
+                            action: 'document_upload'
+                        }
+                    }, { autoApprove: true }); // Enable auto-approval
+                    document.signatures.push(manualSignature.id);
+                    if (manualSignature.autoApproved) {
+                        console.log(`[SIGNATURE] ✅ Auto-approved manual signature: ${manualSignature.id} for document ${docId}`);
+                    } else {
+                        console.log(`[SIGNATURE] Manual signature registered: ${manualSignature.id} for document ${docId} (pending verification)`);
+                    }
+                }
                 
                 database.documents.set(docId, document);
                 uploadedDocs.push(document);
-            });
+            }
             
             // Update contract status
             contract.documentsUploaded = true;
@@ -2484,7 +2602,9 @@ app.post('/api/contracts/:contractId/documents', authenticateToken, upload.array
         res.json({
             success: true,
             documents: uploadedDocs,
-            message: `${uploadedDocs.length} document(s) uploaded successfully`
+            message: `${uploadedDocs.length} document(s) uploaded successfully`,
+            qrCodesScanned: uploadedDocs.filter(doc => doc.qrCodeScanned).length,
+            signaturesRegistered: uploadedDocs.reduce((sum, doc) => sum + (doc.signatures?.length || 0), 0)
         });
         
     } catch (error) {
@@ -2493,6 +2613,158 @@ app.post('/api/contracts/:contractId/documents', authenticateToken, upload.array
             error: 'Failed to upload documents',
             message: error.message || 'Unknown error occurred'
         });
+    }
+});
+
+// Get document signatures
+app.get('/api/documents/:documentId/signatures', authenticateToken, (req, res) => {
+    try {
+        const { documentId } = req.params;
+        const document = database.documents.get(documentId);
+        
+        if (!document) {
+            return res.status(404).json({ error: 'Document not found' });
+        }
+        
+        if (!signatureRegistry) {
+            return res.status(503).json({ error: 'Signature registry not available' });
+        }
+        
+        const signatures = signatureRegistry.getDocumentSignatures(documentId);
+        
+        res.json({
+            success: true,
+            documentId,
+            signatures,
+            signatureCount: signatures.length,
+            verifiedCount: signatures.filter(sig => sig.verified).length
+        });
+    } catch (error) {
+        console.error('[ERROR] Get signatures error:', error);
+        res.status(500).json({ error: 'Failed to get signatures', message: error.message });
+    }
+});
+
+// Register a signature for a document
+app.post('/api/documents/:documentId/sign', authenticateToken, async (req, res) => {
+    try {
+        const { documentId } = req.params;
+        const userEmail = req.user?.email;
+        const { signatureMethod = 'digital', signatureHash, metadata = {} } = req.body;
+        
+        if (!userEmail) {
+            return res.status(401).json({ error: 'Authentication required' });
+        }
+        
+        const document = database.documents.get(documentId);
+        if (!document) {
+            return res.status(404).json({ error: 'Document not found' });
+        }
+        
+        if (!signatureRegistry) {
+            return res.status(503).json({ error: 'Signature registry not available' });
+        }
+        
+        const signature = signatureRegistry.registerSignature({
+            documentId,
+            signerEmail: userEmail,
+            signerName: req.user?.name || userEmail,
+            signerRole: req.user?.role || 'user',
+            signatureMethod,
+            signatureHash,
+            metadata: {
+                ipAddress: req.ip,
+                userAgent: req.get('user-agent'),
+                contractId: document.contractId,
+                ...metadata
+            }
+        }, { autoApprove: true }); // Enable auto-approval
+        
+        // Update document with signature
+        if (!document.signatures) {
+            document.signatures = [];
+        }
+        document.signatures.push(signature.id);
+        database.documents.set(documentId, document);
+        
+        res.json({
+            success: true,
+            signature,
+            message: 'Signature registered successfully'
+        });
+    } catch (error) {
+        console.error('[ERROR] Register signature error:', error);
+        res.status(500).json({ error: 'Failed to register signature', message: error.message });
+    }
+});
+
+// Verify a signature
+app.post('/api/signatures/:signatureId/verify', authenticateToken, requireRole(['admin']), (req, res) => {
+    try {
+        const { signatureId } = req.params;
+        const verifiedBy = req.user?.email;
+        
+        if (!signatureRegistry) {
+            return res.status(503).json({ error: 'Signature registry not available' });
+        }
+        
+        const signature = signatureRegistry.verifySignature(signatureId, verifiedBy);
+        
+        res.json({
+            success: true,
+            signature,
+            message: 'Signature verified successfully'
+        });
+    } catch (error) {
+        console.error('[ERROR] Verify signature error:', error);
+        res.status(500).json({ error: 'Failed to verify signature', message: error.message });
+    }
+});
+
+// Check required signatures for a document
+app.get('/api/documents/:documentId/check-signatures', authenticateToken, (req, res) => {
+    try {
+        const { documentId } = req.params;
+        const { requiredSigners } = req.query; // Comma-separated list of emails
+        
+        const document = database.documents.get(documentId);
+        if (!document) {
+            return res.status(404).json({ error: 'Document not found' });
+        }
+        
+        if (!signatureRegistry) {
+            return res.status(503).json({ error: 'Signature registry not available' });
+        }
+        
+        const required = requiredSigners ? requiredSigners.split(',') : [];
+        const result = signatureRegistry.checkRequiredSignatures(documentId, required);
+        
+        res.json({
+            success: true,
+            ...result
+        });
+    } catch (error) {
+        console.error('[ERROR] Check signatures error:', error);
+        res.status(500).json({ error: 'Failed to check signatures', message: error.message });
+    }
+});
+
+// Get signature registry statistics (admin only)
+app.get('/api/admin/signature-statistics', authenticateToken, requireRole(['admin']), (req, res) => {
+    try {
+        if (!signatureRegistry) {
+            return res.status(503).json({ error: 'Signature registry not available' });
+        }
+        
+        const stats = signatureRegistry.getStatistics();
+        
+        res.json({
+            success: true,
+            statistics: stats
+        });
+    } catch (error) {
+        console.error('[ERROR] Get signature statistics error:', error);
+        res.status(500).json({ error: 'Failed to get statistics', message: error.message });
     }
 });
 
@@ -3433,6 +3705,39 @@ app.get('/admin/blockchain', authenticateToken, requireRole(['admin']), (req, re
     }
 });
 
+// Admin Signature Management
+app.get('/admin/signatures', authenticateToken, requireRole(['admin']), (req, res) => {
+    try {
+        const token = req.query.token || req.headers.authorization?.replace('Bearer ', '');
+        
+        if (!signatureRegistry) {
+            return res.status(503).send('Signature registry not available');
+        }
+        
+        const stats = signatureRegistry.getStatistics();
+        const allSignatures = Array.from(signatureRegistry.signatures.values())
+            .sort((a, b) => new Date(b.signedAt) - new Date(a.signedAt))
+            .slice(0, 100); // Show latest 100 signatures
+        
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+        const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Signature Management - Admin</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;background:#000;color:#fff;padding:2rem}.container{max-width:1400px;margin:0 auto}h1{color:#fff;margin-bottom:2rem}.btn{background:#667eea;color:#fff;padding:10px 20px;border:none;border-radius:6px;cursor:pointer;text-decoration:none;display:inline-block;margin:10px 5px}.btn:hover{background:#5a6fd8}.btn-success{background:#51cf66}.btn-success:hover{background:#40c057}.btn-warning{background:#ffd43b;color:#000}.btn-warning:hover{background:#fcc419}.stats-box{background:#1a1a1a;padding:1.5rem;border-radius:8px;margin:2rem 0;display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1rem}.stat-item{text-align:center}.stat-label{color:#ccc;font-size:0.9rem;margin-bottom:0.5rem}.stat-value{color:#fff;font-size:1.5rem;font-weight:600}.stat-value.verified{color:#51cf66}.stat-value.pending{color:#ffd43b}table{width:100%;border-collapse:collapse;margin-top:20px;background:#1a1a1a;border-radius:8px;overflow:hidden}th,td{padding:12px;text-align:left;border-bottom:1px solid #333}th{background:#2a2a2a;color:#fff;font-weight:600}tr:hover{background:#252525}.status-badge{display:inline-block;padding:4px 12px;border-radius:12px;font-size:0.85rem;font-weight:600}.status-verified{background:#51cf66;color:#000}.status-pending{background:#ffd43b;color:#000}.status-auto{background:#667eea;color:#fff}.method-badge{display:inline-block;padding:4px 8px;border-radius:8px;font-size:0.75rem;background:#333;color:#ccc}.hash-display{font-family:monospace;font-size:0.8rem;color:#999;word-break:break-all;max-width:200px}</style></head><body><div class="container"><h1>📝 Signature Management</h1><a href="/dashboard/authenticated?token=${token}" class="btn">Back to Dashboard</a><div class="stats-box"><div class="stat-item"><div class="stat-label">Total Signatures</div><div class="stat-value">${stats.total}</div></div><div class="stat-item"><div class="stat-label">Verified</div><div class="stat-value verified">${stats.verified}</div></div><div class="stat-item"><div class="stat-label">Pending</div><div class="stat-value pending">${stats.unverified}</div></div><div class="stat-item"><div class="stat-label">Documents</div><div class="stat-value">${stats.documentsWithSignatures}</div></div></div><div style="background:#1a1a1a;padding:1.5rem;border-radius:8px;margin:2rem 0"><h3 style="color:#fff;margin-bottom:1rem">Signature Methods</h3><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1rem"><div><div class="stat-label">Digital</div><div class="stat-value">${stats.byMethod.digital}</div></div><div><div class="stat-label">QR Code</div><div class="stat-value">${stats.byMethod.qr_code}</div></div><div><div class="stat-label">Blockchain</div><div class="stat-value">${stats.byMethod.blockchain}</div></div><div><div class="stat-label">Manual</div><div class="stat-value">${stats.byMethod.manual}</div></div></div></div><h2 style="color:#fff;margin:2rem 0 1rem">Recent Signatures</h2><table><thead><tr><th>ID</th><th>Document</th><th>Signer</th><th>Method</th><th>Status</th><th>Signed At</th><th>Verified By</th><th>Actions</th></tr></thead><tbody>${allSignatures.map(sig => {
+            const statusClass = sig.verified ? 'status-verified' : 'status-pending';
+            const statusText = sig.verified ? (sig.autoApproved ? '✅ Auto-Approved' : '✅ Verified') : '⏳ Pending';
+            const methodColors = {
+                digital: '#667eea',
+                qr_code: '#51cf66',
+                blockchain: '#f59f00',
+                manual: '#999'
+            };
+            return `<tr><td style="font-family:monospace;font-size:0.85rem">${sig.id.substring(0, 12)}...</td><td style="font-family:monospace;font-size:0.85rem">${sig.documentId.substring(0, 12)}...</td><td>${sig.signerName}<br><span style="color:#999;font-size:0.85rem">${sig.signerEmail}</span></td><td><span class="method-badge" style="background:${methodColors[sig.signatureMethod] || '#333'}">${sig.signatureMethod}</span></td><td><span class="status-badge ${statusClass}">${statusText}</span></td><td style="font-size:0.85rem;color:#999">${new Date(sig.signedAt).toLocaleString()}</td><td style="font-size:0.85rem;color:#999">${sig.verifiedBy || '—'}</td><td>${!sig.verified ? `<button class="btn btn-success" onclick="verifySignature('${sig.id}')" style="padding:6px 12px;font-size:0.85rem">Verify</button>` : '<span style="color:#51cf66">✓</span>'}</td></tr>`;
+        }).join('') || '<tr><td colspan="8" style="text-align:center;color:#ccc;padding:2rem">No signatures found</td></tr>'}</tbody></table></div><script>const token='${token}';async function verifySignature(sigId){if(!confirm('Verify this signature?'))return;try{const res=await fetch('/api/signatures/'+sigId+'/verify',{method:'POST',headers:{'Authorization':'Bearer '+token}});if(res.ok){alert('Signature verified successfully');location.reload()}else{alert('Failed to verify signature')}}catch(e){alert('Error: '+e.message)}}</script></body></html>`;
+        res.end(html, 'utf8');
+    } catch (error) {
+        console.error('[ERROR] Admin signatures error:', error);
+        res.status(500).send('Error loading signatures');
+    }
+});
+
 // Admin Fees
 app.get('/admin/fees', authenticateToken, requireRole(['admin']), (req, res) => {
     try {
@@ -3779,6 +4084,7 @@ app.get('*.js', (req, res) => {
 // Serve favicon to prevent 404 errors
 // KYC Page HTML Function
 function getFullKYCPageHTML(userEmail, token) {
+    const version = Date.now(); // Cache buster
     return `
 <!DOCTYPE html>
 <html lang="en">
@@ -3794,6 +4100,9 @@ function getFullKYCPageHTML(userEmail, token) {
   </script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
   <title>KYC Verification - traidefi</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -4010,7 +4319,8 @@ function getFullKYCPageHTML(userEmail, token) {
     </div>
 
     <script>
-        console.log('KYC Script loaded successfully');
+        // Version: ${version} - Force cache refresh
+        console.log('KYC Script loaded successfully - Version: ${version}');
         
         // Get the token from the URL parameter or localStorage
         const urlParams = new URLSearchParams(window.location.search);
@@ -4052,7 +4362,12 @@ function getFullKYCPageHTML(userEmail, token) {
             document.querySelectorAll('.step').forEach(step => {
                 step.classList.remove('active');
             });
-            document.getElementById(stepId).classList.add('active');
+            const stepElement = document.getElementById(stepId);
+            if (stepElement) {
+                stepElement.classList.add('active');
+            } else {
+                console.warn('Step element not found:', stepId);
+            }
         }
 
         function updateProgress(stepNumber) {
@@ -4256,9 +4571,13 @@ function getFullKYCPageHTML(userEmail, token) {
                     // Start compliance checks simulation AFTER successful submission
                     await simulateComplianceChecks();
                     
-                    // Then show completion
+                    // Then show completion (ensure DOM is ready)
                     setTimeout(() => {
-                        showKYCCompletion();
+                        if (document.readyState === 'loading') {
+                            document.addEventListener('DOMContentLoaded', showKYCCompletion);
+                        } else {
+                            showKYCCompletion();
+                        }
                     }, 1000);
                 } else {
                     const error = await response.json();
@@ -4296,40 +4615,85 @@ function getFullKYCPageHTML(userEmail, token) {
             for (let i = 0; i < checks.length; i++) {
                 await new Promise(resolve => setTimeout(resolve, 1500));
                 const checkElement = document.getElementById(checks[i]);
-                checkElement.innerHTML = checkElement.textContent.replace('⏳ ', '').replace('...', ' - Clear');
-                checkElement.style.color = '#ffffff';
+                if (checkElement) {
+                    checkElement.innerHTML = checkElement.textContent.replace('⏳ ', '').replace('...', ' - Clear');
+                    checkElement.style.color = '#ffffff';
+                }
             }
             
             // After all checks, show completion directly (no wallet check)
             setTimeout(() => {
-                showKYCCompletion();
+                if (document.readyState === 'loading') {
+                    document.addEventListener('DOMContentLoaded', showKYCCompletion);
+                } else {
+                    showKYCCompletion();
+                }
             }, 1000);
         }
         
         function showKYCCompletion() {
-            // Hide verification step
-            document.getElementById('verificationStep').classList.remove('active');
-            
-            // Show completion message
-            const completionHTML = \`
-                <div style="text-align: center; padding: 40px; background: #1a1a1a; border-radius: 12px; border: 2px solid #ffffff;">
-                    <h2 style="color: #ffffff; margin-bottom: 20px;">KYC Verification Complete</h2>
-                    <p style="color: #ffffff; margin-bottom: 30px; font-size: 1.1em;">
-                        Your verification has been successfully completed. All compliance checks have passed.
-                    </p>
-                    <div style="background: rgba(255, 255, 255, 0.1); padding: 20px; border-radius: 8px; margin: 20px 0;">
-                        <p style="color: #ffffff; margin: 0; font-weight: 600;">
-                            Next Step: Set up your TGT wallet for trading and payments
+            try {
+                // Safely hide verification step (with comprehensive null checks)
+                try {
+                    const verificationStep = document.getElementById('verificationStep');
+                    if (verificationStep !== null && verificationStep !== undefined && typeof verificationStep.classList !== 'undefined') {
+                        verificationStep.classList.remove('active');
+                    }
+                } catch (e) {
+                    console.warn('Could not hide verificationStep:', e);
+                }
+                
+                // Hide all steps first (with null checks)
+                try {
+                    const steps = document.querySelectorAll('.step');
+                    if (steps && steps.length > 0) {
+                        steps.forEach(step => {
+                            if (step !== null && step !== undefined && typeof step.classList !== 'undefined') {
+                                step.classList.remove('active');
+                            }
+                        });
+                    }
+                } catch (e) {
+                    console.warn('Could not hide steps:', e);
+                }
+                
+                // Show completion message
+                const completionHTML = \`
+                    <div style="text-align: center; padding: 40px; background: #1a1a1a; border-radius: 12px; border: 2px solid #ffffff;">
+                        <h2 style="color: #ffffff; margin-bottom: 20px;">KYC Verification Complete</h2>
+                        <p style="color: #ffffff; margin-bottom: 30px; font-size: 1.1em;">
+                            Your verification has been successfully completed. All compliance checks have passed.
                         </p>
+                        <div style="background: rgba(255, 255, 255, 0.1); padding: 20px; border-radius: 8px; margin: 20px 0;">
+                            <p style="color: #ffffff; margin: 0; font-weight: 600;">
+                                Next Step: Set up your TGT wallet for trading and payments
+                            </p>
+                        </div>
+                        <button type="button" class="btn" onclick="completeKYC()" style="background: #ffffff; color: #000000; font-size: 1.1em; padding: 15px 30px;">
+                            Continue to Wallet Setup
+                        </button>
                     </div>
-                    <button type="button" class="btn" onclick="completeKYC()" style="background: #ffffff; color: #000000; font-size: 1.1em; padding: 15px 30px;">
-                        Continue to Wallet Setup
-                    </button>
-                </div>
-            \`;
-            
-            const mainContent = document.querySelector('.main-content');
-            mainContent.innerHTML = completionHTML;
+                \`;
+                
+                const mainContent = document.querySelector('.main-content');
+                if (mainContent) {
+                    mainContent.innerHTML = completionHTML;
+                } else {
+                    console.error('Main content element not found');
+                    // Fallback: try to append to body
+                    const fallbackDiv = document.createElement('div');
+                    fallbackDiv.className = 'main-content';
+                    fallbackDiv.style.cssText = 'max-width: 900px; margin: 0 auto; padding: 2rem;';
+                    fallbackDiv.innerHTML = completionHTML;
+                    document.body.appendChild(fallbackDiv);
+                }
+            } catch (error) {
+                console.error('Error in showKYCCompletion:', error);
+                // Fallback: show alert and redirect
+                alert('KYC verification complete! Redirecting to wallet setup...');
+                const token = localStorage.getItem('token') || '${token}';
+                window.location.href = '/wallet-setup?token=' + encodeURIComponent(token);
+            }
         }
         
         
@@ -4487,6 +4851,7 @@ app.get('/dashboard/authenticated', (req, res) => {
                 <button class="btn secondary" onclick="navigateAdmin('/admin/kyc-reports')" style="background: #666666; color: #ffffff; padding: 12px 20px; border: none; border-radius: 6px; cursor: pointer; font-size: 0.9rem; font-weight: 600; text-align: center;">🔍 KYC Reports</button>
                 <button class="btn secondary" onclick="navigateAdmin('/admin/ofac-management')" style="background: #666666; color: #ffffff; padding: 12px 20px; border: none; border-radius: 6px; cursor: pointer; font-size: 0.9rem; font-weight: 600; text-align: center;">🛡️ OFAC Screening</button>
                 <button class="btn secondary" onclick="navigateAdmin('/admin/blockchain')" style="background: #666666; color: #ffffff; padding: 12px 20px; border: none; border-radius: 6px; cursor: pointer; font-size: 0.9rem; font-weight: 600; text-align: center;">🔗 Blockchain</button>
+                <button class="btn secondary" onclick="navigateAdmin('/admin/signatures')" style="background: #667eea; color: #ffffff; padding: 12px 20px; border: none; border-radius: 6px; cursor: pointer; font-size: 0.9rem; font-weight: 600; text-align: center;">📝 Signatures</button>
                 <button class="btn secondary" onclick="navigateAdmin('/admin/fees')" style="background: #666666; color: #ffffff; padding: 12px 20px; border: none; border-radius: 6px; cursor: pointer; font-size: 0.9rem; font-weight: 600; text-align: center;">💳 Manage Fees</button>
                 <button class="btn secondary" onclick="navigateAdmin('/admin/voyage-times')" style="background: #666666; color: #ffffff; padding: 12px 20px; border: none; border-radius: 6px; cursor: pointer; font-size: 0.9rem; font-weight: 600; text-align: center;">🚢 Voyage Times</button>
                 <button class="btn secondary" onclick="navigateAdmin('/admin/basis-points')" style="background: #666666; color: #ffffff; padding: 12px 20px; border: none; border-radius: 6px; cursor: pointer; font-size: 0.9rem; font-weight: 600; text-align: center;">⚡ Basis Points</button>
