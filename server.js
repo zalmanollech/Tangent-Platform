@@ -14,8 +14,18 @@ const QRCode = require('qrcode');
 const crypto = require('crypto');
 require('dotenv').config({ path: './config.env' });
 
-// Database integration
+// Database integration (old - for credit/insurance services)
 const db = require('./lib/database');
+
+// Tangent Platform PostgreSQL Database
+let tangentDB = null;
+try {
+    tangentDB = require('./lib/tangent-database');
+    console.log('[INFO] Tangent Database module loaded');
+} catch (error) {
+    console.warn('[WARN] Tangent Database module not available:', error.message);
+    tangentDB = null;
+}
 
 // Report generator for Traidefi
 const reportGenerator = require('./lib/report-generator');
@@ -883,7 +893,8 @@ function initializePoolWallet() {
 }
 
 // Default admin user
-database.users.set('admin@tangent.com', {
+// Initialize test users (will sync to PostgreSQL if available)
+usersDB.set('admin@tangent.com', {
     id: 'admin-001',
     email: 'admin@tangent.com',
     password: bcrypt.hashSync('TangentAdmin2024!', 10),
@@ -893,7 +904,7 @@ database.users.set('admin@tangent.com', {
 });
 
 // Test approved users for each role
-database.users.set('buyer@test.com', {
+usersDB.set('buyer@test.com', {
     id: 'buyer-001',
     email: 'buyer@test.com',
     password: bcrypt.hashSync('TestUser2024!', 10),
@@ -902,7 +913,7 @@ database.users.set('buyer@test.com', {
     kycStatus: 'approved'
 });
 
-database.users.set('supplier@test.com', {
+usersDB.set('supplier@test.com', {
     id: 'supplier-001',
     email: 'supplier@test.com',
     password: bcrypt.hashSync('TestUser2024!', 10),
@@ -911,7 +922,7 @@ database.users.set('supplier@test.com', {
     kycStatus: 'approved'
 });
 
-database.users.set('trader@test.com', {
+usersDB.set('trader@test.com', {
     id: 'trader-001',
     email: 'trader@test.com',
     password: bcrypt.hashSync('TestUser2024!', 10),
@@ -920,7 +931,7 @@ database.users.set('trader@test.com', {
     kycStatus: 'approved'
 });
 
-database.users.set('insurer@test.com', {
+usersDB.set('insurer@test.com', {
     id: 'insurer-001',
     email: 'insurer@test.com',
     password: bcrypt.hashSync('TestUser2024!', 10),
@@ -1207,7 +1218,7 @@ async function sendContractNotificationEmail(toEmail, contractData, notification
 
 // Add contract to user's dashboard (or pending if not KYC)
 function addContractToUserDashboard(userEmail, contractId, contractData, userRole) {
-    const user = database.users.get(userEmail);
+    const user = usersDB.get(userEmail);
     
     if (!user) {
         // User doesn't exist yet, store as pending
@@ -1422,7 +1433,7 @@ app.get('/manage-contract/:contractId', (req, res) => {
     let user = null;
     try {
         const decoded = jwt.verify(token, process.env.JWT_SECRET || 'tangent-secret-key');
-        user = database.users.get(decoded.email);
+        user = usersDB.get(decoded.email);
         if (!user) {
             return res.redirect('/landing-two');
         }
@@ -2150,7 +2161,7 @@ app.post('/api/auth/register', async (req, res) => {
         }
         
         // Check if user already exists
-        if (database.users.has(email)) {
+        if (usersDB.has(email)) {
             return res.status(400).json({ error: 'Email already registered' });
         }
         
@@ -2168,7 +2179,7 @@ app.post('/api/auth/register', async (req, res) => {
             createdAt: new Date().toISOString()
         };
         
-        database.users.set(email, user);
+        usersDB.set(email, user);
         saveDatabase();
         
         // Generate JWT token
@@ -2206,7 +2217,7 @@ app.post('/api/auth/login', async (req, res) => {
         }
         
         // Find user
-        const user = database.users.get(email);
+        const user = usersDB.get(email);
         if (!user) {
             return res.status(401).json({ error: 'Invalid credentials' });
         }
@@ -2266,7 +2277,7 @@ app.post('/api/kyc/submit', authenticateToken, upload.any(), async (req, res) =>
         console.log('[KYC] Submitting KYC for user:', userEmail);
         console.log('[KYC] Token decoded user:', req.user);
         
-        let user = database.users.get(userEmail);
+        let user = usersDB.get(userEmail);
         
         if (!user) {
             console.error('[KYC] User not found in database:', userEmail);
@@ -2393,7 +2404,7 @@ app.post('/api/kyc/submit', authenticateToken, upload.any(), async (req, res) =>
             // Update user's KYC status
             user.kycStatus = 'approved';
             user.kycSubmissionId = kycId;
-            database.users.set(userEmail, user);
+            usersDB.set(userEmail, user);
             
             // Process any pending contracts for this user
             processPendingContractsForUser(userEmail);
@@ -2404,7 +2415,7 @@ app.post('/api/kyc/submit', authenticateToken, upload.any(), async (req, res) =>
             finalStatus = 'pending';
             user.kycStatus = 'pending';
             user.kycSubmissionId = kycId;
-            database.users.set(userEmail, user);
+            usersDB.set(userEmail, user);
             
             console.log(`[KYC] Flagged for manual review: ${userEmail} (OFAC match or risk detected)`);
         }
@@ -2810,11 +2821,11 @@ app.post('/api/wallet/create', authenticateToken, async (req, res) => {
         database.wallets.set(walletId, wallet);
         
         // Update user's wallet status
-        const user = database.users.get(userEmail);
+        const user = usersDB.get(userEmail);
         if (user) {
             user.hasWallet = true;
             user.walletAddress = address;
-            database.users.set(userEmail, user);
+            usersDB.set(userEmail, user);
         }
         
         // Log audit event
@@ -2894,7 +2905,7 @@ app.post('/api/contracts', authenticateToken, async (req, res) => {
         }
         
         // Validate counterparty exists
-        const counterpartyUser = database.users.get(counterparty);
+        const counterpartyUser = usersDB.get(counterparty);
         if (!counterpartyUser) {
             return res.status(400).json({ error: 'Counterparty email not found. Please ensure the user is registered.' });
         }
@@ -2948,7 +2959,7 @@ app.post('/api/contracts', authenticateToken, async (req, res) => {
         let creditAssessment = null;
         if (creditIntegration && creditServiceAvailable) {
             try {
-                const buyer = database.users.get(buyerEmail);
+                const buyer = usersDB.get(buyerEmail);
                 const contractData = {
                     amount: contract.totalValue,
                     tenor_days: contract.voyageTime,
@@ -3084,7 +3095,7 @@ app.post('/api/contracts/create-dual', authenticateToken, async (req, res) => {
         }
         
         // Validate counterparty exists
-        const counterpartyUser = database.users.get(counterparty);
+        const counterpartyUser = usersDB.get(counterparty);
         if (!counterpartyUser) {
             return res.status(400).json({ error: 'Counterparty email not found. Please ensure the user is registered.' });
         }
@@ -3185,7 +3196,7 @@ app.post('/api/contracts/:contractId/deposit', authenticateToken, async (req, re
         }
         
         // Get user wallet
-        const user = database.users.get(userEmail);
+        const user = usersDB.get(userEmail);
         if (!user) {
             return res.status(404).json({ error: 'User not found' });
         }
@@ -3276,7 +3287,7 @@ app.post('/api/contracts/:contractId/deposit', authenticateToken, async (req, re
         contract.depositPaid = true;
         contract.depositPaidAt = new Date().toISOString();
         contract.status = contract.status === 'pending_deposit' ? 'active' : 'active';
-        if (contract.supplierEmail && database.users.get(contract.supplierEmail)) {
+        if (contract.supplierEmail && usersDB.get(contract.supplierEmail)) {
             // Contract is active, supplier can now upload documents
         }
         database.contracts.set(contractId, contract);
@@ -3543,7 +3554,7 @@ app.get('/api/admin/contracts', authenticateToken, requireRole(['admin']), (req,
 app.get('/admin/users', authenticateToken, requireRole(['admin']), (req, res) => {
     try {
         const token = req.query.token || req.headers.authorization?.replace('Bearer ', '');
-        const users = Array.from(database.users.values()).map(user => {
+        const users = Array.from(database.users.values()).map(user => { // Note: Still using Map for getAll - will migrate later
             const { password, ...safeUser } = user;
             return safeUser;
         });
@@ -3606,7 +3617,7 @@ app.get('/admin/kyc-reports', authenticateToken, requireRole(['admin']), (req, r
         try {
             tableRows = kycSubmissions.map(kyc => {
                 try {
-                    const user = database.users.get(kyc.userEmail || kyc.userId) || Array.from(database.users.values()).find(u => u.email === (kyc.userEmail || kyc.userId));
+                    const user = usersDB.get(kyc.userEmail || kyc.userId) || Array.from(database.users.values()).find(u => u.email === (kyc.userEmail || kyc.userId));
                     const docCount = kyc.files ? Object.keys(kyc.files).reduce((sum, key) => sum + (kyc.files[key]?.length || 0), 0) : 0;
                     const statusClass = kyc.status === 'approved' ? 'status-approved' : kyc.status === 'rejected' ? 'status-rejected' : 'status-pending';
                     
@@ -3836,7 +3847,7 @@ app.post('/api/admin/kyc/approve', authenticateToken, requireRole(['admin']), (r
             return res.status(404).json({ error: 'KYC submission not found' });
         }
         
-        const user = database.users.get(kyc.userId) || Array.from(database.users.values()).find(u => u.email === kyc.userId);
+        const user = usersDB.get(kyc.userId) || Array.from(database.users.values()).find(u => u.email === kyc.userId);
         if (!user) {
             return res.status(404).json({ error: 'User not found' });
         }
@@ -3855,7 +3866,7 @@ app.post('/api/admin/kyc/approve', authenticateToken, requireRole(['admin']), (r
         }
         
         database.kyc.set(kycId, kyc);
-        database.users.set(user.email, user);
+        usersDB.set(user.email, user);
         
         logAuditEvent('kyc_' + action, req.user.email, {
             kycId: kycId,
@@ -4802,7 +4813,7 @@ app.get('/dashboard/authenticated', (req, res) => {
     try {
         // Verify token and get user data
         const decoded = jwt.verify(token, process.env.JWT_SECRET || 'tangent-secret-key');
-        user = database.users.get(decoded.email);
+        user = usersDB.get(decoded.email);
         
         if (!user) {
             console.log('[ERROR] User not found in database:', decoded.email);
@@ -5604,7 +5615,7 @@ app.get('/dashboard/kyc', (req, res) => {
     try {
         // Verify token and get user data
         const decoded = jwt.verify(token, process.env.JWT_SECRET || 'tangent-secret-key');
-        user = database.users.get(decoded.email);
+        user = usersDB.get(decoded.email);
         
         if (!user) {
             console.log('[ERROR] User not found in database:', decoded.email);
@@ -5678,12 +5689,148 @@ function ensureUTF8(str) {
     return Buffer.from(str, 'utf8').toString('utf8');
 }
 
+// Initialize PostgreSQL database (if available)
+let usePostgreSQL = false;
+
+// Function to load users from database into Map cache
+async function loadUsersFromDatabase() {
+    if (!usePostgreSQL || !tangentDB) return;
+    
+    try {
+        const allUsers = await tangentDB.users.getAll();
+        console.log(`[DB] Loading ${allUsers.length} users from database into cache...`);
+        for (const user of allUsers) {
+            database.users.set(user.email, user);
+        }
+        console.log('[DB] Users loaded into cache successfully');
+    } catch (error) {
+        console.warn('[DB] Failed to load users from database:', error.message);
+    }
+}
+
+// Initialize database - MUST complete before server starts
+let dbInitialized = false;
+async function initializeDatabase() {
+    if (tangentDB && process.env.DATABASE_URL) {
+        try {
+            console.log('[INFO] Initializing PostgreSQL database...');
+            await tangentDB.initDatabase();
+            usePostgreSQL = true;
+            console.log('[INFO] ✅ PostgreSQL database initialized - using database instead of in-memory Maps');
+            
+            // Load existing users from database into Map cache
+            await loadUsersFromDatabase();
+            dbInitialized = true;
+        } catch (error) {
+            console.error('[ERROR] Failed to initialize PostgreSQL:', error.message);
+            console.error('[ERROR] Stack:', error.stack);
+            console.warn('[WARN] Falling back to in-memory Maps');
+            usePostgreSQL = false;
+            dbInitialized = true; // Mark as initialized even if failed (to allow server to start)
+        }
+    } else {
+        console.log('[INFO] DATABASE_URL not set or database module unavailable - using in-memory Maps');
+        dbInitialized = true;
+    }
+}
+
+// Create compatibility wrapper for users Map
+// This maintains Map interface while syncing with PostgreSQL
+// Strategy: Use Map as cache, sync writes to DB, read from Map first
+const usersDB = {
+    // Synchronous get (reads from Map cache first)
+    get(email) {
+        // Always check Map first (fast cache)
+        if (database.users.has(email)) {
+            return database.users.get(email);
+        }
+        
+        // If not in Map and DB is available, try to load from DB (async, non-blocking)
+        // User will be available on next request after async load completes
+        if (usePostgreSQL && tangentDB) {
+            tangentDB.users.get(email).then(user => {
+                if (user) {
+                    database.users.set(email, user);
+                }
+            }).catch(err => {
+                console.warn('[DB] Failed to load user from DB:', err.message);
+            });
+        }
+        
+        return null;
+    },
+    
+    // Synchronous set (writes to both Map and DB)
+    set(email, userData) {
+        // Always update Map (immediate)
+        database.users.set(email, userData);
+        
+        // Also sync to PostgreSQL (async, non-blocking)
+        if (usePostgreSQL && tangentDB) {
+            tangentDB.users.set(email, userData).catch(err => {
+                console.error('[DB] Failed to sync user to DB:', err.message);
+            });
+        }
+        
+        return userData;
+    },
+    
+    // Synchronous has (checks Map first)
+    has(email) {
+        if (database.users.has(email)) {
+            return true;
+        }
+        
+        // If DB is available, check async (non-blocking)
+        if (usePostgreSQL && tangentDB) {
+            tangentDB.users.has(email).then(exists => {
+                if (exists) {
+                    // Load user into Map cache
+                    tangentDB.users.get(email).then(user => {
+                        if (user) {
+                            database.users.set(email, user);
+                        }
+                    });
+                }
+            });
+        }
+        
+        return false;
+    },
+    
+    // Synchronous delete (removes from both Map and DB)
+    delete(email) {
+        database.users.delete(email);
+        
+        if (usePostgreSQL && tangentDB) {
+            tangentDB.users.delete(email).catch(err => {
+                console.error('[DB] Failed to delete user from DB:', err.message);
+            });
+        }
+    }
+};
+
 // Start server if this file is run directly
 if (require.main === module) {
-    app.listen(PORT, '0.0.0.0', () => {
-        console.log(`[INFO] traidefi Complete Production Platform running on port ${PORT}`);
-        console.log(`[INFO] Landing Page: http://localhost:${PORT}/`);
-    });
+    // Initialize database first, then start server
+    (async () => {
+        try {
+            await initializeDatabase();
+            
+            // Start server after database is initialized
+            app.listen(PORT, '0.0.0.0', () => {
+                console.log(`[INFO] traidefi Complete Production Platform running on port ${PORT}`);
+                console.log(`[INFO] Landing Page: http://localhost:${PORT}/`);
+                console.log(`[INFO] Database mode: ${usePostgreSQL ? 'PostgreSQL ✅' : 'In-Memory Maps ⚠️'}`);
+                if (usePostgreSQL) {
+                    console.log('[INFO] All user operations will be persisted to PostgreSQL');
+                }
+            });
+        } catch (error) {
+            console.error('[ERROR] Failed to start server:', error.message);
+            process.exit(1);
+        }
+    })();
 }
 
 module.exports = app;
