@@ -1107,7 +1107,7 @@ async function sendContractNotificationEmail(toEmail, contractData, notification
                         </div>
                         
                         <div style="text-align: center; margin: 30px 0;">
-                            <a href="${baseUrl}/dashboard/authenticated?role=${contractData.yourRole}&token=auto" 
+                            <a href="${baseUrl}/dashboard/authenticated" 
                                style="background: #666666; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
                                 View Contract in Dashboard
                             </a>
@@ -1135,7 +1135,7 @@ async function sendContractNotificationEmail(toEmail, contractData, notification
                         </div>
                         
                         <div style="text-align: center; margin: 30px 0;">
-                            <a href="${baseUrl}/dashboard/authenticated?role=${contractData.yourRole}&token=auto" 
+                            <a href="${baseUrl}/dashboard/authenticated" 
                                style="background: #666666; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
                                 Make Payment Now
                             </a>
@@ -1160,7 +1160,7 @@ async function sendContractNotificationEmail(toEmail, contractData, notification
                         </div>
                         
                         <div style="text-align: center; margin: 30px 0;">
-                            <a href="${baseUrl}/dashboard/authenticated?role=${contractData.yourRole}&token=auto" 
+                            <a href="${baseUrl}/dashboard/authenticated" 
                                style="background: #666666; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
                                 View Trading Contract
                             </a>
@@ -1194,7 +1194,7 @@ async function sendContractNotificationEmail(toEmail, contractData, notification
                         </div>
                         
                         <div style="text-align: center; margin: 30px 0;">
-                            <a href="${baseUrl}/dashboard/authenticated?role=${contractData.yourRole}&token=auto" 
+                            <a href="${baseUrl}/dashboard/authenticated" 
                                style="background: #666666; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
                                 Manage Contract
                             </a>
@@ -1281,7 +1281,7 @@ function processPendingContractsForUser(userEmail) {
 // AUTHENTICATION MIDDLEWARE
 // ================================
 const authenticateToken = async (req, res, next) => {
-    // Try multiple ways to get the token
+    // Get token ONLY from cookie or Authorization header (NO query params for security)
     let token = null;
     
     // 1. Check HTTP-only cookie (primary method for web)
@@ -1289,18 +1289,15 @@ const authenticateToken = async (req, res, next) => {
         token = req.cookies.auth_token;
     }
     
-    // 2. Check Authorization header (for API calls)
+    // 2. Check Authorization header (for API calls from external clients)
     if (!token) {
-        const authHeader = req.headers['authorization'];
-        if (authHeader && authHeader.split(' ')[1]) {
-            token = authHeader.split(' ')[1];
-        }
+    const authHeader = req.headers['authorization'];
+    if (authHeader && authHeader.split(' ')[1]) {
+        token = authHeader.split(' ')[1];
+    }
     }
     
-    // 3. Check query parameter (for dashboard redirects)
-    if (!token && req.query.token) {
-        token = req.query.token;
-    }
+    // NO query parameter reading - tokens in URLs are insecure
     
     if (!token) {
         // Only log if it's not a public route (to reduce noise)
@@ -1342,10 +1339,10 @@ const authenticateToken = async (req, res, next) => {
             if (!dbUser) {
                 console.error('[AUTH] Invalid token - user not found in DB:', decoded.email);
                 res.clearCookie('auth_token');
-                if (req.path.startsWith('/dashboard')) {
+            if (req.path.startsWith('/dashboard')) {
                     return res.redirect('/signin');
-                }
-                return res.status(403).json({ error: 'Invalid token' });
+            }
+            return res.status(403).json({ error: 'Invalid token' });
             }
             user = {
                 id: dbUser.id.toString(),
@@ -1483,7 +1480,7 @@ app.get('/', (req, res) => {
 app.get('/signin', (req, res) => {
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
     // Use plain text strings - no HTML entities
-    const html = '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Sign In - traidefi</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;background:#000;min-height:100vh;display:flex;align-items:center;justify-content:center}.container{background:#fff;padding:3rem;border-radius:15px;box-shadow:0 20px 40px rgba(0,0,0,0.2);max-width:400px;width:90%}h1{color:#1e3c72;font-size:2.2rem;margin-bottom:2rem;text-align:center}.form-group{margin-bottom:1.5rem}label{display:block;margin-bottom:0.5rem;color:#333;font-weight:600}input{width:100%;padding:12px;border:2px solid #e5e5e5;border-radius:8px;font-size:1rem}input:focus{outline:none;border-color:#667eea}.btn{width:100%;padding:15px;background:#667eea;color:#fff;border:none;border-radius:8px;font-size:1.1rem;font-weight:600;cursor:pointer;margin-top:1rem}.btn:hover{background:#5a6fd8}.links{text-align:center;margin-top:2rem}.links a{color:#667eea;text-decoration:none}.message{padding:1rem;margin-bottom:1rem;border-radius:8px;display:none}.success{background:#d4edda;color:#155724;border:1px solid #c3e6cb}.error{background:#f8d7da;color:#721c24;border:1px solid #f5c6cb}</style></head><body><div class="container"><h1>Sign In</h1><div id="message" class="message"></div><form id="signinForm"><div class="form-group"><label for="email">Email</label><input type="email" id="email" required></div><div class="form-group"><label for="password">Password</label><input type="password" id="password" required></div><div class="form-group" id="twoFactorGroup" style="display:none"><label for="twoFactorToken">Two-Factor Authentication Code</label><input type="text" id="twoFactorToken" placeholder="Enter 6-digit code" maxlength="6" pattern="[0-9]{6}"><small style="color:#666;font-size:0.85rem;display:block;margin-top:0.5rem">Enter the code from your authenticator app or use a backup code</small></div><button type="submit" class="btn" id="submitBtn">Sign In</button></form><div class="links"><a href="/signup">Dont have an account? Sign Up</a><br><a href="/forgot-password">Forgot your password?</a><br><a href="/landing-two">Back to Home</a></div><div style="margin-top:1.5rem;padding:1rem;background:#e5e5e5;border-radius:8px;border-left:4px solid #666666"><p style="margin:0;color:#333333;font-size:0.9rem"><strong>Security Tip:</strong> After signing in, enable Two-Factor Authentication (2FA) to protect your account. You will see a prompt on your dashboard.</p></div></div><script>console.log("[OK] Signin page JavaScript loaded");let loginSessionId=null;let loginEmail=null;let loginPassword=null;async function sendLoginEmailCode(email){try{const response=await fetch("/api/auth/2fa/send-login-code",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email})});const data=await response.json();if(data.success){console.log("Email code sent for login")}}catch(error){console.error("Failed to send email code:",error)}}document.getElementById("signinForm").addEventListener("submit",async function(e){e.preventDefault();const email=document.getElementById("email").value;const password=document.getElementById("password").value;const twoFactorToken=document.getElementById("twoFactorToken").value;const messageDiv=document.getElementById("message");const twoFactorGroup=document.getElementById("twoFactorGroup");console.log("[AUTH] Login form submitted:",email);try{console.log("[HTTP] Sending login request to server...");const response=await fetch("/api/auth/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email,password,twoFactorToken:twoFactorToken||null})});const data=await response.json();if(data.success){console.log("[OK] Login successful");localStorage.setItem("token",data.token);localStorage.setItem("user",JSON.stringify(data.user));window.location.href="/dashboard"}else if(data.requires2FA){console.log("[2FA] 2FA required");twoFactorGroup.style.display="block";messageDiv.textContent="Please enter your 2FA code";messageDiv.className="message";messageDiv.style.display="block";if(data.twoFactorMethod==="email"){await sendLoginEmailCode(email);messageDiv.textContent="2FA code sent to your email. Please check and enter it below."}}else{console.error("[ERROR] Login failed:",data.error);messageDiv.textContent=data.error||"Login failed. Please check your credentials.";messageDiv.className="message error";messageDiv.style.display="block"}}catch(error){console.error("[ERROR] Login error:",error);messageDiv.textContent="Network error. Please try again.";messageDiv.className="message error";messageDiv.style.display="block"}});</script></body></html>';
+    const html = '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Sign In - traidefi</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;background:#000;min-height:100vh;display:flex;align-items:center;justify-content:center}.container{background:#fff;padding:3rem;border-radius:15px;box-shadow:0 20px 40px rgba(0,0,0,0.2);max-width:400px;width:90%}h1{color:#1e3c72;font-size:2.2rem;margin-bottom:2rem;text-align:center}.form-group{margin-bottom:1.5rem}label{display:block;margin-bottom:0.5rem;color:#333;font-weight:600}input{width:100%;padding:12px;border:2px solid #e5e5e5;border-radius:8px;font-size:1rem}input:focus{outline:none;border-color:#667eea}.btn{width:100%;padding:15px;background:#667eea;color:#fff;border:none;border-radius:8px;font-size:1.1rem;font-weight:600;cursor:pointer;margin-top:1rem}.btn:hover{background:#5a6fd8}.links{text-align:center;margin-top:2rem}.links a{color:#667eea;text-decoration:none}.message{padding:1rem;margin-bottom:1rem;border-radius:8px;display:none}.success{background:#d4edda;color:#155724;border:1px solid #c3e6cb}.error{background:#f8d7da;color:#721c24;border:1px solid #f5c6cb}</style></head><body><div class="container"><h1>Sign In</h1><div id="message" class="message"></div><form id="signinForm"><div class="form-group"><label for="email">Email</label><input type="email" id="email" required></div><div class="form-group"><label for="password">Password</label><input type="password" id="password" required></div><div class="form-group" id="twoFactorGroup" style="display:none"><label for="twoFactorToken">Two-Factor Authentication Code</label><input type="text" id="twoFactorToken" placeholder="Enter 6-digit code" maxlength="6" pattern="[0-9]{6}"><small style="color:#666;font-size:0.85rem;display:block;margin-top:0.5rem">Enter the code from your authenticator app or use a backup code</small></div><button type="submit" class="btn" id="submitBtn">Sign In</button></form><div class="links"><a href="/signup">Dont have an account? Sign Up</a><br><a href="/forgot-password">Forgot your password?</a><br><a href="/landing-two">Back to Home</a></div><div style="margin-top:1.5rem;padding:1rem;background:#e5e5e5;border-radius:8px;border-left:4px solid #666666"><p style="margin:0;color:#333333;font-size:0.9rem"><strong>Security Tip:</strong> After signing in, enable Two-Factor Authentication (2FA) to protect your account. You will see a prompt on your dashboard.</p></div></div><script>console.log("[OK] Signin page JavaScript loaded");let loginSessionId=null;let loginEmail=null;let loginPassword=null;async function sendLoginEmailCode(email){try{const response=await fetch("/api/auth/2fa/send-login-code",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email})});const data=await response.json();if(data.success){console.log("Email code sent for login")}}catch(error){console.error("Failed to send email code:",error)}}document.getElementById("signinForm").addEventListener("submit",async function(e){e.preventDefault();const email=document.getElementById("email").value;const password=document.getElementById("password").value;const twoFactorToken=document.getElementById("twoFactorToken").value;const messageDiv=document.getElementById("message");const twoFactorGroup=document.getElementById("twoFactorGroup");console.log("[AUTH] Login form submitted:",email);try{console.log("[HTTP] Sending login request to server...");const response=await fetch("/api/auth/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email,password,twoFactorToken:twoFactorToken||null}),credentials:"include"});const data=await response.json();if(data.success){console.log("[OK] Login successful - cookie set, redirecting...");// IMPORTANT: Do not add token or role to the URL. Auth is handled by HttpOnly cookie on the server.window.location.href="/dashboard/authenticated"}else if(data.requires2FA){console.log("[2FA] 2FA required");twoFactorGroup.style.display="block";messageDiv.textContent="Please enter your 2FA code";messageDiv.className="message";messageDiv.style.display="block";if(data.twoFactorMethod==="email"){await sendLoginEmailCode(email);messageDiv.textContent="2FA code sent to your email. Please check and enter it below."}}else{console.error("[ERROR] Login failed:",data.error);messageDiv.textContent=data.error||"Login failed. Please check your credentials.";messageDiv.className="message error";messageDiv.style.display="block"}}catch(error){console.error("[ERROR] Login error:",error);messageDiv.textContent="Network error. Please try again.";messageDiv.className="message error";messageDiv.style.display="block"}});</script></body></html>';
     res.end(html, 'utf8');
 });
 
@@ -1491,43 +1488,25 @@ app.get('/signin', (req, res) => {
 app.get('/signup', (req, res) => {
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
     // Use plain text strings - no HTML entities, no corrupted characters
-    const html = '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Sign Up - traidefi</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;background:#000;min-height:100vh;display:flex;align-items:center;justify-content:center;color:#fff}.container{background:#1a1a1a;padding:3rem;border-radius:15px;box-shadow:0 20px 40px rgba(0,0,0,0.5);max-width:500px;width:90%}h1{color:#fff;font-size:2.2rem;margin-bottom:1rem;text-align:center}.journey{background:#2a2a2a;padding:1.5rem;border-radius:8px;margin-bottom:2rem}.journey h3{color:#fff;margin-bottom:1rem;font-size:1.1rem}.steps{display:flex;justify-content:space-between;margin-bottom:1rem}.step{flex:1;text-align:center;padding:0.5rem;background:#333;border-radius:6px;margin:0 0.25rem;color:#ccc;font-size:0.9rem}.step.active{background:#667eea;color:#fff}.step-desc{color:#888;font-size:0.85rem;text-align:center}.form-group{margin-bottom:1.5rem}label{display:block;margin-bottom:0.5rem;color:#fff;font-weight:600}input,select{width:100%;padding:12px;background:#333;border:1px solid #555;border-radius:8px;font-size:1rem;color:#fff}input:focus,select:focus{outline:none;border-color:#667eea}.btn{width:100%;padding:15px;background:#667eea;color:#fff;border:none;border-radius:8px;font-size:1.1rem;font-weight:600;cursor:pointer;margin-top:1rem}.btn:hover{background:#5a6fd8}.links{text-align:center;margin-top:2rem}.links a{color:#667eea;text-decoration:none}.message{padding:1rem;margin-bottom:1rem;border-radius:8px;display:none}.success{background:#d4edda;color:#155724;border:1px solid #c3e6cb}.error{background:#f8d7da;color:#721c24;border:1px solid #f5c6cb}</style></head><body><div class="container"><h1>Create Your Account</h1><div class="journey"><h3>Your Registration Journey</h3><div class="steps"><div class="step active">1. Sign Up</div><div class="step">2. KYC Docs</div><div class="step">3. Wallet Setup</div><div class="step">4. Dashboard</div></div><p class="step-desc">Complete basic info - Upload KYC documents - Set up your wallet - Start trading!</p></div><div id="message" class="message"></div><form id="signupForm"><div class="form-group"><label for="email">Email Address *</label><input type="email" id="email" required></div><div class="form-group"><label for="password">Password *</label><input type="password" id="password" required></div><div class="form-group"><label for="role">Your Role *</label><select id="role" required><option value="">Select your trading role</option><option value="buyer">Buyer</option><option value="supplier">Supplier</option><option value="trader">Trader</option><option value="insurer">Insurer</option></select></div><button type="submit" class="btn" id="submitBtn">Create Account</button></form><div class="links"><a href="/signin">Already have an account? Sign In</a><br><a href="/landing-two">Back to Home</a></div></div><script>console.log("[OK] Signup page loaded");document.getElementById("signupForm").addEventListener("submit",async function(e){e.preventDefault();const email=document.getElementById("email").value;const password=document.getElementById("password").value;const role=document.getElementById("role").value;const messageDiv=document.getElementById("message");try{const response=await fetch("/api/auth/register",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email,password,role})});const data=await response.json();if(data.success){localStorage.setItem("token",data.token);localStorage.setItem("user",JSON.stringify(data.user));window.location.href="/dashboard/kyc?token=" + encodeURIComponent(data.token)}else{messageDiv.textContent=data.error||"Registration failed";messageDiv.className="message error";messageDiv.style.display="block"}}catch(error){messageDiv.textContent="Network error. Please try again.";messageDiv.className="message error";messageDiv.style.display="block"}});</script></body></html>';
+    const html = '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Sign Up - traidefi</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;background:#000;min-height:100vh;display:flex;align-items:center;justify-content:center;color:#fff}.container{background:#1a1a1a;padding:3rem;border-radius:15px;box-shadow:0 20px 40px rgba(0,0,0,0.5);max-width:500px;width:90%}h1{color:#fff;font-size:2.2rem;margin-bottom:1rem;text-align:center}.journey{background:#2a2a2a;padding:1.5rem;border-radius:8px;margin-bottom:2rem}.journey h3{color:#fff;margin-bottom:1rem;font-size:1.1rem}.steps{display:flex;justify-content:space-between;margin-bottom:1rem}.step{flex:1;text-align:center;padding:0.5rem;background:#333;border-radius:6px;margin:0 0.25rem;color:#ccc;font-size:0.9rem}.step.active{background:#667eea;color:#fff}.step-desc{color:#888;font-size:0.85rem;text-align:center}.form-group{margin-bottom:1.5rem}label{display:block;margin-bottom:0.5rem;color:#fff;font-weight:600}input,select{width:100%;padding:12px;background:#333;border:1px solid #555;border-radius:8px;font-size:1rem;color:#fff}input:focus,select:focus{outline:none;border-color:#667eea}.btn{width:100%;padding:15px;background:#667eea;color:#fff;border:none;border-radius:8px;font-size:1.1rem;font-weight:600;cursor:pointer;margin-top:1rem}.btn:hover{background:#5a6fd8}.links{text-align:center;margin-top:2rem}.links a{color:#667eea;text-decoration:none}.message{padding:1rem;margin-bottom:1rem;border-radius:8px;display:none}.success{background:#d4edda;color:#155724;border:1px solid #c3e6cb}.error{background:#f8d7da;color:#721c24;border:1px solid #f5c6cb}</style></head><body><div class="container"><h1>Create Your Account</h1><div class="journey"><h3>Your Registration Journey</h3><div class="steps"><div class="step active">1. Sign Up</div><div class="step">2. KYC Docs</div><div class="step">3. Wallet Setup</div><div class="step">4. Dashboard</div></div><p class="step-desc">Complete basic info - Upload KYC documents - Set up your wallet - Start trading!</p></div><div id="message" class="message"></div><form id="signupForm"><div class="form-group"><label for="email">Email Address *</label><input type="email" id="email" required></div><div class="form-group"><label for="password">Password *</label><input type="password" id="password" required></div><div class="form-group"><label for="role">Your Role *</label><select id="role" required><option value="">Select your trading role</option><option value="buyer">Buyer</option><option value="supplier">Supplier</option><option value="trader">Trader</option><option value="insurer">Insurer</option></select></div><button type="submit" class="btn" id="submitBtn">Create Account</button></form><div class="links"><a href="/signin">Already have an account? Sign In</a><br><a href="/landing-two">Back to Home</a></div></div><script>console.log("[OK] Signup page loaded");document.getElementById("signupForm").addEventListener("submit",async function(e){e.preventDefault();const email=document.getElementById("email").value;const password=document.getElementById("password").value;const role=document.getElementById("role").value;const messageDiv=document.getElementById("message");try{const response=await fetch("/api/auth/register",{method:"POST",headers:{"Content-Type":"application/json"},credentials:"include"},body:JSON.stringify({email,password,role})});const data=await response.json();if(data.success){console.log("[OK] Registration successful - cookie set, redirecting...");window.location.href="/dashboard/authenticated"}else{messageDiv.textContent=data.error||"Registration failed";messageDiv.className="message error";messageDiv.style.display="block"}}catch(error){messageDiv.textContent="Network error. Please try again.";messageDiv.className="message error";messageDiv.style.display="block"}});</script></body></html>';
     res.end(html, 'utf8');
 });
 
-// Wallet Setup Page
-app.get('/wallet-setup', (req, res) => {
-    const token = req.query.token || req.headers.authorization?.replace('Bearer ', '') || req.cookies?.token;
-    const role = req.query.role || 'buyer';
-    
-    if (!token) {
-        return res.redirect('/landing-two');
-    }
+// Wallet Setup Page (uses authenticateToken middleware - no query params)
+app.get('/wallet-setup', authenticateToken, async (req, res) => {
+    // User is authenticated via cookie
+    const user = req.user;
+    const role = user.role || 'buyer';
     
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-    const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Wallet Setup - traidefi</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;background:#000;min-height:100vh;display:flex;align-items:center;justify-content:center;color:#fff}.container{background:#1a1a1a;padding:3rem;border-radius:15px;box-shadow:0 20px 40px rgba(0,0,0,0.5);max-width:600px;width:90%}h1{color:#fff;font-size:2.2rem;margin-bottom:1rem;text-align:center}.journey{background:#2a2a2a;padding:1.5rem;border-radius:8px;margin-bottom:2rem}.journey h3{color:#fff;margin-bottom:1rem;font-size:1.1rem}.steps{display:flex;justify-content:space-between;margin-bottom:1rem}.step{flex:1;text-align:center;padding:0.5rem;background:#333;border-radius:6px;margin:0 0.25rem;color:#ccc;font-size:0.9rem}.step.active{background:#667eea;color:#fff}.step-desc{color:#888;font-size:0.85rem;text-align:center}.options{display:flex;flex-direction:column;gap:1rem;margin-top:2rem}.option-card{background:#2a2a2a;padding:2rem;border-radius:8px;border:2px solid #333;cursor:pointer;transition:all 0.3s}.option-card:hover{border-color:#667eea;background:#333}.option-card h3{color:#fff;margin-bottom:0.5rem}.option-card p{color:#ccc;font-size:0.9rem}.form-group{margin-bottom:1.5rem}label{display:block;margin-bottom:0.5rem;color:#fff;font-weight:600}input{width:100%;padding:12px;background:#333;border:1px solid #555;border-radius:8px;font-size:1rem;color:#fff}input:focus{outline:none;border-color:#667eea}.btn{width:100%;padding:15px;background:#667eea;color:#fff;border:none;border-radius:8px;font-size:1.1rem;font-weight:600;cursor:pointer;margin-top:1rem}.btn:hover{background:#5a6fd8}.btn.secondary{background:#666;margin-top:0.5rem}.btn.secondary:hover{background:#777}.message{padding:1rem;margin-bottom:1rem;border-radius:8px;display:none}.success{background:#d4edda;color:#155724;border:1px solid #c3e6cb}.error{background:#f8d7da;color:#721c24;border:1px solid #f5c6cb}</style></head><body><div class="container"><h1>Wallet Setup</h1><div class="journey"><h3>Your Registration Journey</h3><div class="steps"><div class="step">1. Sign Up</div><div class="step">2. KYC Docs</div><div class="step active">3. Wallet Setup</div><div class="step">4. Dashboard</div></div><p class="step-desc">Set up your wallet to start trading on the platform</p></div><div id="message" class="message"></div><div class="options" id="options"><div class="option-card" onclick="showWalletForm()"><h3>I have a wallet</h3><p>Enter your existing wallet address and details</p></div><div class="option-card" onclick="setupMetaMask()"><h3>Help me set up wallet</h3><p>Connect with MetaMask or create a new wallet</p></div></div><form id="walletForm" style="display:none"><div class="form-group"><label for="walletAddress">Wallet Address *</label><input type="text" id="walletAddress" name="walletAddress" placeholder="0x..." required></div><div class="form-group"><label for="walletType">Wallet Type</label><input type="text" id="walletType" name="walletType" placeholder="MetaMask, Ledger, etc."></div><button type="submit" class="btn">Save Wallet</button><button type="button" class="btn secondary" onclick="hideWalletForm()">Cancel</button></form></div><script>const token='${token}';const role='${role}';function showWalletForm(){document.getElementById('walletForm').style.display='block';document.getElementById('options').style.display='none'}function hideWalletForm(){document.getElementById('walletForm').style.display='none';document.getElementById('options').style.display='flex';document.getElementById('walletAddress').value='';document.getElementById('walletType').value=''}async function setupMetaMask(){if(typeof window.ethereum!=='undefined'){try{const accounts=await window.ethereum.request({method:'eth_requestAccounts'});if(accounts&&accounts.length>0){const walletAddress=accounts[0];await saveWallet(walletAddress,'MetaMask');}else{alert('Please connect your MetaMask account')}}catch(error){console.error('MetaMask error:',error);alert('MetaMask connection failed. Please try again.')}}else{alert('MetaMask is not installed. Please install MetaMask extension or use the manual wallet entry option.')}}async function saveWallet(address,type){if(!address||address.trim()===''){showMessage('Wallet address is required','error');return}if(!address.match(/^0x[a-fA-F0-9]{40}$/)){showMessage('Invalid wallet address format. Must be a valid Ethereum address (0x followed by 40 hex characters)','error');return}try{const response=await fetch('/api/wallet/create',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({address:address.trim(),type:type||'Manual'})});const data=await response.json();if(data.success){localStorage.setItem('token',token);window.location.href='/dashboard/authenticated?role='+role+'&token='+encodeURIComponent(token)}else{showMessage(data.error||'Failed to save wallet','error')}}catch(error){console.error('Wallet save error:',error);showMessage('Network error. Please try again.','error')}}document.getElementById('walletForm').addEventListener('submit',async function(e){e.preventDefault();const address=document.getElementById('walletAddress').value.trim();const type=document.getElementById('walletType').value.trim()||'Manual';await saveWallet(address,type)});function showMessage(text,type){const messageDiv=document.getElementById('message');messageDiv.textContent=text;messageDiv.className='message '+type;messageDiv.style.display='block';setTimeout(()=>{messageDiv.style.display='none'},5000)}</script></body></html>`;
+    const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Wallet Setup - traidefi</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;background:#000;min-height:100vh;display:flex;align-items:center;justify-content:center;color:#fff}.container{background:#1a1a1a;padding:3rem;border-radius:15px;box-shadow:0 20px 40px rgba(0,0,0,0.5);max-width:600px;width:90%}h1{color:#fff;font-size:2.2rem;margin-bottom:1rem;text-align:center}.journey{background:#2a2a2a;padding:1.5rem;border-radius:8px;margin-bottom:2rem}.journey h3{color:#fff;margin-bottom:1rem;font-size:1.1rem}.steps{display:flex;justify-content:space-between;margin-bottom:1rem}.step{flex:1;text-align:center;padding:0.5rem;background:#333;border-radius:6px;margin:0 0.25rem;color:#ccc;font-size:0.9rem}.step.active{background:#667eea;color:#fff}.step-desc{color:#888;font-size:0.85rem;text-align:center}.options{display:flex;flex-direction:column;gap:1rem;margin-top:2rem}.option-card{background:#2a2a2a;padding:2rem;border-radius:8px;border:2px solid #333;cursor:pointer;transition:all 0.3s}.option-card:hover{border-color:#667eea;background:#333}.option-card h3{color:#fff;margin-bottom:0.5rem}.option-card p{color:#ccc;font-size:0.9rem}.form-group{margin-bottom:1.5rem}label{display:block;margin-bottom:0.5rem;color:#fff;font-weight:600}input{width:100%;padding:12px;background:#333;border:1px solid #555;border-radius:8px;font-size:1rem;color:#fff}input:focus{outline:none;border-color:#667eea}.btn{width:100%;padding:15px;background:#667eea;color:#fff;border:none;border-radius:8px;font-size:1.1rem;font-weight:600;cursor:pointer;margin-top:1rem}.btn:hover{background:#5a6fd8}.btn.secondary{background:#666;margin-top:0.5rem}.btn.secondary:hover{background:#777}.message{padding:1rem;margin-bottom:1rem;border-radius:8px;display:none}.success{background:#d4edda;color:#155724;border:1px solid #c3e6cb}.error{background:#f8d7da;color:#721c24;border:1px solid #f5c6cb}</style></head><body><div class="container"><h1>Wallet Setup</h1><div class="journey"><h3>Your Registration Journey</h3><div class="steps"><div class="step">1. Sign Up</div><div class="step">2. KYC Docs</div><div class="step active">3. Wallet Setup</div><div class="step">4. Dashboard</div></div><p class="step-desc">Set up your wallet to start trading on the platform</p></div><div id="message" class="message"></div><div class="options" id="options"><div class="option-card" onclick="showWalletForm()"><h3>I have a wallet</h3><p>Enter your existing wallet address and details</p></div><div class="option-card" onclick="setupMetaMask()"><h3>Help me set up wallet</h3><p>Connect with MetaMask or create a new wallet</p></div></div><form id="walletForm" style="display:none"><div class="form-group"><label for="walletAddress">Wallet Address *</label><input type="text" id="walletAddress" name="walletAddress" placeholder="0x..." required></div><div class="form-group"><label for="walletType">Wallet Type</label><input type="text" id="walletType" name="walletType" placeholder="MetaMask, Ledger, etc."></div><button type="submit" class="btn">Save Wallet</button><button type="button" class="btn secondary" onclick="hideWalletForm()">Cancel</button></form></div><script>const role='${role}';function showWalletForm(){document.getElementById('walletForm').style.display='block';document.getElementById('options').style.display='none'}function hideWalletForm(){document.getElementById('walletForm').style.display='none';document.getElementById('options').style.display='flex';document.getElementById('walletAddress').value='';document.getElementById('walletType').value=''}async function setupMetaMask(){if(typeof window.ethereum!=='undefined'){try{const accounts=await window.ethereum.request({method:'eth_requestAccounts'});if(accounts&&accounts.length>0){const walletAddress=accounts[0];await saveWallet(walletAddress,'MetaMask');}else{alert('Please connect your MetaMask account')}}catch(error){console.error('MetaMask error:',error);alert('MetaMask connection failed. Please try again.')}}else{alert('MetaMask is not installed. Please install MetaMask extension or use the manual wallet entry option.')}}async function saveWallet(address,type){if(!address||address.trim()===''){showMessage('Wallet address is required','error');return}if(!address.match(/^0x[a-fA-F0-9]{40}$/)){showMessage('Invalid wallet address format. Must be a valid Ethereum address (0x followed by 40 hex characters)','error');return}try{const response=await fetch('/api/wallet/create',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'include'},body:JSON.stringify({address:address.trim(),type:type||'Manual'})});const data=await response.json();if(data.success){window.location.href='/dashboard/authenticated'}else{showMessage(data.error||'Failed to save wallet','error')}}catch(error){console.error('Wallet save error:',error);showMessage('Network error. Please try again.','error')}}document.getElementById('walletForm').addEventListener('submit',async function(e){e.preventDefault();const address=document.getElementById('walletAddress').value.trim();const type=document.getElementById('walletType').value.trim()||'Manual';await saveWallet(address,type)});function showMessage(text,type){const messageDiv=document.getElementById('message');messageDiv.textContent=text;messageDiv.className='message '+type;messageDiv.style.display='block';setTimeout(()=>{messageDiv.style.display='none'},5000)}</script></body></html>`;
     res.end(html, 'utf8');
 });
 
-// Manage Contract Page (Document Upload)
-app.get('/manage-contract/:contractId', (req, res) => {
-    const token = req.query.token || req.headers.authorization?.replace('Bearer ', '') || req.cookies?.token;
+// Manage Contract Page (Document Upload) - uses authenticateToken middleware
+app.get('/manage-contract/:contractId', authenticateToken, (req, res) => {
     const { contractId } = req.params;
-    
-    if (!token) {
-        return res.redirect('/landing-two');
-    }
-    
-    let user = null;
-    try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'tangent-secret-key');
-        user = usersDB.get(decoded.email);
-        if (!user) {
-            return res.redirect('/landing-two');
-        }
-    } catch (error) {
-        return res.redirect('/landing-two');
-    }
+    const user = req.user; // Already authenticated via middleware
     
     const contract = database.contracts.get(contractId);
     if (!contract) {
@@ -1571,20 +1550,16 @@ app.get('/manage-contract/:contractId', (req, res) => {
             return `<div class="signature-item"><div class="signature-info"><div class="signature-signer">${sig.signerName || sig.signerEmail}</div><div class="signature-method">Method: ${sig.signatureMethod}</div></div><span class="signature-status ${statusClass}">${statusText}</span></div>`;
         }).join('')}</div>` : `<div class="doc-signatures"><div class="no-signatures">No signatures registered</div></div>`;
         return `<div class="doc-item"><div class="doc-header"><span class="doc-name">${doc.originalName || doc.filename}</span><span class="doc-date">${new Date(doc.uploadedAt).toLocaleString()}</span></div>${signatureHTML}</div>`;
-    }).join('')}</div></div>` : ''}<div class="document-upload"><h3>📄 Upload Shipping Documents</h3><p style="color:#ccc;margin-bottom:1rem">Upload shipping documents (Bill of Lading, Commercial Invoice, Packing List, etc.)</p><div class="file-input-wrapper"><input type="file" id="documentUpload" multiple accept=".pdf,.jpg,.jpeg,.png" onchange="handleFileSelect(event)"><label for="documentUpload" class="file-input-label">Choose Files (PDF, JPG, PNG)</label></div><div id="selectedFiles" style="margin-top:1rem;color:#ccc"></div><button class="btn" onclick="uploadDocuments()">Upload Documents</button><div id="uploadedDocs" class="uploaded-docs"></div></div><button class="btn secondary" onclick="window.location.href='/dashboard/authenticated?token='+encodeURIComponent('${token}')">Back to Dashboard</button></div><script>let token='${token}'||localStorage.getItem('token')||'';const contractId='${contractId}';let selectedFiles=[];function handleFileSelect(event){selectedFiles=Array.from(event.target.files);const filesDiv=document.getElementById('selectedFiles');if(selectedFiles.length>0){filesDiv.innerHTML='<strong>Selected files:</strong><br>'+selectedFiles.map(f=>f.name).join('<br>')}else{filesDiv.innerHTML=''}}async function uploadDocuments(){if(selectedFiles.length===0){showMessage('Please select at least one file','error');return}if(!token){token=localStorage.getItem('token')||'';if(!token){showMessage('Authentication required. Please sign in again.','error');setTimeout(()=>{window.location.href='/landing-two'},2000);return}}const formData=new FormData();selectedFiles.forEach(file=>{formData.append('documents',file)});try{showMessage('Uploading documents...','success');const response=await fetch('/api/contracts/'+contractId+'/documents',{method:'POST',headers:{'Authorization':'Bearer '+token},body:formData});if(!response.ok){if(response.status===401||response.status===403){const errorData=await response.json().catch(()=>({error:'Authentication failed'}));showMessage(errorData.error||'Session expired. Please sign in again.','error');setTimeout(()=>{window.location.href='/landing-two'},2000);return}const errorData=await response.json().catch(()=>({error:'Upload failed'}));showMessage(errorData.error||'Failed to upload documents','error');return}const result=await response.json();if(result.success){showMessage(result.message||'Documents uploaded successfully!','success');selectedFiles=[];document.getElementById('documentUpload').value='';document.getElementById('selectedFiles').innerHTML='';setTimeout(()=>{location.reload()},1500)}else{showMessage(result.error||'Failed to upload documents','error')}}catch(error){console.error('Upload error:',error);showMessage('Network error: '+error.message+'. Please check your connection and try again.','error')}}function showMessage(text,type){const messageDiv=document.getElementById('message');messageDiv.textContent=text;messageDiv.className='message '+type;messageDiv.style.display='block';setTimeout(()=>{messageDiv.style.display='none'},5000)}</script></body></html>`;
+    }).join('')}</div></div>` : ''}<div class="document-upload"><h3>📄 Upload Shipping Documents</h3><p style="color:#ccc;margin-bottom:1rem">Upload shipping documents (Bill of Lading, Commercial Invoice, Packing List, etc.)</p><div class="file-input-wrapper"><input type="file" id="documentUpload" multiple accept=".pdf,.jpg,.jpeg,.png" onchange="handleFileSelect(event)"><label for="documentUpload" class="file-input-label">Choose Files (PDF, JPG, PNG)</label></div><div id="selectedFiles" style="margin-top:1rem;color:#ccc"></div><button class="btn" onclick="uploadDocuments()">Upload Documents</button><div id="uploadedDocs" class="uploaded-docs"></div></div><button class="btn secondary" onclick="window.location.href='/dashboard/authenticated'">Back to Dashboard</button></div><script>const contractId='${contractId}';let selectedFiles=[];function handleFileSelect(event){selectedFiles=Array.from(event.target.files);const filesDiv=document.getElementById('selectedFiles');if(selectedFiles.length>0){filesDiv.innerHTML='<strong>Selected files:</strong><br>'+selectedFiles.map(f=>f.name).join('<br>')}else{filesDiv.innerHTML=''}}async function uploadDocuments(){if(selectedFiles.length===0){showMessage('Please select at least one file','error');return}const formData=new FormData();selectedFiles.forEach(file=>{formData.append('documents',file)});try{showMessage('Uploading documents...','success');const response=await fetch('/api/contracts/'+contractId+'/documents',{method:'POST',credentials:'include'},body:formData});if(!response.ok){if(response.status===401||response.status===403){const errorData=await response.json().catch(()=>({error:'Authentication failed'}));showMessage(errorData.error||'Session expired. Please sign in again.','error');setTimeout(()=>{window.location.href='/signin'},2000);return}const errorData=await response.json().catch(()=>({error:'Upload failed'}));showMessage(errorData.error||'Failed to upload documents','error');return}const result=await response.json();if(result.success){showMessage(result.message||'Documents uploaded successfully!','success');selectedFiles=[];document.getElementById('documentUpload').value='';document.getElementById('selectedFiles').innerHTML='';setTimeout(()=>{location.reload()},1500)}else{showMessage(result.error||'Failed to upload documents','error')}}catch(error){console.error('Upload error:',error);showMessage('Network error: '+error.message+'. Please check your connection and try again.','error')}}function showMessage(text,type){const messageDiv=document.getElementById('message');messageDiv.textContent=text;messageDiv.className='message '+type;messageDiv.style.display='block';setTimeout(()=>{messageDiv.style.display='none'},5000)}</script></body></html>`;
     res.end(html, 'utf8');
 });
 
-// Create Contract Page
-app.get('/create-contract', (req, res) => {
-    const token = req.query.token || req.headers.authorization?.replace('Bearer ', '') || req.cookies?.token;
-    
-    if (!token) {
-        return res.redirect('/landing-two');
-    }
+// Create Contract Page (uses authenticateToken middleware)
+app.get('/create-contract', authenticateToken, (req, res) => {
+    // User is authenticated via cookie
     
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-    const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Create Contract - traidefi</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;background:#000;min-height:100vh;padding:2rem;color:#fff}.container{max-width:800px;margin:0 auto;background:#1a1a1a;padding:3rem;border-radius:15px;box-shadow:0 20px 40px rgba(0,0,0,0.5)}h1{color:#fff;font-size:2.2rem;margin-bottom:1rem;text-align:center}.form-group{margin-bottom:1.5rem}label{display:block;margin-bottom:0.5rem;color:#fff;font-weight:600}input,select,textarea{width:100%;padding:12px;background:#333;border:1px solid #555;border-radius:8px;font-size:1rem;color:#fff}input:focus,select:focus,textarea:focus{outline:none;border-color:#667eea}textarea{min-height:100px;resize:vertical}.currency-options{display:flex;gap:1rem;margin-top:0.5rem}.currency-option{flex:1;padding:15px;background:#2a2a2a;border:2px solid #333;border-radius:8px;cursor:pointer;text-align:center;transition:all 0.3s}.currency-option:hover{border-color:#667eea}.currency-option.selected{background:#667eea;border-color:#667eea}.currency-option h4{color:#fff;margin-bottom:0.5rem;font-size:1rem}.currency-option p{color:#ccc;font-size:0.85rem}.btn{width:100%;padding:15px;background:#667eea;color:#fff;border:none;border-radius:8px;font-size:1.1rem;font-weight:600;cursor:pointer;margin-top:1rem}.btn:hover{background:#5a6fd8}.btn.secondary{background:#666;margin-top:0.5rem}.btn.secondary:hover{background:#777}.message{padding:1rem;margin-bottom:1rem;border-radius:8px;display:none}.success{background:#d4edda;color:#155724;border:1px solid #c3e6cb}.error{background:#f8d7da;color:#721c24;border:1px solid #f5c6cb}.back-link{text-align:center;margin-top:2rem}.back-link a{color:#667eea;text-decoration:none}.price-comparison{background:#2a2a2a;padding:1.5rem;border-radius:8px;margin-top:1rem;display:none}.price-comparison h4{color:#fff;margin-bottom:1rem}.price-row{display:flex;justify-content:space-between;padding:0.5rem 0;border-bottom:1px solid #333}.price-row:last-child{border-bottom:none}.price-label{color:#ccc}.price-value{color:#fff;font-weight:600}.price-warning{color:#ff6b6b}.price-good{color:#51cf66}.price-loading{color:#ffd43b}.pdf-upload{background:#2a2a2a;padding:1.5rem;border-radius:8px;margin-bottom:2rem;border:2px dashed #555}.pdf-upload h3{color:#fff;margin-bottom:1rem}.pdf-upload p{color:#ccc;margin-bottom:1rem;font-size:0.9rem}.file-input-wrapper{position:relative;display:inline-block;width:100%}.file-input-wrapper input[type=file]{position:absolute;opacity:0;width:100%;height:100%;cursor:pointer}.file-input-label{display:block;padding:12px;background:#333;border:1px solid #555;border-radius:8px;text-align:center;cursor:pointer;color:#fff}.file-input-label:hover{background:#444;border-color:#667eea}.file-name{color:#ccc;margin-top:0.5rem;font-size:0.9rem}</style></head><body><div class="container"><h1>Create New Contract</h1><div id="message" class="message"></div><div class="pdf-upload"><h3>📄 Upload PDF Contract (Optional)</h3><p>Upload a PDF contract to automatically extract and fill in the contract details. You can review and edit the extracted information before submitting.</p><div class="file-input-wrapper"><input type="file" id="pdfUpload" accept=".pdf" onchange="handlePDFUpload(event)"><label for="pdfUpload" class="file-input-label">Choose PDF File</label></div><div id="pdfFileName" class="file-name"></div></div><form id="contractForm"><div class="form-group"><label for="product">Product/Commodity *</label><select id="product" name="product" required onchange="checkPriceComparison()"><option value="">Select a product</option><option value="Rice">Rice</option><option value="Wheat">Wheat</option><option value="Corn">Corn</option><option value="Soybeans">Soybeans</option><option value="Coffee">Coffee</option><option value="Sugar">Sugar</option><option value="Cocoa">Cocoa</option><option value="Cotton">Cotton</option><option value="Palm Oil">Palm Oil</option><option value="Rubber">Rubber</option><option value="Other">Other (specify below)</option></select><input type="text" id="productOther" name="productOther" placeholder="Specify product name" style="display:none;margin-top:0.5rem"></div><div class="form-group"><label for="quantity">Quantity *</label><input type="number" id="quantity" name="quantity" placeholder="e.g., 1000" step="0.01" required></div><div class="form-group"><label for="unit">Unit *</label><select id="unit" name="unit" required><option value="">Select unit</option><option value="MT">Metric Tons (MT)</option><option value="kg">Kilograms (kg)</option><option value="lb">Pounds (lb)</option><option value="bushels">Bushels</option><option value="bags">Bags</option></select></div><div class="form-group"><label for="price">Price per Unit *</label><input type="number" id="price" name="price" placeholder="e.g., 500" step="0.01" required oninput="checkPriceComparison()"><div id="priceComparison" class="price-comparison"><h4>Market Price Comparison</h4><div id="priceComparisonContent"></div></div></div><div class="form-group"><label>Payment Currency *</label><div class="currency-options"><div class="currency-option" onclick="selectCurrency('TGT')"><h4>TGT</h4><p>Tangent Token</p></div><div class="currency-option" onclick="selectCurrency('USDT')"><h4>USDT</h4><p>Tether USD</p></div><div class="currency-option" onclick="selectCurrency('USDC')"><h4>USDC</h4><p>USD Coin</p></div></div><input type="hidden" id="currency" name="currency" value="TGT" required></div><div class="form-group"><label for="counterparty">Counterparty Email *</label><input type="email" id="counterparty" name="counterparty" placeholder="buyer@example.com or supplier@example.com" required></div><div class="form-group"><label for="depositPercent">Deposit Percentage *</label><input type="number" id="depositPercent" name="depositPercent" placeholder="30" min="10" max="50" value="30" required></div><div class="form-group"><label for="voyageTime">Voyage Time (days) *</label><input type="number" id="voyageTime" name="voyageTime" placeholder="30" min="1" value="30" required></div><div class="form-group"><label for="description">Description</label><textarea id="description" name="description" placeholder="Additional contract details..."></textarea></div><button type="submit" class="btn">Create Contract</button><button type="button" class="btn secondary" onclick="window.location.href='/dashboard/authenticated?token='+encodeURIComponent('${token}')">Cancel</button></form><div class="back-link"><a href="/dashboard/authenticated?token=${token}">Back to Dashboard</a></div></div><script>const token='${token}'||localStorage.getItem('token');if(!token){window.location.href='/landing-two'}function selectCurrency(currency){document.querySelectorAll('.currency-option').forEach(opt=>opt.classList.remove('selected'));event.target.closest('.currency-option')?.classList.add('selected')||event.currentTarget.classList.add('selected');document.getElementById('currency').value=currency}async function handlePDFUpload(event){const file=event.target.files[0];if(!file){return}if(file.type!=='application/pdf'){showMessage('Please upload a PDF file','error');return}document.getElementById('pdfFileName').textContent='Uploading: '+file.name;showMessage('Extracting contract data from PDF...','success');const formData=new FormData();formData.append('pdf',file);try{const response=await fetch('/api/contracts/extract-from-pdf',{method:'POST',headers:{'Authorization':'Bearer '+token},body:formData});const result=await response.json();if(result.success&&result.extracted){const ext=result.extracted;if(ext.productDetails){const productSelect=document.getElementById('product');const productValue=ext.productDetails.toLowerCase();if(['rice','wheat','corn','soybeans','coffee','sugar','cocoa','cotton','palm oil','rubber'].some(p=>productValue.includes(p))){productSelect.value=ext.productDetails}else{productSelect.value='Other';document.getElementById('productOther').style.display='block';document.getElementById('productOther').value=ext.productDetails}}if(ext.quantity){document.getElementById('quantity').value=ext.quantity}if(ext.unit){document.getElementById('unit').value=ext.unit}if(ext.pricePerUnit){document.getElementById('price').value=ext.pricePerUnit;checkPriceComparison()}if(ext.buyerEmail||ext.supplierEmail){document.getElementById('counterparty').value=ext.buyerEmail||ext.supplierEmail}if(ext.deliveryDate){const days=Math.ceil((new Date(ext.deliveryDate)-new Date())/86400000);if(days>0){document.getElementById('voyageTime').value=days}}if(ext.specifications){document.getElementById('description').value=ext.specifications}showMessage('Contract data extracted and filled! Please review and edit as needed.','success');document.getElementById('pdfFileName').textContent='Extracted from: '+file.name}else{showMessage('Could not extract contract data from PDF. Please fill the form manually.','error')}}catch(error){console.error('PDF extraction error:',error);showMessage('Failed to extract PDF. Please fill the form manually.','error')}}document.getElementById('product').addEventListener('change',function(){const productOther=document.getElementById('productOther');if(this.value==='Other'){productOther.style.display='block';productOther.required=true}else{productOther.style.display='none';productOther.required=false;productOther.value=''}checkPriceComparison()});async function checkPriceComparison(){const product=document.getElementById('product').value;const price=parseFloat(document.getElementById('price').value);const comparisonDiv=document.getElementById('priceComparison');const contentDiv=document.getElementById('priceComparisonContent');if(!product||!price||isNaN(price)){comparisonDiv.style.display='none';return}comparisonDiv.style.display='block';contentDiv.innerHTML='<div class="price-row"><span class="price-label price-loading">Loading market prices...</span></div>';try{let variancePercent=5;let basisPoints=100;try{const response=await fetch('/api/admin/settings',{headers:{'Authorization':'Bearer '+token}});if(response.ok){const settings=await response.json();basisPoints=settings.basisPoints||100;variancePercent=5}}catch(e){console.log('Using default variance settings')}const mockPrices={Rice:450,Wheat:280,Corn:180,Soybeans:520,Coffee:180,Sugar:0.18,Cocoa:3200,Cotton:0.85,'Palm Oil':850,Rubber:1.2};const marketPrice=mockPrices[product]||price*0.95;const priceDiff=Math.abs(price-marketPrice);const priceDiffPercent=(priceDiff/marketPrice)*100;const isWithinVariance=priceDiffPercent<=variancePercent;let html='';html+='<div class="price-row"><span class="price-label">Your Price:</span><span class="price-value">$'+price.toFixed(2)+'</span></div>';html+='<div class="price-row"><span class="price-label">Market Average:</span><span class="price-value">$'+marketPrice.toFixed(2)+'</span></div>';html+='<div class="price-row"><span class="price-label">Difference:</span><span class="price-value '+(isWithinVariance?'price-good':'price-warning')+'">'+priceDiffPercent.toFixed(2)+'% '+(price>marketPrice?'above':'below')+' market</span></div>';if(!isWithinVariance){html+='<div class="price-row"><span class="price-label price-warning">⚠️ Price variance exceeds '+variancePercent+'% threshold</span></div>'}else{html+='<div class="price-row"><span class="price-label price-good">✓ Price within acceptable range</span></div>'}contentDiv.innerHTML=html}catch(error){console.error('Price comparison error:',error);contentDiv.innerHTML='<div class="price-row"><span class="price-label">Unable to fetch market prices</span></div>'}}document.getElementById('price').addEventListener('input',checkPriceComparison);document.getElementById('contractForm').addEventListener('submit',async function(e){e.preventDefault();const formData=new FormData(this);const data=Object.fromEntries(formData);if(data.product==='Other'){data.product=data.productOther||'Other'}data.totalValue=(parseFloat(data.quantity)*parseFloat(data.price)).toFixed(2);data.depositAmount=((parseFloat(data.totalValue)*parseFloat(data.depositPercent))/100).toFixed(2);try{const response=await fetch('/api/contracts',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify(data)});if(!response.ok){const errorData=await response.json().catch(()=>({error:'Authentication failed. Please sign in again.'}));if(response.status===401||response.status===403){showMessage('Session expired. Please sign in again.','error');setTimeout(()=>{window.location.href='/landing-two'},2000);return}showMessage(errorData.error||'Failed to create contract','error');return}const result=await response.json();if(result.success||result.id){showMessage('Contract created successfully!','success');setTimeout(()=>{window.location.href='/dashboard/authenticated?token='+encodeURIComponent(token)},2000)}else{showMessage(result.error||'Failed to create contract','error')}}catch(error){console.error('Contract creation error:',error);showMessage('Network error. Please try again.','error')}});function showMessage(text,type){const messageDiv=document.getElementById('message');messageDiv.textContent=text;messageDiv.className='message '+type;messageDiv.style.display='block';setTimeout(()=>{messageDiv.style.display='none'},5000)}</script></body></html>`;
+    const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Create Contract - traidefi</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;background:#000;min-height:100vh;padding:2rem;color:#fff}.container{max-width:800px;margin:0 auto;background:#1a1a1a;padding:3rem;border-radius:15px;box-shadow:0 20px 40px rgba(0,0,0,0.5)}h1{color:#fff;font-size:2.2rem;margin-bottom:1rem;text-align:center}.form-group{margin-bottom:1.5rem}label{display:block;margin-bottom:0.5rem;color:#fff;font-weight:600}input,select,textarea{width:100%;padding:12px;background:#333;border:1px solid #555;border-radius:8px;font-size:1rem;color:#fff}input:focus,select:focus,textarea:focus{outline:none;border-color:#667eea}textarea{min-height:100px;resize:vertical}.currency-options{display:flex;gap:1rem;margin-top:0.5rem}.currency-option{flex:1;padding:15px;background:#2a2a2a;border:2px solid #333;border-radius:8px;cursor:pointer;text-align:center;transition:all 0.3s}.currency-option:hover{border-color:#667eea}.currency-option.selected{background:#667eea;border-color:#667eea}.currency-option h4{color:#fff;margin-bottom:0.5rem;font-size:1rem}.currency-option p{color:#ccc;font-size:0.85rem}.btn{width:100%;padding:15px;background:#667eea;color:#fff;border:none;border-radius:8px;font-size:1.1rem;font-weight:600;cursor:pointer;margin-top:1rem}.btn:hover{background:#5a6fd8}.btn.secondary{background:#666;margin-top:0.5rem}.btn.secondary:hover{background:#777}.message{padding:1rem;margin-bottom:1rem;border-radius:8px;display:none}.success{background:#d4edda;color:#155724;border:1px solid #c3e6cb}.error{background:#f8d7da;color:#721c24;border:1px solid #f5c6cb}.back-link{text-align:center;margin-top:2rem}.back-link a{color:#667eea;text-decoration:none}.price-comparison{background:#2a2a2a;padding:1.5rem;border-radius:8px;margin-top:1rem;display:none}.price-comparison h4{color:#fff;margin-bottom:1rem}.price-row{display:flex;justify-content:space-between;padding:0.5rem 0;border-bottom:1px solid #333}.price-row:last-child{border-bottom:none}.price-label{color:#ccc}.price-value{color:#fff;font-weight:600}.price-warning{color:#ff6b6b}.price-good{color:#51cf66}.price-loading{color:#ffd43b}.pdf-upload{background:#2a2a2a;padding:1.5rem;border-radius:8px;margin-bottom:2rem;border:2px dashed #555}.pdf-upload h3{color:#fff;margin-bottom:1rem}.pdf-upload p{color:#ccc;margin-bottom:1rem;font-size:0.9rem}.file-input-wrapper{position:relative;display:inline-block;width:100%}.file-input-wrapper input[type=file]{position:absolute;opacity:0;width:100%;height:100%;cursor:pointer}.file-input-label{display:block;padding:12px;background:#333;border:1px solid #555;border-radius:8px;text-align:center;cursor:pointer;color:#fff}.file-input-label:hover{background:#444;border-color:#667eea}.file-name{color:#ccc;margin-top:0.5rem;font-size:0.9rem}</style></head><body><div class="container"><h1>Create New Contract</h1><div id="message" class="message"></div><div class="pdf-upload"><h3>📄 Upload PDF Contract (Optional)</h3><p>Upload a PDF contract to automatically extract and fill in the contract details. You can review and edit the extracted information before submitting.</p><div class="file-input-wrapper"><input type="file" id="pdfUpload" accept=".pdf" onchange="handlePDFUpload(event)"><label for="pdfUpload" class="file-input-label">Choose PDF File</label></div><div id="pdfFileName" class="file-name"></div></div><form id="contractForm"><div class="form-group"><label for="product">Product/Commodity *</label><select id="product" name="product" required onchange="checkPriceComparison()"><option value="">Select a product</option><option value="Rice">Rice</option><option value="Wheat">Wheat</option><option value="Corn">Corn</option><option value="Soybeans">Soybeans</option><option value="Coffee">Coffee</option><option value="Sugar">Sugar</option><option value="Cocoa">Cocoa</option><option value="Cotton">Cotton</option><option value="Palm Oil">Palm Oil</option><option value="Rubber">Rubber</option><option value="Other">Other (specify below)</option></select><input type="text" id="productOther" name="productOther" placeholder="Specify product name" style="display:none;margin-top:0.5rem"></div><div class="form-group"><label for="quantity">Quantity *</label><input type="number" id="quantity" name="quantity" placeholder="e.g., 1000" step="0.01" required></div><div class="form-group"><label for="unit">Unit *</label><select id="unit" name="unit" required><option value="">Select unit</option><option value="MT">Metric Tons (MT)</option><option value="kg">Kilograms (kg)</option><option value="lb">Pounds (lb)</option><option value="bushels">Bushels</option><option value="bags">Bags</option></select></div><div class="form-group"><label for="price">Price per Unit *</label><input type="number" id="price" name="price" placeholder="e.g., 500" step="0.01" required oninput="checkPriceComparison()"><div id="priceComparison" class="price-comparison"><h4>Market Price Comparison</h4><div id="priceComparisonContent"></div></div></div><div class="form-group"><label>Payment Currency *</label><div class="currency-options"><div class="currency-option" onclick="selectCurrency('TGT')"><h4>TGT</h4><p>Tangent Token</p></div><div class="currency-option" onclick="selectCurrency('USDT')"><h4>USDT</h4><p>Tether USD</p></div><div class="currency-option" onclick="selectCurrency('USDC')"><h4>USDC</h4><p>USD Coin</p></div></div><input type="hidden" id="currency" name="currency" value="TGT" required></div><div class="form-group"><label for="counterparty">Counterparty Email *</label><input type="email" id="counterparty" name="counterparty" placeholder="buyer@example.com or supplier@example.com" required></div><div class="form-group"><label for="depositPercent">Deposit Percentage *</label><input type="number" id="depositPercent" name="depositPercent" placeholder="30" min="10" max="50" value="30" required></div><div class="form-group"><label for="voyageTime">Voyage Time (days) *</label><input type="number" id="voyageTime" name="voyageTime" placeholder="30" min="1" value="30" required></div><div class="form-group"><label for="description">Description</label><textarea id="description" name="description" placeholder="Additional contract details..."></textarea></div><button type="submit" class="btn">Create Contract</button><button type="button" class="btn secondary" onclick="window.location.href='/dashboard/authenticated?token='+encodeURIComponent('${token}')">Cancel</button></form><div class="back-link"><a href="/dashboard/authenticated?token=${token}">Back to Dashboard</a></div></div><script>const token='${token}'||localStorage.getItem('token');if(!token){window.location.href='/landing-two'}function selectCurrency(currency){document.querySelectorAll('.currency-option').forEach(opt=>opt.classList.remove('selected'));event.target.closest('.currency-option')?.classList.add('selected')||event.currentTarget.classList.add('selected');document.getElementById('currency').value=currency}async function handlePDFUpload(event){const file=event.target.files[0];if(!file){return}if(file.type!=='application/pdf'){showMessage('Please upload a PDF file','error');return}document.getElementById('pdfFileName').textContent='Uploading: '+file.name;showMessage('Extracting contract data from PDF...','success');const formData=new FormData();formData.append('pdf',file);try{const response=await fetch('/api/contracts/extract-from-pdf',{method:'POST',headers:{'Authorization':'Bearer '+token},body:formData});const result=await response.json();if(result.success&&result.extracted){const ext=result.extracted;if(ext.productDetails){const productSelect=document.getElementById('product');const productValue=ext.productDetails.toLowerCase();if(['rice','wheat','corn','soybeans','coffee','sugar','cocoa','cotton','palm oil','rubber'].some(p=>productValue.includes(p))){productSelect.value=ext.productDetails}else{productSelect.value='Other';document.getElementById('productOther').style.display='block';document.getElementById('productOther').value=ext.productDetails}}if(ext.quantity){document.getElementById('quantity').value=ext.quantity}if(ext.unit){document.getElementById('unit').value=ext.unit}if(ext.pricePerUnit){document.getElementById('price').value=ext.pricePerUnit;checkPriceComparison()}if(ext.buyerEmail||ext.supplierEmail){document.getElementById('counterparty').value=ext.buyerEmail||ext.supplierEmail}if(ext.deliveryDate){const days=Math.ceil((new Date(ext.deliveryDate)-new Date())/86400000);if(days>0){document.getElementById('voyageTime').value=days}}if(ext.specifications){document.getElementById('description').value=ext.specifications}showMessage('Contract data extracted and filled! Please review and edit as needed.','success');document.getElementById('pdfFileName').textContent='Extracted from: '+file.name}else{showMessage('Could not extract contract data from PDF. Please fill the form manually.','error')}}catch(error){console.error('PDF extraction error:',error);showMessage('Failed to extract PDF. Please fill the form manually.','error')}}document.getElementById('product').addEventListener('change',function(){const productOther=document.getElementById('productOther');if(this.value==='Other'){productOther.style.display='block';productOther.required=true}else{productOther.style.display='none';productOther.required=false;productOther.value=''}checkPriceComparison()});async function checkPriceComparison(){const product=document.getElementById('product').value;const price=parseFloat(document.getElementById('price').value);const comparisonDiv=document.getElementById('priceComparison');const contentDiv=document.getElementById('priceComparisonContent');if(!product||!price||isNaN(price)){comparisonDiv.style.display='none';return}comparisonDiv.style.display='block';contentDiv.innerHTML='<div class="price-row"><span class="price-label price-loading">Loading market prices...</span></div>';try{let variancePercent=5;let basisPoints=100;try{const response=await fetch('/api/admin/settings',{headers:{'Authorization':'Bearer '+token}});if(response.ok){const settings=await response.json();basisPoints=settings.basisPoints||100;variancePercent=5}}catch(e){console.log('Using default variance settings')}const mockPrices={Rice:450,Wheat:280,Corn:180,Soybeans:520,Coffee:180,Sugar:0.18,Cocoa:3200,Cotton:0.85,'Palm Oil':850,Rubber:1.2};const marketPrice=mockPrices[product]||price*0.95;const priceDiff=Math.abs(price-marketPrice);const priceDiffPercent=(priceDiff/marketPrice)*100;const isWithinVariance=priceDiffPercent<=variancePercent;let html='';html+='<div class="price-row"><span class="price-label">Your Price:</span><span class="price-value">$'+price.toFixed(2)+'</span></div>';html+='<div class="price-row"><span class="price-label">Market Average:</span><span class="price-value">$'+marketPrice.toFixed(2)+'</span></div>';html+='<div class="price-row"><span class="price-label">Difference:</span><span class="price-value '+(isWithinVariance?'price-good':'price-warning')+'">'+priceDiffPercent.toFixed(2)+'% '+(price>marketPrice?'above':'below')+' market</span></div>';if(!isWithinVariance){html+='<div class="price-row"><span class="price-label price-warning">⚠️ Price variance exceeds '+variancePercent+'% threshold</span></div>'}else{html+='<div class="price-row"><span class="price-label price-good">✓ Price within acceptable range</span></div>'}contentDiv.innerHTML=html}catch(error){console.error('Price comparison error:',error);contentDiv.innerHTML='<div class="price-row"><span class="price-label">Unable to fetch market prices</span></div>'}}document.getElementById('price').addEventListener('input',checkPriceComparison);document.getElementById('contractForm').addEventListener('submit',async function(e){e.preventDefault();const formData=new FormData(this);const data=Object.fromEntries(formData);if(data.product==='Other'){data.product=data.productOther||'Other'}data.totalValue=(parseFloat(data.quantity)*parseFloat(data.price)).toFixed(2);data.depositAmount=((parseFloat(data.totalValue)*parseFloat(data.depositPercent))/100).toFixed(2);try{const response=await fetch('/api/contracts',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify(data)});if(!response.ok){const errorData=await response.json().catch(()=>({error:'Authentication failed. Please sign in again.'}));if(response.status===401||response.status===403){showMessage('Session expired. Please sign in again.','error');setTimeout(()=>{window.location.href='/landing-two'},2000);return}showMessage(errorData.error||'Failed to create contract','error');return}const result=await response.json();if(result.success||result.id){showMessage('Contract created successfully!','success');setTimeout(()=>{window.location.href='/dashboard/authenticated'},2000)}else{showMessage(result.error||'Failed to create contract','error')}}catch(error){console.error('Contract creation error:',error);showMessage('Network error. Please try again.','error')}});function showMessage(text,type){const messageDiv=document.getElementById('message');messageDiv.textContent=text;messageDiv.className='message '+type;messageDiv.style.display='block';setTimeout(()=>{messageDiv.style.display='none'},5000)}</script></body></html>`;
     res.end(html, 'utf8');
 });
 
@@ -2312,7 +2287,7 @@ app.post('/api/auth/register', async (req, res) => {
             { expiresIn: '7d' }
         );
         
-        // Set JWT as HTTP-only cookie
+        // Set JWT as HTTP-only cookie (secure, no token in response)
         res.cookie('auth_token', token, {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
@@ -2320,17 +2295,9 @@ app.post('/api/auth/register', async (req, res) => {
             maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
         });
         
-        // Return success (don't include password)
-        const { password: _, hashedPassword: __, ...safeUser } = user;
-        
-        // Redirect based on role
-        const dashboardPath = `/dashboard/${normalizedRole}`;
-        
+        // Return success WITHOUT token (token is in HttpOnly cookie only)
         res.status(201).json({
-            success: true,
-            token: token,
-            user: safeUser,
-            redirect: dashboardPath
+            success: true
         });
     } catch (error) {
         console.error('[ERROR] Registration error:', error);
@@ -2413,7 +2380,8 @@ app.post('/api/auth/login', async (req, res) => {
             { expiresIn: '7d' }
         );
         
-        // Set JWT as HTTP-only cookie
+        // IMPORTANT: Do NOT return the JWT or include it in URLs. Auth uses only the HttpOnly cookie.
+        // Set JWT as HTTP-only cookie (secure, no token in response)
         res.cookie('auth_token', token, {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
@@ -2423,17 +2391,9 @@ app.post('/api/auth/login', async (req, res) => {
         
         console.log('[AUTH] User logged in: userId=' + user.id + ', email=' + user.email + ', role=' + user.role);
         
-        // Return success (don't include password)
-        const { password: _, hashedPassword: __, ...safeUser } = user;
-        
-        // Redirect based on role
-        const dashboardPath = `/dashboard/${user.role}`;
-        
+        // Return success WITHOUT token (token is in HttpOnly cookie only)
         res.json({
-            success: true,
-            token: token,
-            user: safeUser,
-            redirect: dashboardPath
+            success: true
         });
     } catch (error) {
         console.error('[ERROR] Login error:', error);
@@ -3749,14 +3709,14 @@ app.get('/api/admin/contracts', authenticateToken, requireRole('admin'), async (
 // Admin Users Management
 app.get('/admin/users', authenticateToken, requireRole(['admin']), (req, res) => {
     try {
-        const token = req.query.token || req.headers.authorization?.replace('Bearer ', '');
+        // Cookie-based auth - no token needed
         const users = Array.from(database.users.values()).map(user => { // Note: Still using Map for getAll - will migrate later
             const { password, ...safeUser } = user;
             return safeUser;
         });
         
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-        const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>User Management - Admin</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;background:#000;color:#fff;padding:2rem}.container{max-width:1200px;margin:0 auto}h1{color:#fff;margin-bottom:2rem}.btn{background:#667eea;color:#fff;padding:10px 20px;border:none;border-radius:6px;cursor:pointer;text-decoration:none;display:inline-block;margin:10px 5px}.btn:hover{background:#5a6fd8}table{width:100%;border-collapse:collapse;margin-top:20px}th,td{padding:12px;text-align:left;border-bottom:1px solid #333}th{background:#1a1a1a;color:#fff}</style></head><body><div class="container"><h1>User Management</h1><a href="/dashboard/authenticated?token=${token}" class="btn">Back to Dashboard</a><table><thead><tr><th>Email</th><th>Role</th><th>KYC Status</th><th>Created</th></tr></thead><tbody>${users.map(u => `<tr><td>${u.email}</td><td>${u.role}</td><td>${u.kycStatus || 'pending'}</td><td>${new Date(u.createdAt || Date.now()).toLocaleDateString()}</td></tr>`).join('')}</tbody></table></div></body></html>`;
+        const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>User Management - Admin</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;background:#000;color:#fff;padding:2rem}.container{max-width:1200px;margin:0 auto}h1{color:#fff;margin-bottom:2rem}.btn{background:#667eea;color:#fff;padding:10px 20px;border:none;border-radius:6px;cursor:pointer;text-decoration:none;display:inline-block;margin:10px 5px}.btn:hover{background:#5a6fd8}table{width:100%;border-collapse:collapse;margin-top:20px}th,td{padding:12px;text-align:left;border-bottom:1px solid #333}th{background:#1a1a1a;color:#fff}</style></head><body><div class="container"><h1>User Management</h1><a href="/dashboard/authenticated" class="btn">Back to Dashboard</a><table><thead><tr><th>Email</th><th>Role</th><th>KYC Status</th><th>Created</th></tr></thead><tbody>${users.map(u => `<tr><td>${u.email}</td><td>${u.role}</td><td>${u.kycStatus || 'pending'}</td><td>${new Date(u.createdAt || Date.now()).toLocaleDateString()}</td></tr>`).join('')}</tbody></table></div></body></html>`;
         res.end(html, 'utf8');
     } catch (error) {
         console.error('[ERROR] Admin users error:', error);
@@ -3767,11 +3727,11 @@ app.get('/admin/users', authenticateToken, requireRole(['admin']), (req, res) =>
 // Admin Active Trades
 app.get('/admin/active-trades', authenticateToken, requireRole(['admin']), (req, res) => {
     try {
-        const token = req.query.token || req.headers.authorization?.replace('Bearer ', '');
+        // Cookie-based auth - no token needed
         const contracts = Array.from(database.contracts.values());
         
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-        const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Active Trades - Admin</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;background:#000;color:#fff;padding:2rem}.container{max-width:1200px;margin:0 auto}h1{color:#fff;margin-bottom:2rem}.btn{background:#667eea;color:#fff;padding:10px 20px;border:none;border-radius:6px;cursor:pointer;text-decoration:none;display:inline-block;margin:10px 5px}.btn:hover{background:#5a6fd8}table{width:100%;border-collapse:collapse;margin-top:20px}th,td{padding:12px;text-align:left;border-bottom:1px solid #333}th{background:#1a1a1a;color:#fff}</style></head><body><div class="container"><h1>Active Trades</h1><a href="/dashboard/authenticated?token=${token}" class="btn">Back to Dashboard</a><table><thead><tr><th>Contract ID</th><th>Product</th><th>Value</th><th>Buyer</th><th>Supplier</th><th>Status</th></tr></thead><tbody>${contracts.map(c => `<tr><td>${c.id || 'N/A'}</td><td>${c.productDetails || 'N/A'}</td><td>$${(c.totalValue || 0).toLocaleString()}</td><td>${c.buyerEmail || 'N/A'}</td><td>${c.supplierEmail || 'N/A'}</td><td>${(c.status || 'pending').replace(/_/g, ' ')}</td></tr>`).join('')}</tbody></table></div></body></html>`;
+        const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Active Trades - Admin</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;background:#000;color:#fff;padding:2rem}.container{max-width:1200px;margin:0 auto}h1{color:#fff;margin-bottom:2rem}.btn{background:#667eea;color:#fff;padding:10px 20px;border:none;border-radius:6px;cursor:pointer;text-decoration:none;display:inline-block;margin:10px 5px}.btn:hover{background:#5a6fd8}table{width:100%;border-collapse:collapse;margin-top:20px}th,td{padding:12px;text-align:left;border-bottom:1px solid #333}th{background:#1a1a1a;color:#fff}</style></head><body><div class="container"><h1>Active Trades</h1><a href="/dashboard/authenticated" class="btn">Back to Dashboard</a><table><thead><tr><th>Contract ID</th><th>Product</th><th>Value</th><th>Buyer</th><th>Supplier</th><th>Status</th></tr></thead><tbody>${contracts.map(c => `<tr><td>${c.id || 'N/A'}</td><td>${c.productDetails || 'N/A'}</td><td>$${(c.totalValue || 0).toLocaleString()}</td><td>${c.buyerEmail || 'N/A'}</td><td>${c.supplierEmail || 'N/A'}</td><td>${(c.status || 'pending').replace(/_/g, ' ')}</td></tr>`).join('')}</tbody></table></div></body></html>`;
         res.end(html, 'utf8');
     } catch (error) {
         console.error('[ERROR] Admin active trades error:', error);
@@ -3782,12 +3742,12 @@ app.get('/admin/active-trades', authenticateToken, requireRole(['admin']), (req,
 // Admin Auction Board
 app.get('/admin/auction', authenticateToken, requireRole(['admin']), (req, res) => {
     try {
-        const token = req.query.token || req.headers.authorization?.replace('Bearer ', '');
+        // Cookie-based auth - no token needed
         const auctions = Array.from(database.auctions.values());
         const activeAuctions = auctions.filter(a => a.status === 'active' || a.status === 'open');
         
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-        const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Auction Board - Admin</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;background:#000;color:#fff;padding:2rem}.container{max-width:1200px;margin:0 auto}h1{color:#fff;margin-bottom:2rem}.btn{background:#667eea;color:#fff;padding:10px 20px;border:none;border-radius:6px;cursor:pointer;text-decoration:none;display:inline-block;margin:10px 5px}.btn:hover{background:#5a6fd8}table{width:100%;border-collapse:collapse;margin-top:20px}th,td{padding:12px;text-align:left;border-bottom:1px solid #333}th{background:#1a1a1a;color:#fff}.status-active{color:#51cf66}.status-closed{color:#ccc}.bid-count{background:#667eea;color:#fff;padding:4px 8px;border-radius:4px;font-size:0.85rem}</style></head><body><div class="container"><h1>Auction Board</h1><a href="/dashboard/authenticated?token=${token}" class="btn">Back to Dashboard</a><table><thead><tr><th>Contract ID</th><th>Product</th><th>Value</th><th>Current Bid</th><th>Bids</th><th>Status</th><th>Ends</th></tr></thead><tbody>${activeAuctions.map(a => {
+        const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Auction Board - Admin</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;background:#000;color:#fff;padding:2rem}.container{max-width:1200px;margin:0 auto}h1{color:#fff;margin-bottom:2rem}.btn{background:#667eea;color:#fff;padding:10px 20px;border:none;border-radius:6px;cursor:pointer;text-decoration:none;display:inline-block;margin:10px 5px}.btn:hover{background:#5a6fd8}table{width:100%;border-collapse:collapse;margin-top:20px}th,td{padding:12px;text-align:left;border-bottom:1px solid #333}th{background:#1a1a1a;color:#fff}.status-active{color:#51cf66}.status-closed{color:#ccc}.bid-count{background:#667eea;color:#fff;padding:4px 8px;border-radius:4px;font-size:0.85rem}</style></head><body><div class="container"><h1>Auction Board</h1><a href="/dashboard/authenticated" class="btn">Back to Dashboard</a><table><thead><tr><th>Contract ID</th><th>Product</th><th>Value</th><th>Current Bid</th><th>Bids</th><th>Status</th><th>Ends</th></tr></thead><tbody>${activeAuctions.map(a => {
             const contract = database.contracts.get(a.contractId);
             const bidCount = a.bids ? a.bids.length : 0;
             const currentBid = a.bids && a.bids.length > 0 ? a.bids[a.bids.length - 1].amount : a.startingBid || 0;
@@ -3804,7 +3764,7 @@ app.get('/admin/auction', authenticateToken, requireRole(['admin']), (req, res) 
 // Admin KYC Reports
 app.get('/admin/kyc-reports', authenticateToken, requireRole(['admin']), (req, res) => {
     try {
-        const token = req.query.token || req.headers.authorization?.replace('Bearer ', '');
+        // Cookie-based auth - no token needed
         const kycSubmissions = Array.from(database.kyc.values());
         const complianceReports = Array.from(database.complianceReports.values());
         
@@ -3874,7 +3834,7 @@ app.get('/admin/kyc-reports', authenticateToken, requireRole(['admin']), (req, r
         }
         
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-        const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>KYC Reports - Admin</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;background:#000;color:#fff;padding:2rem}.container{max-width:1400px;margin:0 auto}h1{color:#fff;margin-bottom:2rem}.btn{background:#667eea;color:#fff;padding:10px 20px;border:none;border-radius:6px;cursor:pointer;text-decoration:none;display:inline-block;margin:10px 5px}.btn:hover{background:#5a6fd8}table{width:100%;border-collapse:collapse;margin-top:20px}th,td{padding:12px;text-align:left;border-bottom:1px solid #333}th{background:#1a1a1a;color:#fff}.status-pending{color:#ffd43b}.status-approved{color:#51cf66}.status-rejected{color:#ff6b6b}.action-btn{padding:6px 12px;margin:0 3px;border:none;border-radius:4px;cursor:pointer;font-size:0.85rem}.approve-btn{background:#51cf66;color:#fff}.reject-btn{background:#ff6b6b;color:#fff}.risk-high{color:#ff6b6b}.risk-medium{color:#ffd43b}.risk-low{color:#51cf66}.flag-badge{background:#ff6b6b;color:#fff;padding:2px 6px;border-radius:3px;font-size:0.75rem;margin-left:5px}.auto-approved{color:#51cf66;font-size:0.85rem;font-style:italic}#detailsModal{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);z-index:1000;padding:2rem}#detailsModal>div{background:#1a1a1a;max-width:800px;margin:0 auto;padding:2rem;border-radius:8px;max-height:90vh;overflow-y:auto}</style></head><body><div class="container"><h1>KYC Reports & Reviews</h1><a href="/dashboard/authenticated?token=${token}" class="btn">Back to Dashboard</a><table><thead><tr><th>User Email</th><th>Company Name</th><th>Company Type</th><th>OFAC Status</th><th>Risk Level</th><th>Status</th><th>Submitted</th><th>Documents</th><th>Actions</th></tr></thead><tbody>${tableRows}</tbody></table></div><div id="detailsModal"><div><h2 style="color:#fff;margin-bottom:1rem">KYC Details</h2><div id="detailsContent"></div><button onclick="closeDetails()" class="btn" style="margin-top:1rem">Close</button></div></div><script>const token='${token}';const kycData=${kycDataJson};const complianceData=${complianceDataJson};function viewDetails(kycId){const kyc=kycData.find(k=>k.id===kycId);const compliance=complianceData.find(c=>c.kycId===kycId);if(!kyc)return;const docCount=kyc.files?Object.keys(kyc.files).reduce((s,k)=>s+(kyc.files[k]?.length||0),0):0;const filesList=kyc.files?Object.keys(kyc.files).map(k=>kyc.files[k].map(f=>f.originalname||f.filename).join(', ')).join(', '):'None';const matchesList=compliance?.matches?.map(m=>m.name||'Unknown').join(', ')||'None';document.getElementById('detailsContent').innerHTML='<div style="color:#fff"><p><strong>User Email:</strong> '+(kyc.userEmail||kyc.userId||'N/A')+'</p><p><strong>Company Name:</strong> '+(kyc.companyName||'N/A')+'</p><p><strong>Company Type:</strong> '+(kyc.companyType||'N/A').toUpperCase()+'</p><p><strong>Registration Number:</strong> '+(kyc.registrationNumber||'N/A')+'</p><p><strong>Country:</strong> '+(kyc.country||'N/A')+'</p><p><strong>Address:</strong> '+(kyc.address||'N/A')+'</p><p><strong>Contact Person:</strong> '+(kyc.contactPerson||'N/A')+'</p><p><strong>Phone:</strong> '+(kyc.phone||'N/A')+'</p><p><strong>Documents:</strong> '+docCount+' files ('+filesList+')</p><p><strong>OFAC Screening:</strong> '+(compliance?(compliance.ofacMatch?'⚠️ MATCH FOUND':'✓ CLEARED'):'Not Screened')+'</p><p><strong>Risk Level:</strong> <span class="'+(compliance?.riskLevel==='high'?'risk-high':compliance?.riskLevel==='medium'?'risk-medium':'risk-low')+'">'+(compliance?.riskLevel||'unknown').toUpperCase()+'</span></p><p><strong>OFAC Matches:</strong> '+matchesList+'</p><p><strong>Submitted:</strong> '+new Date(kyc.submittedAt||Date.now()).toLocaleString()+'</p><p><strong>Status:</strong> <span class="'+(kyc.status==='approved'?'status-approved':kyc.status==='rejected'?'status-rejected':'status-pending')+'">'+(kyc.status||'pending').toUpperCase()+'</span></p>'+(kyc.autoApproved?'<p><strong>Auto-Approved:</strong> Yes (No flags detected)</p>':'')+(kyc.reviewedAt?'<p><strong>Reviewed:</strong> '+new Date(kyc.reviewedAt).toLocaleString()+' by '+(kyc.reviewedBy||'admin')+'</p>':'')+'</div>';document.getElementById('detailsModal').style.display='block';}function closeDetails(){document.getElementById('detailsModal').style.display='none';}async function approveKYC(kycId){if(!confirm('Approve this KYC submission?'))return;try{const res=await fetch('/api/admin/kyc/approve',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({kycId,action:'approve'})});if(res.ok){alert('KYC approved successfully');location.reload()}else{alert('Failed to approve KYC')}}catch(e){alert('Error: '+e.message)}}async function rejectKYC(kycId){const reason=prompt('Rejection reason:');if(!reason)return;try{const res=await fetch('/api/admin/kyc/approve',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({kycId,action:'reject',reason})});if(res.ok){alert('KYC rejected');location.reload()}else{alert('Failed to reject KYC')}}catch(e){alert('Error: '+e.message)}}</script></body></html>`;
+        const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>KYC Reports - Admin</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;background:#000;color:#fff;padding:2rem}.container{max-width:1400px;margin:0 auto}h1{color:#fff;margin-bottom:2rem}.btn{background:#667eea;color:#fff;padding:10px 20px;border:none;border-radius:6px;cursor:pointer;text-decoration:none;display:inline-block;margin:10px 5px}.btn:hover{background:#5a6fd8}table{width:100%;border-collapse:collapse;margin-top:20px}th,td{padding:12px;text-align:left;border-bottom:1px solid #333}th{background:#1a1a1a;color:#fff}.status-pending{color:#ffd43b}.status-approved{color:#51cf66}.status-rejected{color:#ff6b6b}.action-btn{padding:6px 12px;margin:0 3px;border:none;border-radius:4px;cursor:pointer;font-size:0.85rem}.approve-btn{background:#51cf66;color:#fff}.reject-btn{background:#ff6b6b;color:#fff}.risk-high{color:#ff6b6b}.risk-medium{color:#ffd43b}.risk-low{color:#51cf66}.flag-badge{background:#ff6b6b;color:#fff;padding:2px 6px;border-radius:3px;font-size:0.75rem;margin-left:5px}.auto-approved{color:#51cf66;font-size:0.85rem;font-style:italic}#detailsModal{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);z-index:1000;padding:2rem}#detailsModal>div{background:#1a1a1a;max-width:800px;margin:0 auto;padding:2rem;border-radius:8px;max-height:90vh;overflow-y:auto}</style></head><body><div class="container"><h1>KYC Reports & Reviews</h1><a href="/dashboard/authenticated" class="btn">Back to Dashboard</a><table><thead><tr><th>User Email</th><th>Company Name</th><th>Company Type</th><th>OFAC Status</th><th>Risk Level</th><th>Status</th><th>Submitted</th><th>Documents</th><th>Actions</th></tr></thead><tbody>${tableRows}</tbody></table></div><div id="detailsModal"><div><h2 style="color:#fff;margin-bottom:1rem">KYC Details</h2><div id="detailsContent"></div><button onclick="closeDetails()" class="btn" style="margin-top:1rem">Close</button></div></div><script>const token='${token}';const kycData=${kycDataJson};const complianceData=${complianceDataJson};function viewDetails(kycId){const kyc=kycData.find(k=>k.id===kycId);const compliance=complianceData.find(c=>c.kycId===kycId);if(!kyc)return;const docCount=kyc.files?Object.keys(kyc.files).reduce((s,k)=>s+(kyc.files[k]?.length||0),0):0;const filesList=kyc.files?Object.keys(kyc.files).map(k=>kyc.files[k].map(f=>f.originalname||f.filename).join(', ')).join(', '):'None';const matchesList=compliance?.matches?.map(m=>m.name||'Unknown').join(', ')||'None';document.getElementById('detailsContent').innerHTML='<div style="color:#fff"><p><strong>User Email:</strong> '+(kyc.userEmail||kyc.userId||'N/A')+'</p><p><strong>Company Name:</strong> '+(kyc.companyName||'N/A')+'</p><p><strong>Company Type:</strong> '+(kyc.companyType||'N/A').toUpperCase()+'</p><p><strong>Registration Number:</strong> '+(kyc.registrationNumber||'N/A')+'</p><p><strong>Country:</strong> '+(kyc.country||'N/A')+'</p><p><strong>Address:</strong> '+(kyc.address||'N/A')+'</p><p><strong>Contact Person:</strong> '+(kyc.contactPerson||'N/A')+'</p><p><strong>Phone:</strong> '+(kyc.phone||'N/A')+'</p><p><strong>Documents:</strong> '+docCount+' files ('+filesList+')</p><p><strong>OFAC Screening:</strong> '+(compliance?(compliance.ofacMatch?'⚠️ MATCH FOUND':'✓ CLEARED'):'Not Screened')+'</p><p><strong>Risk Level:</strong> <span class="'+(compliance?.riskLevel==='high'?'risk-high':compliance?.riskLevel==='medium'?'risk-medium':'risk-low')+'">'+(compliance?.riskLevel||'unknown').toUpperCase()+'</span></p><p><strong>OFAC Matches:</strong> '+matchesList+'</p><p><strong>Submitted:</strong> '+new Date(kyc.submittedAt||Date.now()).toLocaleString()+'</p><p><strong>Status:</strong> <span class="'+(kyc.status==='approved'?'status-approved':kyc.status==='rejected'?'status-rejected':'status-pending')+'">'+(kyc.status||'pending').toUpperCase()+'</span></p>'+(kyc.autoApproved?'<p><strong>Auto-Approved:</strong> Yes (No flags detected)</p>':'')+(kyc.reviewedAt?'<p><strong>Reviewed:</strong> '+new Date(kyc.reviewedAt).toLocaleString()+' by '+(kyc.reviewedBy||'admin')+'</p>':'')+'</div>';document.getElementById('detailsModal').style.display='block';}function closeDetails(){document.getElementById('detailsModal').style.display='none';}async function approveKYC(kycId){if(!confirm('Approve this KYC submission?'))return;try{const res=await fetch('/api/admin/kyc/approve',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({kycId,action:'approve'})});if(res.ok){alert('KYC approved successfully');location.reload()}else{alert('Failed to approve KYC')}}catch(e){alert('Error: '+e.message)}}async function rejectKYC(kycId){const reason=prompt('Rejection reason:');if(!reason)return;try{const res=await fetch('/api/admin/kyc/approve',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({kycId,action:'reject',reason})});if(res.ok){alert('KYC rejected');location.reload()}else{alert('Failed to reject KYC')}}catch(e){alert('Error: '+e.message)}}</script></body></html>`;
         res.end(html, 'utf8');
     } catch (error) {
         console.error('[ERROR] Admin KYC reports error:', error);
@@ -3885,12 +3845,12 @@ app.get('/admin/kyc-reports', authenticateToken, requireRole(['admin']), (req, r
 // Admin OFAC Management
 app.get('/admin/ofac-management', authenticateToken, requireRole(['admin']), (req, res) => {
     try {
-        const token = req.query.token || req.headers.authorization?.replace('Bearer ', '');
+        // Cookie-based auth - no token needed
         const complianceReports = Array.from(database.complianceReports.values());
         const flaggedReports = complianceReports.filter(r => r.ofacMatch || r.riskLevel === 'high');
         
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-        const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>OFAC Screening - Admin</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;background:#000;color:#fff;padding:2rem}.container{max-width:1200px;margin:0 auto}h1{color:#fff;margin-bottom:2rem}.btn{background:#667eea;color:#fff;padding:10px 20px;border:none;border-radius:6px;cursor:pointer;text-decoration:none;display:inline-block;margin:10px 5px}.btn:hover{background:#5a6fd8}table{width:100%;border-collapse:collapse;margin-top:20px}th,td{padding:12px;text-align:left;border-bottom:1px solid #333}th{background:#1a1a1a;color:#fff}.risk-high{color:#ff6b6b}.risk-medium{color:#ffd43b}.risk-low{color:#51cf66}.stats{display:flex;gap:2rem;margin:2rem 0}.stat-box{background:#1a1a1a;padding:1.5rem;border-radius:8px;flex:1}.stat-box h3{color:#fff;margin-bottom:0.5rem}.stat-box p{color:#ccc;font-size:1.5rem;font-weight:600}</style></head><body><div class="container"><h1>OFAC Screening & Compliance</h1><a href="/dashboard/authenticated?token=${token}" class="btn">Back to Dashboard</a><div class="stats"><div class="stat-box"><h3>Total Screened</h3><p>${complianceReports.length}</p></div><div class="stat-box"><h3>Flagged Entities</h3><p class="risk-high">${flaggedReports.length}</p></div><div class="stat-box"><h3>Clear</h3><p class="risk-low">${complianceReports.length - flaggedReports.length}</p></div></div><table><thead><tr><th>User/Entity</th><th>OFAC Match</th><th>Risk Level</th><th>Screened</th><th>Details</th></tr></thead><tbody>${complianceReports.map(r => {
+        const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>OFAC Screening - Admin</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;background:#000;color:#fff;padding:2rem}.container{max-width:1200px;margin:0 auto}h1{color:#fff;margin-bottom:2rem}.btn{background:#667eea;color:#fff;padding:10px 20px;border:none;border-radius:6px;cursor:pointer;text-decoration:none;display:inline-block;margin:10px 5px}.btn:hover{background:#5a6fd8}table{width:100%;border-collapse:collapse;margin-top:20px}th,td{padding:12px;text-align:left;border-bottom:1px solid #333}th{background:#1a1a1a;color:#fff}.risk-high{color:#ff6b6b}.risk-medium{color:#ffd43b}.risk-low{color:#51cf66}.stats{display:flex;gap:2rem;margin:2rem 0}.stat-box{background:#1a1a1a;padding:1.5rem;border-radius:8px;flex:1}.stat-box h3{color:#fff;margin-bottom:0.5rem}.stat-box p{color:#ccc;font-size:1.5rem;font-weight:600}</style></head><body><div class="container"><h1>OFAC Screening & Compliance</h1><a href="/dashboard/authenticated" class="btn">Back to Dashboard</a><div class="stats"><div class="stat-box"><h3>Total Screened</h3><p>${complianceReports.length}</p></div><div class="stat-box"><h3>Flagged Entities</h3><p class="risk-high">${flaggedReports.length}</p></div><div class="stat-box"><h3>Clear</h3><p class="risk-low">${complianceReports.length - flaggedReports.length}</p></div></div><table><thead><tr><th>User/Entity</th><th>OFAC Match</th><th>Risk Level</th><th>Screened</th><th>Details</th></tr></thead><tbody>${complianceReports.map(r => {
             const riskClass = r.riskLevel === 'high' ? 'risk-high' : r.riskLevel === 'medium' ? 'risk-medium' : 'risk-low';
             const matchDetails = r.matches && r.matches.length > 0 ? r.matches[0].name || 'Potential match found' : 'No matches';
             return `<tr><td>${r.userId || r.companyName || 'N/A'}</td><td>${r.ofacMatch ? '⚠️ MATCH' : '✓ Clear'}</td><td class="${riskClass}">${(r.riskLevel || 'low').toUpperCase()}</td><td>${new Date(r.screeningDate || Date.now()).toLocaleDateString()}</td><td>${r.ofacMatch ? matchDetails : 'No matches'}</td></tr>`;
@@ -3905,11 +3865,11 @@ app.get('/admin/ofac-management', authenticateToken, requireRole(['admin']), (re
 // Admin Blockchain
 app.get('/admin/blockchain', authenticateToken, requireRole(['admin']), (req, res) => {
     try {
-        const token = req.query.token || req.headers.authorization?.replace('Bearer ', '');
+        // Cookie-based auth - no token needed
         const blockchainTxs = Array.from(database.transactions.values()).filter(tx => tx.blockchain === true);
         
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-        const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Blockchain - Admin</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;background:#000;color:#fff;padding:2rem}.container{max-width:1200px;margin:0 auto}h1{color:#fff;margin-bottom:2rem}.btn{background:#667eea;color:#fff;padding:10px 20px;border:none;border-radius:6px;cursor:pointer;text-decoration:none;display:inline-block;margin:10px 5px}.btn:hover{background:#5a6fd8}table{width:100%;border-collapse:collapse;margin-top:20px}th,td{padding:12px;text-align:left;border-bottom:1px solid #333}th{background:#1a1a1a;color:#fff}.status-box{background:#1a1a1a;padding:1.5rem;border-radius:8px;margin:2rem 0}.status-box h3{color:#fff;margin-bottom:1rem}.status-item{display:flex;justify-content:space-between;padding:0.5rem 0;border-bottom:1px solid #333}.status-item:last-child{border-bottom:none}.status-label{color:#ccc}.status-value{color:#fff;font-weight:600}.tx-hash{color:#667eea;font-family:monospace;font-size:0.85rem;word-break:break-all}.tx-hash a{color:#667eea;text-decoration:none}.tx-hash a:hover{text-decoration:underline}.status-confirmed{color:#51cf66}.status-simulated{color:#ffd43b}</style></head><body><div class="container"><h1>Blockchain Management</h1><a href="/dashboard/authenticated?token=${token}" class="btn">Back to Dashboard</a><div class="status-box"><h3>Blockchain Status</h3><div class="status-item"><span class="status-label">Network:</span><span class="status-value">${blockchain && blockchain.isInitialized ? 'Sepolia Testnet (Connected)' : 'Simulation Mode'}</span></div><div class="status-item"><span class="status-label">Contracts Deployed:</span><span class="status-value">TGT Token, Escrow Contract</span></div><div class="status-item"><span class="status-label">Blockchain Transactions:</span><span class="status-value">${blockchainTxs.length}</span></div><div class="status-item"><span class="status-label">Confirmed on Chain:</span><span class="status-value">${blockchainTxs.filter(tx => tx.blockchainTxHash).length}</span></div></div><table><thead><tr><th>Transaction ID</th><th>Type</th><th>Amount</th><th>Contract</th><th>Blockchain TX Hash</th><th>Status</th><th>Date</th></tr></thead><tbody>${blockchainTxs.map(tx => {
+        const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Blockchain - Admin</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;background:#000;color:#fff;padding:2rem}.container{max-width:1200px;margin:0 auto}h1{color:#fff;margin-bottom:2rem}.btn{background:#667eea;color:#fff;padding:10px 20px;border:none;border-radius:6px;cursor:pointer;text-decoration:none;display:inline-block;margin:10px 5px}.btn:hover{background:#5a6fd8}table{width:100%;border-collapse:collapse;margin-top:20px}th,td{padding:12px;text-align:left;border-bottom:1px solid #333}th{background:#1a1a1a;color:#fff}.status-box{background:#1a1a1a;padding:1.5rem;border-radius:8px;margin:2rem 0}.status-box h3{color:#fff;margin-bottom:1rem}.status-item{display:flex;justify-content:space-between;padding:0.5rem 0;border-bottom:1px solid #333}.status-item:last-child{border-bottom:none}.status-label{color:#ccc}.status-value{color:#fff;font-weight:600}.tx-hash{color:#667eea;font-family:monospace;font-size:0.85rem;word-break:break-all}.tx-hash a{color:#667eea;text-decoration:none}.tx-hash a:hover{text-decoration:underline}.status-confirmed{color:#51cf66}.status-simulated{color:#ffd43b}</style></head><body><div class="container"><h1>Blockchain Management</h1><a href="/dashboard/authenticated" class="btn">Back to Dashboard</a><div class="status-box"><h3>Blockchain Status</h3><div class="status-item"><span class="status-label">Network:</span><span class="status-value">${blockchain && blockchain.isInitialized ? 'Sepolia Testnet (Connected)' : 'Simulation Mode'}</span></div><div class="status-item"><span class="status-label">Contracts Deployed:</span><span class="status-value">TGT Token, Escrow Contract</span></div><div class="status-item"><span class="status-label">Blockchain Transactions:</span><span class="status-value">${blockchainTxs.length}</span></div><div class="status-item"><span class="status-label">Confirmed on Chain:</span><span class="status-value">${blockchainTxs.filter(tx => tx.blockchainTxHash).length}</span></div></div><table><thead><tr><th>Transaction ID</th><th>Type</th><th>Amount</th><th>Contract</th><th>Blockchain TX Hash</th><th>Status</th><th>Date</th></tr></thead><tbody>${blockchainTxs.map(tx => {
             const txHash = tx.blockchainTxHash || 'Simulated';
             const txHashDisplay = tx.blockchainTxHash ? `<a href="https://sepolia.etherscan.io/tx/${tx.blockchainTxHash}" target="_blank" class="tx-hash">${tx.blockchainTxHash.substring(0, 20)}...</a>` : '<span class="tx-hash">Simulated</span>';
             const statusClass = tx.blockchainStatus === 'confirmed' ? 'status-confirmed' : 'status-simulated';
@@ -3925,7 +3885,7 @@ app.get('/admin/blockchain', authenticateToken, requireRole(['admin']), (req, re
 // Admin Signature Management
 app.get('/admin/signatures', authenticateToken, requireRole(['admin']), (req, res) => {
     try {
-        const token = req.query.token || req.headers.authorization?.replace('Bearer ', '');
+        // Cookie-based auth - no token needed
         
         if (!signatureRegistry) {
             return res.status(503).send('Signature registry not available');
@@ -3937,7 +3897,7 @@ app.get('/admin/signatures', authenticateToken, requireRole(['admin']), (req, re
             .slice(0, 100); // Show latest 100 signatures
         
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-        const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Signature Management - Admin</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;background:#000;color:#fff;padding:2rem}.container{max-width:1400px;margin:0 auto}h1{color:#fff;margin-bottom:2rem}.btn{background:#667eea;color:#fff;padding:10px 20px;border:none;border-radius:6px;cursor:pointer;text-decoration:none;display:inline-block;margin:10px 5px}.btn:hover{background:#5a6fd8}.btn-success{background:#51cf66}.btn-success:hover{background:#40c057}.btn-warning{background:#ffd43b;color:#000}.btn-warning:hover{background:#fcc419}.stats-box{background:#1a1a1a;padding:1.5rem;border-radius:8px;margin:2rem 0;display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1rem}.stat-item{text-align:center}.stat-label{color:#ccc;font-size:0.9rem;margin-bottom:0.5rem}.stat-value{color:#fff;font-size:1.5rem;font-weight:600}.stat-value.verified{color:#51cf66}.stat-value.pending{color:#ffd43b}table{width:100%;border-collapse:collapse;margin-top:20px;background:#1a1a1a;border-radius:8px;overflow:hidden}th,td{padding:12px;text-align:left;border-bottom:1px solid #333}th{background:#2a2a2a;color:#fff;font-weight:600}tr:hover{background:#252525}.status-badge{display:inline-block;padding:4px 12px;border-radius:12px;font-size:0.85rem;font-weight:600}.status-verified{background:#51cf66;color:#000}.status-pending{background:#ffd43b;color:#000}.status-auto{background:#667eea;color:#fff}.method-badge{display:inline-block;padding:4px 8px;border-radius:8px;font-size:0.75rem;background:#333;color:#ccc}.hash-display{font-family:monospace;font-size:0.8rem;color:#999;word-break:break-all;max-width:200px}</style></head><body><div class="container"><h1>📝 Signature Management</h1><a href="/dashboard/authenticated?token=${token}" class="btn">Back to Dashboard</a><div class="stats-box"><div class="stat-item"><div class="stat-label">Total Signatures</div><div class="stat-value">${stats.total}</div></div><div class="stat-item"><div class="stat-label">Verified</div><div class="stat-value verified">${stats.verified}</div></div><div class="stat-item"><div class="stat-label">Pending</div><div class="stat-value pending">${stats.unverified}</div></div><div class="stat-item"><div class="stat-label">Documents</div><div class="stat-value">${stats.documentsWithSignatures}</div></div></div><div style="background:#1a1a1a;padding:1.5rem;border-radius:8px;margin:2rem 0"><h3 style="color:#fff;margin-bottom:1rem">Signature Methods</h3><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1rem"><div><div class="stat-label">Digital</div><div class="stat-value">${stats.byMethod.digital}</div></div><div><div class="stat-label">QR Code</div><div class="stat-value">${stats.byMethod.qr_code}</div></div><div><div class="stat-label">Blockchain</div><div class="stat-value">${stats.byMethod.blockchain}</div></div><div><div class="stat-label">Manual</div><div class="stat-value">${stats.byMethod.manual}</div></div></div></div><h2 style="color:#fff;margin:2rem 0 1rem">Recent Signatures</h2><table><thead><tr><th>ID</th><th>Document</th><th>Signer</th><th>Method</th><th>Status</th><th>Signed At</th><th>Verified By</th><th>Actions</th></tr></thead><tbody>${allSignatures.map(sig => {
+        const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Signature Management - Admin</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;background:#000;color:#fff;padding:2rem}.container{max-width:1400px;margin:0 auto}h1{color:#fff;margin-bottom:2rem}.btn{background:#667eea;color:#fff;padding:10px 20px;border:none;border-radius:6px;cursor:pointer;text-decoration:none;display:inline-block;margin:10px 5px}.btn:hover{background:#5a6fd8}.btn-success{background:#51cf66}.btn-success:hover{background:#40c057}.btn-warning{background:#ffd43b;color:#000}.btn-warning:hover{background:#fcc419}.stats-box{background:#1a1a1a;padding:1.5rem;border-radius:8px;margin:2rem 0;display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1rem}.stat-item{text-align:center}.stat-label{color:#ccc;font-size:0.9rem;margin-bottom:0.5rem}.stat-value{color:#fff;font-size:1.5rem;font-weight:600}.stat-value.verified{color:#51cf66}.stat-value.pending{color:#ffd43b}table{width:100%;border-collapse:collapse;margin-top:20px;background:#1a1a1a;border-radius:8px;overflow:hidden}th,td{padding:12px;text-align:left;border-bottom:1px solid #333}th{background:#2a2a2a;color:#fff;font-weight:600}tr:hover{background:#252525}.status-badge{display:inline-block;padding:4px 12px;border-radius:12px;font-size:0.85rem;font-weight:600}.status-verified{background:#51cf66;color:#000}.status-pending{background:#ffd43b;color:#000}.status-auto{background:#667eea;color:#fff}.method-badge{display:inline-block;padding:4px 8px;border-radius:8px;font-size:0.75rem;background:#333;color:#ccc}.hash-display{font-family:monospace;font-size:0.8rem;color:#999;word-break:break-all;max-width:200px}</style></head><body><div class="container"><h1>📝 Signature Management</h1><a href="/dashboard/authenticated" class="btn">Back to Dashboard</a><div class="stats-box"><div class="stat-item"><div class="stat-label">Total Signatures</div><div class="stat-value">${stats.total}</div></div><div class="stat-item"><div class="stat-label">Verified</div><div class="stat-value verified">${stats.verified}</div></div><div class="stat-item"><div class="stat-label">Pending</div><div class="stat-value pending">${stats.unverified}</div></div><div class="stat-item"><div class="stat-label">Documents</div><div class="stat-value">${stats.documentsWithSignatures}</div></div></div><div style="background:#1a1a1a;padding:1.5rem;border-radius:8px;margin:2rem 0"><h3 style="color:#fff;margin-bottom:1rem">Signature Methods</h3><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1rem"><div><div class="stat-label">Digital</div><div class="stat-value">${stats.byMethod.digital}</div></div><div><div class="stat-label">QR Code</div><div class="stat-value">${stats.byMethod.qr_code}</div></div><div><div class="stat-label">Blockchain</div><div class="stat-value">${stats.byMethod.blockchain}</div></div><div><div class="stat-label">Manual</div><div class="stat-value">${stats.byMethod.manual}</div></div></div></div><h2 style="color:#fff;margin:2rem 0 1rem">Recent Signatures</h2><table><thead><tr><th>ID</th><th>Document</th><th>Signer</th><th>Method</th><th>Status</th><th>Signed At</th><th>Verified By</th><th>Actions</th></tr></thead><tbody>${allSignatures.map(sig => {
             const statusClass = sig.verified ? 'status-verified' : 'status-pending';
             const statusText = sig.verified ? (sig.autoApproved ? '✅ Auto-Approved' : '✅ Verified') : '⏳ Pending';
             const methodColors = {
@@ -3947,7 +3907,7 @@ app.get('/admin/signatures', authenticateToken, requireRole(['admin']), (req, re
                 manual: '#999'
             };
             return `<tr><td style="font-family:monospace;font-size:0.85rem">${sig.id.substring(0, 12)}...</td><td style="font-family:monospace;font-size:0.85rem">${sig.documentId.substring(0, 12)}...</td><td>${sig.signerName}<br><span style="color:#999;font-size:0.85rem">${sig.signerEmail}</span></td><td><span class="method-badge" style="background:${methodColors[sig.signatureMethod] || '#333'}">${sig.signatureMethod}</span></td><td><span class="status-badge ${statusClass}">${statusText}</span></td><td style="font-size:0.85rem;color:#999">${new Date(sig.signedAt).toLocaleString()}</td><td style="font-size:0.85rem;color:#999">${sig.verifiedBy || '—'}</td><td>${!sig.verified ? `<button class="btn btn-success" onclick="verifySignature('${sig.id}')" style="padding:6px 12px;font-size:0.85rem">Verify</button>` : '<span style="color:#51cf66">✓</span>'}</td></tr>`;
-        }).join('') || '<tr><td colspan="8" style="text-align:center;color:#ccc;padding:2rem">No signatures found</td></tr>'}</tbody></table></div><script>const token='${token}';async function verifySignature(sigId){if(!confirm('Verify this signature?'))return;try{const res=await fetch('/api/signatures/'+sigId+'/verify',{method:'POST',headers:{'Authorization':'Bearer '+token}});if(res.ok){alert('Signature verified successfully');location.reload()}else{alert('Failed to verify signature')}}catch(e){alert('Error: '+e.message)}}</script></body></html>`;
+        }).join('') || '<tr><td colspan="8" style="text-align:center;color:#ccc;padding:2rem">No signatures found</td></tr>'}</tbody></table></div><script>async function verifySignature(sigId){if(!confirm('Verify this signature?'))return;try{const res=await fetch('/api/signatures/'+sigId+'/verify',{method:'POST',credentials:'include'});if(res.ok){alert('Signature verified successfully');location.reload()}else{alert('Failed to verify signature')}}catch(e){alert('Error: '+e.message)}}</script></body></html>`;
         res.end(html, 'utf8');
     } catch (error) {
         console.error('[ERROR] Admin signatures error:', error);
@@ -3958,12 +3918,12 @@ app.get('/admin/signatures', authenticateToken, requireRole(['admin']), (req, re
 // Admin Fees
 app.get('/admin/fees', authenticateToken, requireRole(['admin']), (req, res) => {
     try {
-        const token = req.query.token || req.headers.authorization?.replace('Bearer ', '');
+        // Cookie-based auth - no token needed
         const currentFees = database.admin?.fees || { tradingFee: 0.5, platformFee: 1.0 };
         const currentInterest = database.admin?.interestRates || { deposit: 2.5, lending: 5.0 };
         
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-        const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Manage Fees - Admin</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;background:#000;color:#fff;padding:2rem}.container{max-width:1200px;margin:0 auto}h1{color:#fff;margin-bottom:2rem}.btn{background:#667eea;color:#fff;padding:10px 20px;border:none;border-radius:6px;cursor:pointer;text-decoration:none;display:inline-block;margin:10px 5px}.btn:hover{background:#5a6fd8}.form-section{background:#1a1a1a;padding:2rem;border-radius:8px;margin:2rem 0}.form-group{margin-bottom:1.5rem}.form-group label{display:block;color:#fff;margin-bottom:0.5rem;font-weight:600}.form-group input{width:100%;padding:12px;background:#333;border:1px solid #555;border-radius:6px;color:#fff;font-size:1rem}.form-group input:focus{outline:none;border-color:#667eea}.save-btn{background:#51cf66;color:#fff;padding:12px 24px;border:none;border-radius:6px;cursor:pointer;font-size:1rem;font-weight:600}.save-btn:hover{background:#40c057}</style></head><body><div class="container"><h1>Manage Platform Fees</h1><a href="/dashboard/authenticated?token=${token}" class="btn">Back to Dashboard</a><form id="feesForm" class="form-section"><h2 style="color:#fff;margin-bottom:1.5rem">Trading Fees</h2><div class="form-group"><label>Trading Fee (%)</label><input type="number" id="tradingFee" value="${currentFees.tradingFee}" step="0.1" min="0" max="10"></div><div class="form-group"><label>Platform Fee (%)</label><input type="number" id="platformFee" value="${currentFees.platformFee}" step="0.1" min="0" max="10"></div><h2 style="color:#fff;margin-bottom:1.5rem;margin-top:2rem">Interest Rates</h2><div class="form-group"><label>Deposit Interest Rate (%)</label><input type="number" id="depositRate" value="${currentInterest.deposit}" step="0.1" min="0" max="20"></div><div class="form-group"><label>Lending Interest Rate (%)</label><input type="number" id="lendingRate" value="${currentInterest.lending}" step="0.1" min="0" max="20"></div><button type="submit" class="save-btn">Save Changes</button></form></div><script>const token='${token}';document.getElementById('feesForm').addEventListener('submit',async function(e){e.preventDefault();const fees={tradingFee:parseFloat(document.getElementById('tradingFee').value),platformFee:parseFloat(document.getElementById('platformFee').value),interestRates:{deposit:parseFloat(document.getElementById('depositRate').value),lending:parseFloat(document.getElementById('lendingRate').value)}};try{const res=await fetch('/api/admin/settings',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify(fees)});if(res.ok){alert('Fees updated successfully');location.reload()}else{alert('Failed to update fees')}}catch(e){alert('Error: '+e.message)}});</script></body></html>`;
+        const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Manage Fees - Admin</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;background:#000;color:#fff;padding:2rem}.container{max-width:1200px;margin:0 auto}h1{color:#fff;margin-bottom:2rem}.btn{background:#667eea;color:#fff;padding:10px 20px;border:none;border-radius:6px;cursor:pointer;text-decoration:none;display:inline-block;margin:10px 5px}.btn:hover{background:#5a6fd8}.form-section{background:#1a1a1a;padding:2rem;border-radius:8px;margin:2rem 0}.form-group{margin-bottom:1.5rem}.form-group label{display:block;color:#fff;margin-bottom:0.5rem;font-weight:600}.form-group input{width:100%;padding:12px;background:#333;border:1px solid #555;border-radius:6px;color:#fff;font-size:1rem}.form-group input:focus{outline:none;border-color:#667eea}.save-btn{background:#51cf66;color:#fff;padding:12px 24px;border:none;border-radius:6px;cursor:pointer;font-size:1rem;font-weight:600}.save-btn:hover{background:#40c057}</style></head><body><div class="container"><h1>Manage Platform Fees</h1><a href="/dashboard/authenticated" class="btn">Back to Dashboard</a><form id="feesForm" class="form-section"><h2 style="color:#fff;margin-bottom:1.5rem">Trading Fees</h2><div class="form-group"><label>Trading Fee (%)</label><input type="number" id="tradingFee" value="${currentFees.tradingFee}" step="0.1" min="0" max="10"></div><div class="form-group"><label>Platform Fee (%)</label><input type="number" id="platformFee" value="${currentFees.platformFee}" step="0.1" min="0" max="10"></div><h2 style="color:#fff;margin-bottom:1.5rem;margin-top:2rem">Interest Rates</h2><div class="form-group"><label>Deposit Interest Rate (%)</label><input type="number" id="depositRate" value="${currentInterest.deposit}" step="0.1" min="0" max="20"></div><div class="form-group"><label>Lending Interest Rate (%)</label><input type="number" id="lendingRate" value="${currentInterest.lending}" step="0.1" min="0" max="20"></div><button type="submit" class="save-btn">Save Changes</button></form></div><script>const token='${token}';document.getElementById('feesForm').addEventListener('submit',async function(e){e.preventDefault();const fees={tradingFee:parseFloat(document.getElementById('tradingFee').value),platformFee:parseFloat(document.getElementById('platformFee').value),interestRates:{deposit:parseFloat(document.getElementById('depositRate').value),lending:parseFloat(document.getElementById('lendingRate').value)}};try{const res=await fetch('/api/admin/settings',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify(fees)});if(res.ok){alert('Fees updated successfully');location.reload()}else{alert('Failed to update fees')}}catch(e){alert('Error: '+e.message)}});</script></body></html>`;
         res.end(html, 'utf8');
     } catch (error) {
         console.error('[ERROR] Admin fees error:', error);
@@ -3974,11 +3934,11 @@ app.get('/admin/fees', authenticateToken, requireRole(['admin']), (req, res) => 
 // Admin Voyage Times
 app.get('/admin/voyage-times', authenticateToken, requireRole(['admin']), (req, res) => {
     try {
-        const token = req.query.token || req.headers.authorization?.replace('Bearer ', '');
+        // Cookie-based auth - no token needed
         const currentTimes = database.admin?.voyageTimes || { short: 30, medium: 60, long: 90 };
         
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-        const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Voyage Times - Admin</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;background:#000;color:#fff;padding:2rem}.container{max-width:1200px;margin:0 auto}h1{color:#fff;margin-bottom:2rem}.btn{background:#667eea;color:#fff;padding:10px 20px;border:none;border-radius:6px;cursor:pointer;text-decoration:none;display:inline-block;margin:10px 5px}.btn:hover{background:#5a6fd8}.form-section{background:#1a1a1a;padding:2rem;border-radius:8px;margin:2rem 0}.form-group{margin-bottom:1.5rem}.form-group label{display:block;color:#fff;margin-bottom:0.5rem;font-weight:600}.form-group input{width:100%;padding:12px;background:#333;border:1px solid #555;border-radius:6px;color:#fff;font-size:1rem}.form-group input:focus{outline:none;border-color:#667eea}.save-btn{background:#51cf66;color:#fff;padding:12px 24px;border:none;border-radius:6px;cursor:pointer;font-size:1rem;font-weight:600}.save-btn:hover{background:#40c057}</style></head><body><div class="container"><h1>Manage Voyage Times</h1><a href="/dashboard/authenticated?token=${token}" class="btn">Back to Dashboard</a><form id="voyageForm" class="form-section"><div class="form-group"><label>Short Voyage (days)</label><input type="number" id="short" value="${currentTimes.short}" min="1" max="365"></div><div class="form-group"><label>Medium Voyage (days)</label><input type="number" id="medium" value="${currentTimes.medium}" min="1" max="365"></div><div class="form-group"><label>Long Voyage (days)</label><input type="number" id="long" value="${currentTimes.long}" min="1" max="365"></div><button type="submit" class="save-btn">Save Changes</button></form></div><script>const token='${token}';document.getElementById('voyageForm').addEventListener('submit',async function(e){e.preventDefault();const times={short:parseInt(document.getElementById('short').value),medium:parseInt(document.getElementById('medium').value),long:parseInt(document.getElementById('long').value)};try{const res=await fetch('/api/admin/settings',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({voyageTimes:times})});if(res.ok){alert('Voyage times updated successfully');location.reload()}else{alert('Failed to update voyage times')}}catch(e){alert('Error: '+e.message)}});</script></body></html>`;
+        const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Voyage Times - Admin</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;background:#000;color:#fff;padding:2rem}.container{max-width:1200px;margin:0 auto}h1{color:#fff;margin-bottom:2rem}.btn{background:#667eea;color:#fff;padding:10px 20px;border:none;border-radius:6px;cursor:pointer;text-decoration:none;display:inline-block;margin:10px 5px}.btn:hover{background:#5a6fd8}.form-section{background:#1a1a1a;padding:2rem;border-radius:8px;margin:2rem 0}.form-group{margin-bottom:1.5rem}.form-group label{display:block;color:#fff;margin-bottom:0.5rem;font-weight:600}.form-group input{width:100%;padding:12px;background:#333;border:1px solid #555;border-radius:6px;color:#fff;font-size:1rem}.form-group input:focus{outline:none;border-color:#667eea}.save-btn{background:#51cf66;color:#fff;padding:12px 24px;border:none;border-radius:6px;cursor:pointer;font-size:1rem;font-weight:600}.save-btn:hover{background:#40c057}</style></head><body><div class="container"><h1>Manage Voyage Times</h1><a href="/dashboard/authenticated" class="btn">Back to Dashboard</a><form id="voyageForm" class="form-section"><div class="form-group"><label>Short Voyage (days)</label><input type="number" id="short" value="${currentTimes.short}" min="1" max="365"></div><div class="form-group"><label>Medium Voyage (days)</label><input type="number" id="medium" value="${currentTimes.medium}" min="1" max="365"></div><div class="form-group"><label>Long Voyage (days)</label><input type="number" id="long" value="${currentTimes.long}" min="1" max="365"></div><button type="submit" class="save-btn">Save Changes</button></form></div><script>const token='${token}';document.getElementById('voyageForm').addEventListener('submit',async function(e){e.preventDefault();const times={short:parseInt(document.getElementById('short').value),medium:parseInt(document.getElementById('medium').value),long:parseInt(document.getElementById('long').value)};try{const res=await fetch('/api/admin/settings',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({voyageTimes:times})});if(res.ok){alert('Voyage times updated successfully');location.reload()}else{alert('Failed to update voyage times')}}catch(e){alert('Error: '+e.message)}});</script></body></html>`;
         res.end(html, 'utf8');
     } catch (error) {
         console.error('[ERROR] Admin voyage times error:', error);
@@ -4084,12 +4044,12 @@ app.post('/api/admin/kyc/approve', authenticateToken, requireRole(['admin']), (r
 // Admin Basis Points
 app.get('/admin/basis-points', authenticateToken, requireRole(['admin']), (req, res) => {
     try {
-        const token = req.query.token || req.headers.authorization?.replace('Bearer ', '');
+        // Cookie-based auth - no token needed
         const currentBasisPoints = database.admin?.basisPoints || 100;
         const priceVariance = 5; // Default 5% variance threshold
         
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-        const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Basis Points - Admin</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;background:#000;color:#fff;padding:2rem}.container{max-width:1200px;margin:0 auto}h1{color:#fff;margin-bottom:2rem}.btn{background:#667eea;color:#fff;padding:10px 20px;border:none;border-radius:6px;cursor:pointer;text-decoration:none;display:inline-block;margin:10px 5px}.btn:hover{background:#5a6fd8}.form-section{background:#1a1a1a;padding:2rem;border-radius:8px;margin:2rem 0}.form-group{margin-bottom:1.5rem}.form-group label{display:block;color:#fff;margin-bottom:0.5rem;font-weight:600}.form-group input{width:100%;padding:12px;background:#333;border:1px solid #555;border-radius:6px;color:#fff;font-size:1rem}.form-group input:focus{outline:none;border-color:#667eea}.info-box{background:#2a2a2a;padding:1rem;border-radius:6px;margin:1rem 0;color:#ccc;font-size:0.9rem}.save-btn{background:#51cf66;color:#fff;padding:12px 24px;border:none;border-radius:6px;cursor:pointer;font-size:1rem;font-weight:600}.save-btn:hover{background:#40c057}</style></head><body><div class="container"><h1>Basis Points & Price Validation</h1><a href="/dashboard/authenticated?token=${token}" class="btn">Back to Dashboard</a><form id="basisForm" class="form-section"><div class="form-group"><label>Basis Points (for price comparison)</label><input type="number" id="basisPoints" value="${currentBasisPoints}" min="1" max="1000"><div class="info-box">Basis points used for price comparison calculations. 100 basis points = 1%.</div></div><div class="form-group"><label>Price Variance Threshold (%)</label><input type="number" id="variance" value="${priceVariance}" step="0.1" min="0" max="50"><div class="info-box">Contracts with price variance above this percentage will be flagged for review.</div></div><button type="submit" class="save-btn">Save Changes</button></form></div><script>const token='${token}';document.getElementById('basisForm').addEventListener('submit',async function(e){e.preventDefault();const settings={basisPoints:parseInt(document.getElementById('basisPoints').value),priceVariance:parseFloat(document.getElementById('variance').value)};try{const res=await fetch('/api/admin/settings',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify(settings)});if(res.ok){alert('Settings updated successfully');location.reload()}else{alert('Failed to update settings')}}catch(e){alert('Error: '+e.message)}});</script></body></html>`;
+        const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Basis Points - Admin</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;background:#000;color:#fff;padding:2rem}.container{max-width:1200px;margin:0 auto}h1{color:#fff;margin-bottom:2rem}.btn{background:#667eea;color:#fff;padding:10px 20px;border:none;border-radius:6px;cursor:pointer;text-decoration:none;display:inline-block;margin:10px 5px}.btn:hover{background:#5a6fd8}.form-section{background:#1a1a1a;padding:2rem;border-radius:8px;margin:2rem 0}.form-group{margin-bottom:1.5rem}.form-group label{display:block;color:#fff;margin-bottom:0.5rem;font-weight:600}.form-group input{width:100%;padding:12px;background:#333;border:1px solid #555;border-radius:6px;color:#fff;font-size:1rem}.form-group input:focus{outline:none;border-color:#667eea}.info-box{background:#2a2a2a;padding:1rem;border-radius:6px;margin:1rem 0;color:#ccc;font-size:0.9rem}.save-btn{background:#51cf66;color:#fff;padding:12px 24px;border:none;border-radius:6px;cursor:pointer;font-size:1rem;font-weight:600}.save-btn:hover{background:#40c057}</style></head><body><div class="container"><h1>Basis Points & Price Validation</h1><a href="/dashboard/authenticated" class="btn">Back to Dashboard</a><form id="basisForm" class="form-section"><div class="form-group"><label>Basis Points (for price comparison)</label><input type="number" id="basisPoints" value="${currentBasisPoints}" min="1" max="1000"><div class="info-box">Basis points used for price comparison calculations. 100 basis points = 1%.</div></div><div class="form-group"><label>Price Variance Threshold (%)</label><input type="number" id="variance" value="${priceVariance}" step="0.1" min="0" max="50"><div class="info-box">Contracts with price variance above this percentage will be flagged for review.</div></div><button type="submit" class="save-btn">Save Changes</button></form></div><script>const token='${token}';document.getElementById('basisForm').addEventListener('submit',async function(e){e.preventDefault();const settings={basisPoints:parseInt(document.getElementById('basisPoints').value),priceVariance:parseFloat(document.getElementById('variance').value)};try{const res=await fetch('/api/admin/settings',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify(settings)});if(res.ok){alert('Settings updated successfully');location.reload()}else{alert('Failed to update settings')}}catch(e){alert('Error: '+e.message)}});</script></body></html>`;
         res.end(html, 'utf8');
     } catch (error) {
         console.error('[ERROR] Admin basis points error:', error);
@@ -4100,12 +4060,12 @@ app.get('/admin/basis-points', authenticateToken, requireRole(['admin']), (req, 
 // Admin Flags
 app.get('/admin/flags', authenticateToken, requireRole(['admin']), (req, res) => {
     try {
-        const token = req.query.token || req.headers.authorization?.replace('Bearer ', '');
+        // Cookie-based auth - no token needed
         const contracts = Array.from(database.contracts.values());
         const flaggedContracts = contracts.filter(c => c.buyerFlag || c.supplierFlag);
         
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-        const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Review Flags - Admin</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;background:#000;color:#fff;padding:2rem}.container{max-width:1200px;margin:0 auto}h1{color:#fff;margin-bottom:2rem}.btn{background:#667eea;color:#fff;padding:10px 20px;border:none;border-radius:6px;cursor:pointer;text-decoration:none;display:inline-block;margin:10px 5px}.btn:hover{background:#5a6fd8}table{width:100%;border-collapse:collapse;margin-top:20px}th,td{padding:12px;text-align:left;border-bottom:1px solid #333}th{background:#1a1a1a;color:#fff}.flag-badge{background:#ff6b6b;color:#fff;padding:4px 8px;border-radius:4px;font-size:0.85rem;margin:0 3px}.flag-message{color:#ffd43b;font-size:0.9rem}</style></head><body><div class="container"><h1>Review Flags</h1><a href="/dashboard/authenticated?token=${token}" class="btn">Back to Dashboard</a><table><thead><tr><th>Contract ID</th><th>Product</th><th>Buyer Flag</th><th>Supplier Flag</th><th>Flag Message</th><th>Date</th></tr></thead><tbody>${flaggedContracts.map(c => {
+        const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Review Flags - Admin</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;background:#000;color:#fff;padding:2rem}.container{max-width:1200px;margin:0 auto}h1{color:#fff;margin-bottom:2rem}.btn{background:#667eea;color:#fff;padding:10px 20px;border:none;border-radius:6px;cursor:pointer;text-decoration:none;display:inline-block;margin:10px 5px}.btn:hover{background:#5a6fd8}table{width:100%;border-collapse:collapse;margin-top:20px}th,td{padding:12px;text-align:left;border-bottom:1px solid #333}th{background:#1a1a1a;color:#fff}.flag-badge{background:#ff6b6b;color:#fff;padding:4px 8px;border-radius:4px;font-size:0.85rem;margin:0 3px}.flag-message{color:#ffd43b;font-size:0.9rem}</style></head><body><div class="container"><h1>Review Flags</h1><a href="/dashboard/authenticated" class="btn">Back to Dashboard</a><table><thead><tr><th>Contract ID</th><th>Product</th><th>Buyer Flag</th><th>Supplier Flag</th><th>Flag Message</th><th>Date</th></tr></thead><tbody>${flaggedContracts.map(c => {
             const buyerFlag = c.buyerFlag ? `<span class="flag-badge">Buyer</span>` : '';
             const supplierFlag = c.supplierFlag ? `<span class="flag-badge">Supplier</span>` : '';
             const flagMsg = (c.buyerFlag?.message || c.supplierFlag?.message || 'Flagged for review');
@@ -4121,11 +4081,11 @@ app.get('/admin/flags', authenticateToken, requireRole(['admin']), (req, res) =>
 // Admin Credit Assessments
 app.get('/admin/credit-assessments', authenticateToken, requireRole(['admin']), (req, res) => {
     try {
-        const token = req.query.token || req.headers.authorization?.replace('Bearer ', '');
+        // Cookie-based auth - no token needed
         const creditAssessments = Array.from(database.creditAssessments.values());
         
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-        const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Credit Assessments - Admin</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;background:#000;color:#fff;padding:2rem}.container{max-width:1200px;margin:0 auto}h1{color:#fff;margin-bottom:2rem}.btn{background:#667eea;color:#fff;padding:10px 20px;border:none;border-radius:6px;cursor:pointer;text-decoration:none;display:inline-block;margin:10px 5px}.btn:hover{background:#5a6fd8}table{width:100%;border-collapse:collapse;margin-top:20px}th,td{padding:12px;text-align:left;border-bottom:1px solid #333}th{background:#1a1a1a;color:#fff}.risk-high{color:#ff6b6b}.risk-medium{color:#ffd43b}.risk-low{color:#51cf66}.score-badge{padding:4px 8px;border-radius:4px;font-size:0.85rem;font-weight:600}.stats{display:flex;gap:2rem;margin:2rem 0}.stat-box{background:#1a1a1a;padding:1.5rem;border-radius:8px;flex:1}.stat-box h3{color:#fff;margin-bottom:0.5rem}.stat-box p{color:#ccc;font-size:1.5rem;font-weight:600}</style></head><body><div class="container"><h1>Credit Assessments</h1><a href="/dashboard/authenticated?token=${token}" class="btn">Back to Dashboard</a><div class="stats"><div class="stat-box"><h3>Total Assessments</h3><p>${creditAssessments.length}</p></div><div class="stat-box"><h3>High Risk</h3><p>${creditAssessments.filter(a => a.riskLevel === 'high').length}</p></div><div class="stat-box"><h3>Average Score</h3><p>${creditAssessments.length > 0 ? Math.round(creditAssessments.reduce((sum, a) => sum + (a.creditScore || 0), 0) / creditAssessments.length) : 0}</p></div></div><table><thead><tr><th>Contract ID</th><th>Buyer Email</th><th>Credit Score</th><th>Risk Level</th><th>Recommendation</th><th>Assessment Date</th></tr></thead><tbody>${creditAssessments.map(assessment => {
+        const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Credit Assessments - Admin</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;background:#000;color:#fff;padding:2rem}.container{max-width:1200px;margin:0 auto}h1{color:#fff;margin-bottom:2rem}.btn{background:#667eea;color:#fff;padding:10px 20px;border:none;border-radius:6px;cursor:pointer;text-decoration:none;display:inline-block;margin:10px 5px}.btn:hover{background:#5a6fd8}table{width:100%;border-collapse:collapse;margin-top:20px}th,td{padding:12px;text-align:left;border-bottom:1px solid #333}th{background:#1a1a1a;color:#fff}.risk-high{color:#ff6b6b}.risk-medium{color:#ffd43b}.risk-low{color:#51cf66}.score-badge{padding:4px 8px;border-radius:4px;font-size:0.85rem;font-weight:600}.stats{display:flex;gap:2rem;margin:2rem 0}.stat-box{background:#1a1a1a;padding:1.5rem;border-radius:8px;flex:1}.stat-box h3{color:#fff;margin-bottom:0.5rem}.stat-box p{color:#ccc;font-size:1.5rem;font-weight:600}</style></head><body><div class="container"><h1>Credit Assessments</h1><a href="/dashboard/authenticated" class="btn">Back to Dashboard</a><div class="stats"><div class="stat-box"><h3>Total Assessments</h3><p>${creditAssessments.length}</p></div><div class="stat-box"><h3>High Risk</h3><p>${creditAssessments.filter(a => a.riskLevel === 'high').length}</p></div><div class="stat-box"><h3>Average Score</h3><p>${creditAssessments.length > 0 ? Math.round(creditAssessments.reduce((sum, a) => sum + (a.creditScore || 0), 0) / creditAssessments.length) : 0}</p></div></div><table><thead><tr><th>Contract ID</th><th>Buyer Email</th><th>Credit Score</th><th>Risk Level</th><th>Recommendation</th><th>Assessment Date</th></tr></thead><tbody>${creditAssessments.map(assessment => {
             const score = assessment.creditScore || 0;
             const riskLevel = assessment.riskLevel || 'medium';
             const riskClass = riskLevel === 'high' ? 'risk-high' : riskLevel === 'medium' ? 'risk-medium' : 'risk-low';
@@ -4539,10 +4499,9 @@ function getFullKYCPageHTML(userEmail, token) {
         // Version: ${version} - Force cache refresh
         console.log('KYC Script loaded successfully - Version: ${version}');
         
-        // Get the token from the URL parameter or localStorage
-        const urlParams = new URLSearchParams(window.location.search);
-        const token = urlParams.get('token') || localStorage.getItem('token') || '${token}';
-                console.log('Token available for KYC:', token ? 'Yes' : 'No');
+        // IMPORTANT: Do not read token from URL. Authentication is handled by HttpOnly cookie.
+        // All API calls will automatically include the cookie when using credentials: 'include'
+        console.log('KYC page loaded - authentication via HttpOnly cookie');
         
         let currentCompanyType = '';
         const uploadedFiles = {};
@@ -4773,11 +4732,11 @@ function getFullKYCPageHTML(userEmail, token) {
             updateProgress(4);
             
             try {
+                // IMPORTANT: Use credentials: 'include' to send HttpOnly cookie. Do not use Authorization header.
+                // Note: Do not set Content-Type header for FormData - browser sets it automatically with boundary
                 const response = await fetch('/api/kyc/submit', {
                     method: 'POST',
-                    headers: {
-                        'Authorization': 'Bearer ' + token
-                    },
+                    credentials: 'include',
                     body: formData
                 });
                 
@@ -4908,20 +4867,20 @@ function getFullKYCPageHTML(userEmail, token) {
                 console.error('Error in showKYCCompletion:', error);
                 // Fallback: show alert and redirect
                 alert('KYC verification complete! Redirecting to wallet setup...');
-                const token = localStorage.getItem('token') || '${token}';
-                window.location.href = '/wallet-setup?token=' + encodeURIComponent(token);
+                // Cookie-based auth - no token needed
+                window.location.href = '/wallet-setup';
             }
         }
         
         
         function completeKYC() {
             console.log('🎉 KYC process completed, redirecting to wallet setup');
-            const token = localStorage.getItem('token') || '${token}';
+                // Cookie-based auth - no token needed
             const user = JSON.parse(localStorage.getItem('user') || '{}');
             const userRole = user.role || 'buyer';
             
             // Remove the alert and redirect directly
-            window.location.href = '/wallet-setup?role=' + userRole + '&token=' + encodeURIComponent(token);
+            window.location.href = '/wallet-setup';
         }
 
     </script>
@@ -4960,29 +4919,54 @@ app.get('/dashboard', (req, res) => {
         <script>
             console.log('Dashboard page loaded');
             
-            // Check for token in localStorage
-            const token = localStorage.getItem('token');
-            const user = JSON.parse(localStorage.getItem('user') || '{}');
-            
-            console.log('[DEBUG] Token from localStorage:', token ? token.substring(0, 20) + '...' : 'NOT FOUND');
-            console.log('[DEBUG] User from localStorage:', user);
-            
-            if (!token || !user.email) {
-                console.log('[ERROR] No token or user found, redirecting to login');
-                window.location.href = '/landing-two';
+            // Check authentication via cookie (no localStorage token needed)
+            fetch('/api/auth/me', {
+                method: 'GET',
+                credentials: 'include'
+            })
+            .then(response => {
+                if (response.ok) {
+                    return response.json();
             } else {
-                console.log('[OK] Token and user found, redirecting to dashboard...');
-                
-                // Direct redirect without server verification (token will be verified by server-side middleware)
-                window.location.href = '/dashboard/authenticated?role=' + user.role + '&token=' + encodeURIComponent(token) + '&v=' + Date.now();
-            }
+                    throw new Error('Not authenticated');
+                }
+            })
+            .then(data => {
+                if (data.success && data.user) {
+                    console.log('[OK] User authenticated, redirecting to dashboard...');
+                    window.location.href = '/dashboard/authenticated';
+                } else {
+                    throw new Error('No user data');
+                }
+            })
+            .catch(error => {
+                console.log('[ERROR] Not authenticated, redirecting to login');
+                window.location.href = '/signin';
+            });
         </script>
     </body>
     </html>
     `);
 });
 
-// Token verification API
+// Get current user API (replaces token verification)
+app.get('/api/auth/me', authenticateToken, (req, res) => {
+    res.json({ 
+        success: true,
+        user: {
+            id: req.user.id,
+            userId: req.user.userId,
+            email: req.user.email,
+            role: req.user.role,
+            kycStatus: req.user.kycStatus,
+            verified: req.user.verified,
+            hasWallet: req.user.hasWallet,
+            walletAddress: req.user.walletAddress
+        }
+    });
+});
+
+// Token verification API (kept for backward compatibility)
 app.post('/api/auth/verify', authenticateToken, (req, res) => {
     res.json({ 
         valid: true, 
@@ -4990,72 +4974,67 @@ app.post('/api/auth/verify', authenticateToken, (req, res) => {
     });
 });
 
-// Authenticated dashboard route
-app.get('/dashboard/authenticated', (req, res) => {
+// Authenticated dashboard route (uses authenticateToken middleware - no query params)
+// This page assumes authentication via HttpOnly cookie. Do NOT read tokens from the URL.
+app.get('/dashboard/authenticated', authenticateToken, async (req, res) => {
     console.log('[DASHBOARD] DASHBOARD AUTHENTICATED ROUTE HIT');
     
-    // Get token from Authorization header or query parameter
-    const token = req.headers.authorization?.replace('Bearer ', '') || req.query.token;
+    // User is already authenticated via authenticateToken middleware
+    const user = req.user;
     
-    if (!token) {
-        console.log('[ERROR] No token provided to authenticated route');
-        return res.redirect('/landing-two');
+    if (!user) {
+        console.log('[ERROR] No user in request (should not happen)');
+        return res.redirect('/signin');
     }
     
-    let user = null;
-    let twoFactorEnabled = false;
-    let twoFactorMethod = null;
-    
-    try {
-        // Verify token and get user data
-        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'tangent-secret-key');
-        user = usersDB.get(decoded.email);
-        
-        if (!user) {
-            console.log('[ERROR] User not found in database:', decoded.email);
-            return res.redirect('/landing-two');
+    // Load full user data from PostgreSQL if needed
+    let fullUser = user;
+    if (usePostgreSQL && tangentDB && user.userId) {
+        const dbUser = await tangentDB.users.get(user.email);
+        if (dbUser) {
+            fullUser = {
+                ...user,
+                kycStatus: dbUser.kycStatus || user.kycStatus,
+                verified: dbUser.verified || user.verified,
+                hasWallet: dbUser.hasWallet || user.hasWallet,
+                walletAddress: dbUser.walletAddress || user.walletAddress
+            };
+        }
         }
         
         // Check 2FA status
-        twoFactorEnabled = user.twoFactorEnabled || false;
-        twoFactorMethod = user.twoFactorMethod || null;
+    const twoFactorEnabled = fullUser.twoFactorEnabled || false;
+    const twoFactorMethod = fullUser.twoFactorMethod || null;
         console.log('[2FA] 2FA Status Check:', {
             twoFactorEnabled: twoFactorEnabled,
-            twoFactorMethod: twoFactorMethod,
-            userHas2FA: user.twoFactorEnabled,
-            userHasMethod: user.twoFactorMethod
+        twoFactorMethod: twoFactorMethod
         });
         
         // Check if user needs KYC (redirect new users to KYC)  
         // Allow access if KYC is pending AND wallet is set up (user completed both steps)
-        const hasWallet = user.hasWallet || user.walletAddress;
-        if (user.kycStatus !== 'approved' && user.role !== 'admin' && !hasWallet) {
+    const hasWallet = fullUser.hasWallet || fullUser.walletAddress;
+    if (fullUser.kycStatus !== 'approved' && fullUser.role !== 'admin' && !hasWallet) {
             console.log('[INFO] User needs KYC verification, showing KYC page directly');
-            // Show KYC page directly instead of redirecting to avoid loops
-            return res.send(getFullKYCPageHTML(user.email, token));
+        // Show KYC page directly (no token needed - cookie auth)
+        return res.send(getFullKYCPageHTML(fullUser.email, ''));
         }
         
         // If KYC is pending but wallet is set up, allow access to dashboard (for demo/testing)
-        if (user.kycStatus === 'pending' && hasWallet && user.role !== 'admin') {
+    if (fullUser.kycStatus === 'pending' && hasWallet && fullUser.role !== 'admin') {
             console.log('[INFO] User has pending KYC but wallet is set up, allowing dashboard access');
         }
         
         console.log('[OK] User KYC approved, showing dashboard');
-        
-    } catch (error) {
-        console.log('[ERROR] Token verification failed:', error.message);
-        return res.redirect('/landing-two');
-    }
     
     // Use user's actual role from database
-    const safeRole = (user.role || 'unified').replace(/[^a-zA-Z0-9_]/g, '') || 'unified';
-    const isAdmin = user.role === 'admin';
+    const safeRole = (fullUser.role || 'unified').replace(/[^a-zA-Z0-9_]/g, '') || 'unified';
+    const isAdmin = fullUser.role === 'admin';
     
     console.log('[DASHBOARD] User role:', user.role);
     console.log('[DASHBOARD] Is admin:', isAdmin);
     console.log('[DASHBOARD] Safe role:', safeRole);
     
-    // Build admin tools section HTML
+    // Build admin tools section HTML (no token in URLs)
     const adminToolsHTML = isAdmin ? `
         <div class="contracts-section" style="background: #1a1a1a; padding: 30px; border-radius: 8px; border: 1px solid #333333; margin-bottom: 30px; margin-top: 30px;">
             <div class="section-header">
@@ -5074,7 +5053,7 @@ app.get('/dashboard/authenticated', (req, res) => {
                 <button class="btn secondary" onclick="navigateAdmin('/admin/basis-points')" style="background: #666666; color: #ffffff; padding: 12px 20px; border: none; border-radius: 6px; cursor: pointer; font-size: 0.9rem; font-weight: 600; text-align: center;">⚡ Basis Points</button>
                 <button class="btn secondary" onclick="navigateAdmin('/admin/flags')" style="background: #666666; color: #ffffff; padding: 12px 20px; border: none; border-radius: 6px; cursor: pointer; font-size: 0.9rem; font-weight: 600; text-align: center;">🚨 Review Flags</button>
                 <button class="btn secondary" onclick="navigateAdmin('/admin/credit-assessments')" style="background: #666666; color: #ffffff; padding: 12px 20px; border: none; border-radius: 6px; cursor: pointer; font-size: 0.9rem; font-weight: 600; text-align: center;">📈 Credit Assessments</button>
-                <button class="btn secondary" onclick="window.open('/dashboard/insurer?token=' + localStorage.getItem('token'), '_blank')" style="background: #2563eb; color: #ffffff; padding: 12px 20px; border: 2px solid #1e40af; border-radius: 6px; cursor: pointer; font-size: 0.9rem; font-weight: bold; text-align: center;">🛡️ Insurance Opportunities</button>
+                <button class="btn secondary" onclick="window.open('/dashboard/insurer', '_blank')" style="background: #2563eb; color: #ffffff; padding: 12px 20px; border: 2px solid #1e40af; border-radius: 6px; cursor: pointer; font-size: 0.9rem; font-weight: bold; text-align: center;">🛡️ Insurance Opportunities</button>
             </div>
         </div>
     ` : '';
@@ -5154,7 +5133,7 @@ app.get('/dashboard/authenticated', (req, res) => {
                 <h3>Protect Your Account</h3>
                 <p>Enable Two-Factor Authentication (2FA) to add an extra layer of security to your account. Choose between Email codes or Authenticator App.</p>
             </div>
-            <a href="/settings/2fa?token=${token}" class="btn">Enable 2FA Now</a>
+            <a href="/settings/2fa" class="btn">Enable 2FA Now</a>
         </div>
         ` : `
         <div class="security-banner enabled">
@@ -5162,7 +5141,7 @@ app.get('/dashboard/authenticated', (req, res) => {
                 <h3>Account Protected</h3>
                 <p>Two-Factor Authentication is enabled using ${twoFactorMethod === 'email' ? 'Email Code' : 'Authenticator App'} method.</p>
             </div>
-            <a href="/settings/2fa?token=${token}" class="btn">Manage 2FA</a>
+            <a href="/settings/2fa" class="btn">Manage 2FA</a>
         </div>
         `}
         
@@ -5189,26 +5168,43 @@ app.get('/dashboard/authenticated', (req, res) => {
     
     <script>
         console.log('Dashboard script loading...');
-        const token = localStorage.getItem('token');
-        const user = JSON.parse(localStorage.getItem('user') || '{}');
         
-        if (!token || !user.email) {
-            window.location.href = '/landing-two';
-        }
+        // Load user data from server (cookie-based auth)
+        let user = null;
+        let isAdmin = false;
         
-        console.log('Token found:', !!token);
-        console.log('User found:', !!user.email);
-        
-        // Verify payDeposit function is defined
-        console.log('payDeposit function defined:', typeof payDeposit !== 'undefined');
-        
+        // Fetch user data on page load
+        fetch('/api/auth/me', {
+            method: 'GET',
+            credentials: 'include'
+        })
+        .then(response => {
+            if (response.ok) {
+                return response.json();
+            } else {
+                throw new Error('Not authenticated');
+            }
+        })
+        .then(data => {
+            if (data.success && data.user) {
+                user = data.user;
+                isAdmin = user.role === 'admin';
+                console.log('User loaded:', user.email, 'Role:', user.role);
         loadContracts();
+            } else {
+                throw new Error('No user data');
+            }
+        })
+        .catch(error => {
+            console.error('Failed to load user:', error);
+            window.location.href = '/signin';
+        });
         
         async function loadContracts() {
             try {
-                const isAdmin = user.role === 'admin';
                 const response = await fetch(isAdmin ? '/api/admin/contracts' : '/api/contracts', {
-                    headers: { 'Authorization': 'Bearer ' + token }
+                    method: 'GET',
+                    credentials: 'include'
                 });
                 
                 if (response.ok) {
@@ -5291,7 +5287,7 @@ app.get('/dashboard/authenticated', (req, res) => {
         }
         
         function getActionButtons(contract, userRole) {
-            const token = localStorage.getItem('token');
+            // Cookie-based auth - no token needed
             let buttons = '';
             
             if (userRole === 'buyer') {
@@ -5324,7 +5320,7 @@ app.get('/dashboard/authenticated', (req, res) => {
                 }
                 // Step 3: Upload Shipping Documents (after deposit received) - Use Manage button for this
                 if (contract.status === 'active' && contract.depositPaid && !contract.documentsUploaded) {
-                    buttons += '<a href="/manage-contract/' + contract.id + '?token=' + encodeURIComponent(token) + '" class="btn secondary small">Upload Shipping Docs</a>';
+                    buttons += '<a href="/manage-contract/' + contract.id + '" class="btn secondary small">Upload Shipping Docs</a>';
                 }
                 // Show waiting for deposit
                 if (contract.status === 'pending_deposit') {
@@ -5345,7 +5341,7 @@ app.get('/dashboard/authenticated', (req, res) => {
                     buttons += '<button class="btn secondary small" onclick="confirmContract(\\''+contract.id+'\\')">Confirm as Supplier</button>';
                 }
                 if (isSupplier && contract.status === 'active' && contract.depositPaid && !contract.documentsUploaded) {
-                    buttons += '<a href="/manage-contract/' + contract.id + '?token=' + encodeURIComponent(token) + '" class="btn secondary small">Upload Shipping Docs</a>';
+                    buttons += '<a href="/manage-contract/' + contract.id + '" class="btn secondary small">Upload Shipping Docs</a>';
                 }
                 
                 // Buyer actions
@@ -5374,37 +5370,19 @@ app.get('/dashboard/authenticated', (req, res) => {
         }
 
         function navigateAdmin(path) {
-            const token = localStorage.getItem('token');
-            if (!token) {
-                alert('Please login first');
-                window.location.href = '/landing-two';
-                return;
-            }
-            window.location.href = path + '?token=' + encodeURIComponent(token);
+            // Cookie-based auth - no token needed in URL
+            window.location.href = path;
         }
         
         function createContract() { 
-            const token = localStorage.getItem('token');
-            if (!token) {
-                alert('Please login first');
-                window.location.href = '/landing-two';
-                return;
-            }
-            window.location.href = '/create-contract?token=' + encodeURIComponent(token);
+            // Cookie-based auth - no token needed in URL
+            window.location.href = '/create-contract';
         }
         
         async function payDeposit(id, amount) {
             console.log('payDeposit called with id:', id, 'amount:', amount);
             
-            // Get token from localStorage to ensure it's available
-            const authToken = localStorage.getItem('token');
-            if (!authToken) {
-                alert('Authentication required. Please login again.');
-                window.location.href = '/landing-two';
-                return;
-            }
-            
-            console.log('Token retrieved:', !!authToken);
+            // Cookie-based auth - no token needed
             
             // Optional MetaMask integration - non-blocking
             let useBlockchain = false;
@@ -5453,9 +5431,9 @@ app.get('/dashboard/authenticated', (req, res) => {
                 const response = await fetch('/api/contracts/' + id + '/deposit', {
                     method: 'POST',
                     headers: { 
-                        'Authorization': 'Bearer ' + authToken,
                         'Content-Type': 'application/json'
                     },
+                    credentials: 'include',
                     body: JSON.stringify({ useBlockchain: useBlockchain })
                 });
                 
@@ -5505,9 +5483,9 @@ app.get('/dashboard/authenticated', (req, res) => {
                 const response = await fetch('/api/contracts/' + id + '/release-payment', {
                     method: 'POST',
                     headers: { 
-                        'Authorization': 'Bearer ' + token,
                         'Content-Type': 'application/json'
-                    }
+                    },
+                    credentials: 'include'
                 });
                 
                 const result = await response.json();
@@ -5527,9 +5505,9 @@ app.get('/dashboard/authenticated', (req, res) => {
                 const response = await fetch('/api/contracts/' + id + '/confirm', {
                     method: 'POST',
                     headers: { 
-                        'Authorization': 'Bearer ' + token,
                         'Content-Type': 'application/json'
-                    }
+                    },
+                    credentials: 'include'
                 });
                 
                 const result = await response.json();
@@ -5545,23 +5523,13 @@ app.get('/dashboard/authenticated', (req, res) => {
         }
         
         function uploadDocuments(id) { 
-            const token = localStorage.getItem('token') || '';
-            if (!token) {
-                alert('Please sign in to upload documents');
-                window.location.href = '/landing-two';
-                return;
-            }
-            window.location.href = '/manage-contract/' + id + '?token=' + encodeURIComponent(token); 
+            // Cookie-based auth - no token needed in URL
+            window.location.href = '/manage-contract/' + id; 
         }
         
         function createDualContract(contractId) {
-            const token = localStorage.getItem('token') || '';
-            if (!token) {
-                alert('Please sign in to create dual contract');
-                window.location.href = '/landing-two';
-                return;
-            }
-            window.location.href = '/create-dual-contract/' + contractId + '?token=' + encodeURIComponent(token);
+            // Cookie-based auth - no token needed in URL
+            window.location.href = '/create-dual-contract/' + contractId;
         }
         
         async function cancelContract(contractId) {
@@ -5569,13 +5537,12 @@ app.get('/dashboard/authenticated', (req, res) => {
                 return;
             }
             try {
-                const token = localStorage.getItem('token');
                 const response = await fetch('/api/contracts/' + contractId + '/cancel', {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': 'Bearer ' + token
-                    }
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include'
                 });
                 if (response.ok) {
                     alert('Contract cancelled successfully');
@@ -5588,25 +5555,37 @@ app.get('/dashboard/authenticated', (req, res) => {
                 alert('Error: ' + error.message);
             }
         }
-        function logout() { localStorage.removeItem('token'); localStorage.removeItem('user'); window.location.href = '/landing-two'; }
+        function logout() { 
+            // Clear cookie via server
+            fetch('/logout', { method: 'POST', credentials: 'include' })
+                .then(() => window.location.href = '/signin')
+                .catch(() => window.location.href = '/signin');
+        }
         
         
         // Initialize WebSocket connection
         function initWebSocket() {
             try {
-                const token = localStorage.getItem('token');
-                if (!token) return;
-                
+                // Cookie-based auth - WebSocket will use cookies automatically
                 socket = io({
                     transports: ['websocket', 'polling'],
                     reconnection: true,
                     reconnectionDelay: 1000,
-                    reconnectionAttempts: 5
+                    reconnectionAttempts: 5,
+                    withCredentials: true
                 });
                 
                 socket.on('connect', () => {
                     console.log('[OK] WebSocket connected');
-                    socket.emit('authenticate', { token: token });
+                    // WebSocket auth can use cookie or get token from /api/auth/me
+                    fetch('/api/auth/me', { credentials: 'include' })
+                        .then(res => res.json())
+                        .then(data => {
+                            if (data.success && data.user) {
+                                socket.emit('authenticate', { userId: data.user.userId, email: data.user.email });
+                            }
+                        })
+                        .catch(err => console.error('Failed to get user for WebSocket auth:', err));
                 });
                 
                 socket.on('authenticated', (data) => {
@@ -5644,11 +5623,9 @@ app.get('/dashboard/authenticated', (req, res) => {
         // Load notifications from API
         async function loadNotifications() {
             try {
-                const token = localStorage.getItem('token');
-                if (!token) return;
-                
                 const response = await fetch('/api/notifications', {
-                    headers: { 'Authorization': 'Bearer ' + token }
+                    method: 'GET',
+                    credentials: 'include'
                 });
                 
                 if (response.ok) {
@@ -5721,10 +5698,9 @@ app.get('/dashboard/authenticated', (req, res) => {
         // Mark notification as read
         async function markAsRead(notificationId) {
             try {
-                const token = localStorage.getItem('token');
                 const response = await fetch(\`/api/notifications/\${notificationId}/read\`, {
                     method: 'POST',
-                    headers: { 'Authorization': 'Bearer ' + token }
+                    credentials: 'include'
                 });
                 
                 if (response.ok) {
@@ -5743,10 +5719,9 @@ app.get('/dashboard/authenticated', (req, res) => {
         // Mark all as read
         async function markAllAsRead() {
             try {
-                const token = localStorage.getItem('token');
                 const response = await fetch('/api/notifications/read-all', {
                     method: 'POST',
-                    headers: { 'Authorization': 'Bearer ' + token }
+                    credentials: 'include'
                 });
                 
                 if (response.ok) {
@@ -5795,36 +5770,36 @@ app.get('/dashboard/insurer', authenticateToken, (req, res) => {
 });
 
 // KYC Dashboard Route - MUST BE BEFORE /dashboard/:role
-app.get('/dashboard/kyc', (req, res) => {
+// This page assumes authentication via HttpOnly cookie. Do NOT read tokens from the URL.
+app.get('/dashboard/kyc', authenticateToken, async (req, res) => {
     console.log('[KYC] KYC route hit');
     
-    // Get token from query parameter, Authorization header, or cookie
-    const token = req.query.token || req.headers.authorization?.replace('Bearer ', '') || req.cookies?.token;
+    // User is already authenticated via authenticateToken middleware
+    const user = req.user;
     
-    if (!token) {
-        console.log('[ERROR] No token provided to KYC route');
-        return res.redirect('/landing-two');
+    if (!user || !user.email) {
+        console.log('[ERROR] No user in request (should not happen)');
+        return res.redirect('/signin');
     }
     
-    let user = null;
-    
-    try {
-        // Verify token and get user data
-        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'tangent-secret-key');
-        user = usersDB.get(decoded.email);
-        
-        if (!user) {
-            console.log('[ERROR] User not found in database:', decoded.email);
-            return res.redirect('/landing-two');
+    // Load full user data if needed
+    let fullUser = user;
+    if (usePostgreSQL && tangentDB && user.userId) {
+        const dbUser = await tangentDB.users.get(user.email);
+        if (dbUser) {
+            fullUser = { ...user, ...dbUser };
         }
-        
-        console.log('[OK] KYC page access granted for:', user.email);
-        return res.send(getFullKYCPageHTML(user.email, token));
-        
-    } catch (error) {
-        console.log('[ERROR] Token verification failed in KYC route:', error.message);
-        return res.redirect('/landing-two');
+    } else {
+        // Fallback to in-memory
+        const dbUser = usersDB.get(user.email);
+        if (dbUser) {
+            fullUser = { ...user, ...dbUser };
+        }
     }
+    
+    console.log('[OK] KYC page access granted for:', fullUser.email);
+    // IMPORTANT: Do not pass token - authentication is handled by HttpOnly cookie
+    return res.send(getFullKYCPageHTML(fullUser.email, ''));
 });
 
 app.get('/dashboard/:role', authenticateToken, async (req, res) => {
@@ -5867,55 +5842,55 @@ app.get('/dashboard/:role', authenticateToken, async (req, res) => {
             walletAddress: wallet ? wallet.address : null,
             hasWallet: !!wallet
         };
-        
-        // Admin access
-        if (role === 'admin') {
+    
+    // Admin access
+    if (role === 'admin') {
             if (userWithWallet.role !== 'admin') {
-                return res.status(403).send('<h1>Access Denied</h1><p>Admin access required.</p>');
-            }
-            return res.send(createDashboard('admin', userWithWallet, req.query.token || req.headers.authorization?.replace('Bearer ', '') || ''));
+            return res.status(403).send('<h1>Access Denied</h1><p>Admin access required.</p>');
         }
-        
-        // Check if user needs KYC
+            return res.send(createDashboard('admin', userWithWallet, ''));
+    }
+    
+    // Check if user needs KYC
         console.log('[KYC] KYC CHECK - User:', userWithWallet.email, 'KYC Status:', userWithWallet.kycStatus, 'Role:', userWithWallet.role);
         if (userWithWallet.kycStatus !== 'approved' && userWithWallet.role !== 'admin') {
-            // Client-side redirect to KYC with token handling
-            return res.send(`
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <!-- Google tag (gtag.js) -->
-                <script async src="https://www.googletagmanager.com/gtag/js?id=G-C1FN7FSX06"></script>
-                <script>
-                  window.dataLayer = window.dataLayer || [];
-                  function gtag(){dataLayer.push(arguments);}
-                  gtag('js', new Date());
-
-                  gtag('config', 'G-C1FN7FSX06');
-                </script>
-                <title>Redirecting to KYC...</title>
-            </head>
-            <body>
+        // Client-side redirect to KYC with token handling
+        return res.send(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <!-- Google tag (gtag.js) -->
+            <script async src="https://www.googletagmanager.com/gtag/js?id=G-C1FN7FSX06"></script>
             <script>
-            // Redirect to KYC page - client-side redirect preserves localStorage token
-            console.log('KYC verification required, redirecting...');
-            // Get token from URL parameter and pass it to KYC page
-            const urlParams = new URLSearchParams(window.location.search);
-            const token = urlParams.get('token') || localStorage.getItem('token');
-            window.location.href = '/dashboard/kyc?token=' + encodeURIComponent(token);
+              window.dataLayer = window.dataLayer || [];
+              function gtag(){dataLayer.push(arguments);}
+              gtag('js', new Date());
+
+              gtag('config', 'G-C1FN7FSX06');
             </script>
-            </body>
-            </html>
-            `);
-        }
-        
-        // Role-specific routing
-        if (role === 'insurer') {
-            return res.send(createDashboard('insurer', userWithWallet, req.query.token || req.headers.authorization?.replace('Bearer ', '') || ''));
-        }
-        
-        // All other roles go to unified dashboard
-        res.send(createDashboard('unified', userWithWallet, req.query.token || req.headers.authorization?.replace('Bearer ', '') || ''));
+            <title>Redirecting to KYC...</title>
+        </head>
+        <body>
+        <script>
+        // Redirect to KYC page - client-side redirect preserves localStorage token
+        console.log('KYC verification required, redirecting...');
+        // Get token from URL parameter and pass it to KYC page
+        const urlParams = new URLSearchParams(window.location.search);
+        // Cookie-based auth - no token needed
+        window.location.href = '/dashboard/kyc';
+        </script>
+        </body>
+        </html>
+        `);
+    }
+    
+    // Role-specific routing
+    if (role === 'insurer') {
+            return res.send(createDashboard('insurer', userWithWallet, ''));
+    }
+    
+    // All other roles go to unified dashboard
+        res.send(createDashboard('unified', userWithWallet, ''));
     } catch (error) {
         console.error('[DASHBOARD] Error loading dashboard:', error);
         res.status(500).send('<h1>Error</h1><p>Failed to load dashboard. Please try again.</p>');
