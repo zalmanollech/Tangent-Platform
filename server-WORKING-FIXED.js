@@ -4576,7 +4576,7 @@ function getFullKYCPageHTML(userEmail, token) {
                         if (document.readyState === 'loading') {
                             document.addEventListener('DOMContentLoaded', showKYCCompletion);
                         } else {
-                            showKYCCompletion();
+                        showKYCCompletion();
                         }
                     }, 1000);
                 } else {
@@ -4616,8 +4616,8 @@ function getFullKYCPageHTML(userEmail, token) {
                 await new Promise(resolve => setTimeout(resolve, 1500));
                 const checkElement = document.getElementById(checks[i]);
                 if (checkElement) {
-                    checkElement.innerHTML = checkElement.textContent.replace('⏳ ', '').replace('...', ' - Clear');
-                    checkElement.style.color = '#ffffff';
+                checkElement.innerHTML = checkElement.textContent.replace('⏳ ', '').replace('...', ' - Clear');
+                checkElement.style.color = '#ffffff';
                 }
             }
             
@@ -4626,7 +4626,7 @@ function getFullKYCPageHTML(userEmail, token) {
                 if (document.readyState === 'loading') {
                     document.addEventListener('DOMContentLoaded', showKYCCompletion);
                 } else {
-                    showKYCCompletion();
+                showKYCCompletion();
                 }
             }, 1000);
         }
@@ -4656,28 +4656,28 @@ function getFullKYCPageHTML(userEmail, token) {
                 } catch (e) {
                     console.warn('Could not hide steps:', e);
                 }
-                
-                // Show completion message
-                const completionHTML = \`
-                    <div style="text-align: center; padding: 40px; background: #1a1a1a; border-radius: 12px; border: 2px solid #ffffff;">
-                        <h2 style="color: #ffffff; margin-bottom: 20px;">KYC Verification Complete</h2>
-                        <p style="color: #ffffff; margin-bottom: 30px; font-size: 1.1em;">
-                            Your verification has been successfully completed. All compliance checks have passed.
+            
+            // Show completion message
+            const completionHTML = \`
+                <div style="text-align: center; padding: 40px; background: #1a1a1a; border-radius: 12px; border: 2px solid #ffffff;">
+                    <h2 style="color: #ffffff; margin-bottom: 20px;">KYC Verification Complete</h2>
+                    <p style="color: #ffffff; margin-bottom: 30px; font-size: 1.1em;">
+                        Your verification has been successfully completed. All compliance checks have passed.
+                    </p>
+                    <div style="background: rgba(255, 255, 255, 0.1); padding: 20px; border-radius: 8px; margin: 20px 0;">
+                        <p style="color: #ffffff; margin: 0; font-weight: 600;">
+                            Next Step: Set up your TGT wallet for trading and payments
                         </p>
-                        <div style="background: rgba(255, 255, 255, 0.1); padding: 20px; border-radius: 8px; margin: 20px 0;">
-                            <p style="color: #ffffff; margin: 0; font-weight: 600;">
-                                Next Step: Set up your TGT wallet for trading and payments
-                            </p>
-                        </div>
-                        <button type="button" class="btn" onclick="completeKYC()" style="background: #ffffff; color: #000000; font-size: 1.1em; padding: 15px 30px;">
-                            Continue to Wallet Setup
-                        </button>
                     </div>
-                \`;
-                
-                const mainContent = document.querySelector('.main-content');
+                    <button type="button" class="btn" onclick="completeKYC()" style="background: #ffffff; color: #000000; font-size: 1.1em; padding: 15px 30px;">
+                        Continue to Wallet Setup
+                    </button>
+                </div>
+            \`;
+            
+            const mainContent = document.querySelector('.main-content');
                 if (mainContent) {
-                    mainContent.innerHTML = completionHTML;
+            mainContent.innerHTML = completionHTML;
                 } else {
                     console.error('Main content element not found');
                     // Fallback: try to append to body

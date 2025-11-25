@@ -1,5 +1,5 @@
 {
-  "timestamp": "2025-11-23T23:29:50.410Z",
+  "timestamp": "2025-11-24T09:24:04.067Z",
   "version": "1.0.0",
   "data": {
     "users": [
@@ -8,7 +8,7 @@
         {
           "id": "admin-001",
           "email": "admin@tangent.com",
-          "password": "$2b$10$XtzJT6k4MNyjukKDq9Vxue4bn31sIJe5CAAQN71/g7Eip7PmpTeb6",
+          "password": "$2b$10$mDvrak.JqHwy/iJaRXQSUuHcKYlhJToIHHGLvhgfzF49GEiMg2hn2",
           "role": "admin",
           "verified": true,
           "kycStatus": "approved"
@@ -19,7 +19,7 @@
         {
           "id": "buyer-001",
           "email": "buyer@test.com",
-          "password": "$2b$10$tXlTfjq4gn0gzfdl.PGmWudi7JX47KzgdKitXiFHRIB3ZU7RONFse",
+          "password": "$2b$10$2ZeMJRMC02oBrbK8jTzyKeX3JcaDSj2HV8U9hL/NlUpRYx7DtncWe",
           "role": "buyer",
           "verified": true,
           "kycStatus": "approved"
@@ -30,7 +30,7 @@
         {
           "id": "supplier-001",
           "email": "supplier@test.com",
-          "password": "$2b$10$fOlO9Hj4m8LsX5WxqMwzlumrAxf35/fRgqHw6ECjWhAg7zqGbQ9PK",
+          "password": "$2b$10$/zNQZcuSyr8M2EOc2r8uVemcE2FeyQTdhaO6PwFtDaG4UcWnhmQfq",
           "role": "supplier",
           "verified": true,
           "kycStatus": "approved"
@@ -41,7 +41,7 @@
         {
           "id": "trader-001",
           "email": "trader@test.com",
-          "password": "$2b$10$VBblKu2zpVkSvOJMBDYOVO9SDDol/8DubGnB.ALcMPxdk.WUTOTrW",
+          "password": "$2b$10$iIpVu3Oqy/LdamFK1ngh7e8r8tI4nekmYtoiXF2yuhZvOgD5f4gfa",
           "role": "trader",
           "verified": true,
           "kycStatus": "approved"
@@ -52,7 +52,7 @@
         {
           "id": "insurer-001",
           "email": "insurer@test.com",
-          "password": "$2b$10$TUPnITDsbtBvVsDHt/5jXO6Em2SCh/j2GVFbK68chy4.Kr92DE.wi",
+          "password": "$2b$10$dmV9Z9236D41ozU96.p4M.s7dWlCr8iC/6EfoHXFeUKkIrm0ghfT.",
           "role": "insurer",
           "verified": true,
           "kycStatus": "approved"
@@ -78,7 +78,7 @@
           "specifications": "Hard Red Winter Wheat, Grade #2",
           "contractRole": "supplier",
           "status": "pending_buyer_confirmation",
-          "createdAt": "2025-11-23T23:29:50.408Z",
+          "createdAt": "2025-11-24T09:24:04.065Z",
           "depositAmount": 5255,
           "depositPaid": false,
           "documents": [],
@@ -87,7 +87,7 @@
           "timeline": [
             {
               "event": "contract_created",
-              "timestamp": "2025-11-23T23:29:50.409Z",
+              "timestamp": "2025-11-24T09:24:04.066Z",
               "actor": "supplier@test.com",
               "description": "Contract created by supplier"
             }
@@ -112,25 +112,25 @@
           "specifications": "WTI Crude Oil, API 39.6",
           "contractRole": "buyer",
           "status": "active",
-          "createdAt": "2025-11-22T23:29:50.409Z",
+          "createdAt": "2025-11-23T09:24:04.066Z",
           "depositAmount": 1510,
           "depositPaid": true,
           "documents": [],
           "buyerFlag": null,
           "supplierFlag": {
             "message": "Documents ready for upload",
-            "timestamp": "2025-11-23T23:29:50.409Z"
+            "timestamp": "2025-11-24T09:24:04.066Z"
           },
           "timeline": [
             {
               "event": "contract_created",
-              "timestamp": "2025-11-22T23:29:50.409Z",
+              "timestamp": "2025-11-23T09:24:04.066Z",
               "actor": "trader@test.com",
               "description": "Contract created by trader"
             },
             {
               "event": "deposit_paid",
-              "timestamp": "2025-11-23T11:29:50.409Z",
+              "timestamp": "2025-11-23T21:24:04.066Z",
               "actor": "trader@test.com",
               "description": "Deposit payment completed"
             }
@@ -155,19 +155,19 @@
           "specifications": "Arabica Coffee Beans, Grade A",
           "contractRole": "supplier",
           "status": "pending_deposit",
-          "createdAt": "2025-11-21T23:29:50.409Z",
+          "createdAt": "2025-11-22T09:24:04.066Z",
           "depositAmount": 331,
           "depositPaid": false,
           "documents": [],
           "buyerFlag": {
             "message": "Deposit payment required",
-            "timestamp": "2025-11-23T23:29:50.409Z"
+            "timestamp": "2025-11-24T09:24:04.066Z"
           },
           "supplierFlag": null,
           "timeline": [
             {
               "event": "contract_created",
-              "timestamp": "2025-11-21T23:29:50.409Z",
+              "timestamp": "2025-11-22T09:24:04.066Z",
               "actor": "trader@test.com",
               "description": "Contract created by trader"
             }
@@ -183,14 +183,14 @@
           "userId": "system-pool",
           "tgtBalance": 5000000,
           "address": "tgt_pool_wallet_main",
-          "createdAt": "2025-11-23T23:29:50.409Z",
+          "createdAt": "2025-11-24T09:24:04.066Z",
           "type": "pool",
           "transactions": [
             {
               "type": "initial_pool_allocation",
               "amount": 5000000,
               "description": "Initial Pool Wallet Capital",
-              "timestamp": "2025-11-23T23:29:50.409Z"
+              "timestamp": "2025-11-24T09:24:04.066Z"
             }
           ]
         }
@@ -201,7 +201,7 @@
           "userId": "system-fees",
           "tgtBalance": 0,
           "address": "tgt_fee_wallet_main",
-          "createdAt": "2025-11-23T23:29:50.409Z",
+          "createdAt": "2025-11-24T09:24:04.066Z",
           "type": "fee_collection",
           "transactions": []
         }

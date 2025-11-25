@@ -1,0 +1,722 @@
+{
+  "timestamp": "2025-11-25T12:27:32.641Z",
+  "version": "1.0.0",
+  "data": {
+    "users": [
+      [
+        "admin@tangent.com",
+        {
+          "id": "admin-001",
+          "email": "admin@tangent.com",
+          "password": "$2b$10$mDvrak.JqHwy/iJaRXQSUuHcKYlhJToIHHGLvhgfzF49GEiMg2hn2",
+          "role": "admin",
+          "verified": true,
+          "kycStatus": "approved"
+        }
+      ],
+      [
+        "buyer@test.com",
+        {
+          "id": "buyer-001",
+          "email": "buyer@test.com",
+          "password": "$2b$10$2ZeMJRMC02oBrbK8jTzyKeX3JcaDSj2HV8U9hL/NlUpRYx7DtncWe",
+          "role": "buyer",
+          "verified": true,
+          "kycStatus": "approved"
+        }
+      ],
+      [
+        "supplier@test.com",
+        {
+          "id": "supplier-001",
+          "email": "supplier@test.com",
+          "password": "$2b$10$/zNQZcuSyr8M2EOc2r8uVemcE2FeyQTdhaO6PwFtDaG4UcWnhmQfq",
+          "role": "supplier",
+          "verified": true,
+          "kycStatus": "approved"
+        }
+      ],
+      [
+        "trader@test.com",
+        {
+          "id": "trader-001",
+          "email": "trader@test.com",
+          "password": "$2b$10$iIpVu3Oqy/LdamFK1ngh7e8r8tI4nekmYtoiXF2yuhZvOgD5f4gfa",
+          "role": "trader",
+          "verified": true,
+          "kycStatus": "approved"
+        }
+      ],
+      [
+        "insurer@test.com",
+        {
+          "id": "insurer-001",
+          "email": "insurer@test.com",
+          "password": "$2b$10$dmV9Z9236D41ozU96.p4M.s7dWlCr8iC/6EfoHXFeUKkIrm0ghfT.",
+          "role": "insurer",
+          "verified": true,
+          "kycStatus": "approved"
+        }
+      ],
+      [
+        "admiun@tangent.com",
+        {
+          "id": "user-1763977130192",
+          "email": "admiun@tangent.com",
+          "password": "$2b$10$BIbCWUIaFwTZblVidfCvS.VXbve9Z.eGCxApxVBYQp8WJPo9YbgqG",
+          "role": "buyer",
+          "verified": false,
+          "kycStatus": "approved",
+          "createdAt": "2025-11-24T09:38:50.192Z",
+          "kycSubmissionId": "kyc-1763977253844-rtgncc4hx",
+          "hasWallet": true,
+          "walletAddress": "0x1234567890123456789012345678901234567890"
+        }
+      ],
+      [
+        "admun@tangent.com",
+        {
+          "id": "user-1763986625327",
+          "email": "admun@tangent.com",
+          "password": "$2b$10$foZlDyV2pXqZzF0/ZOjuKO1Wb9aiA1teDYSNy9dcTMkPj7j25Qrty",
+          "role": "buyer",
+          "verified": false,
+          "kycStatus": "approved",
+          "createdAt": "2025-11-24T12:17:05.327Z",
+          "kycSubmissionId": "kyc-1764011687632-vr3ufebda",
+          "hasWallet": true,
+          "walletAddress": "0x1234567890123456789012345678901234567890"
+        }
+      ]
+    ],
+    "contracts": [
+      [
+        "contract_test_001",
+        {
+          "id": "contract_test_001",
+          "buyerEmail": "buyer@test.com",
+          "supplierEmail": "supplier@test.com",
+          "productDetails": "Wheat",
+          "quantity": 5000,
+          "unit": "tons",
+          "pricePerUnit": 525.5,
+          "totalValue": 2627500,
+          "deliveryDate": "03/2025",
+          "paymentTerms": "at_sight",
+          "origin": "Kansas, USA",
+          "destination": "Hamburg, Germany",
+          "specifications": "Hard Red Winter Wheat, Grade #2",
+          "contractRole": "supplier",
+          "status": "pending_buyer_confirmation",
+          "createdAt": "2025-11-24T09:24:04.065Z",
+          "depositAmount": 5255,
+          "depositPaid": false,
+          "documents": [],
+          "buyerFlag": null,
+          "supplierFlag": null,
+          "timeline": [
+            {
+              "event": "contract_created",
+              "timestamp": "2025-11-24T09:24:04.066Z",
+              "actor": "supplier@test.com",
+              "description": "Contract created by supplier"
+            }
+          ]
+        }
+      ],
+      [
+        "contract_test_002",
+        {
+          "id": "contract_test_002",
+          "buyerEmail": "trader@test.com",
+          "supplierEmail": "supplier@test.com",
+          "productDetails": "Crude Oil (WTI)",
+          "quantity": 10000,
+          "unit": "barrels",
+          "pricePerUnit": 75.5,
+          "totalValue": 755000,
+          "deliveryDate": "02/2025",
+          "paymentTerms": "deposit_against_docs",
+          "origin": "Houston, TX",
+          "destination": "Rotterdam, Netherlands",
+          "specifications": "WTI Crude Oil, API 39.6",
+          "contractRole": "buyer",
+          "status": "active",
+          "createdAt": "2025-11-23T09:24:04.066Z",
+          "depositAmount": 1510,
+          "depositPaid": true,
+          "documents": [],
+          "buyerFlag": null,
+          "supplierFlag": {
+            "message": "Documents ready for upload",
+            "timestamp": "2025-11-24T09:24:04.066Z"
+          },
+          "timeline": [
+            {
+              "event": "contract_created",
+              "timestamp": "2025-11-23T09:24:04.066Z",
+              "actor": "trader@test.com",
+              "description": "Contract created by trader"
+            },
+            {
+              "event": "deposit_paid",
+              "timestamp": "2025-11-23T21:24:04.066Z",
+              "actor": "trader@test.com",
+              "description": "Deposit payment completed"
+            }
+          ]
+        }
+      ],
+      [
+        "contract_test_003",
+        {
+          "id": "contract_test_003",
+          "buyerEmail": "buyer@test.com",
+          "supplierEmail": "trader@test.com",
+          "productDetails": "Coffee C",
+          "quantity": 100,
+          "unit": "tons",
+          "pricePerUnit": 165.5,
+          "totalValue": 16550,
+          "deliveryDate": "04/2025",
+          "paymentTerms": "at_sight",
+          "origin": "Santos, Brazil",
+          "destination": "Hamburg, Germany",
+          "specifications": "Arabica Coffee Beans, Grade A",
+          "contractRole": "supplier",
+          "status": "pending_deposit",
+          "createdAt": "2025-11-22T09:24:04.066Z",
+          "depositAmount": 331,
+          "depositPaid": false,
+          "documents": [],
+          "buyerFlag": {
+            "message": "Deposit payment required",
+            "timestamp": "2025-11-24T09:24:04.066Z"
+          },
+          "supplierFlag": null,
+          "timeline": [
+            {
+              "event": "contract_created",
+              "timestamp": "2025-11-22T09:24:04.066Z",
+              "actor": "trader@test.com",
+              "description": "Contract created by trader"
+            }
+          ]
+        }
+      ],
+      [
+        "contract-1763987369773-l6oo8rvxr",
+        {
+          "id": "contract-1763987369773-l6oo8rvxr",
+          "product": "Wheat",
+          "quantity": 50,
+          "unit": "bushels",
+          "pricePerUnit": 280,
+          "totalValue": "14000.00",
+          "currency": "TGT",
+          "buyerEmail": "admun@tangent.com",
+          "supplierEmail": "buyer@test.com",
+          "depositPercent": 30,
+          "depositAmount": "4200.00",
+          "voyageTime": 30,
+          "description": "",
+          "status": "pending_supplier_confirmation",
+          "depositPaid": false,
+          "documentsUploaded": false,
+          "createdAt": "2025-11-24T12:29:29.773Z",
+          "createdBy": "admun@tangent.com"
+        }
+      ]
+    ],
+    "kyc": [
+      [
+        "kyc-1763977163100-p585to7lg",
+        {
+          "id": "kyc-1763977163100-p585to7lg",
+          "userEmail": "admiun@tangent.com",
+          "companyType": "listed",
+          "companyName": "Sadot group inc",
+          "registrationNumber": "",
+          "country": "",
+          "address": "",
+          "contactPerson": "",
+          "phone": "",
+          "email": "admiun@tangent.com",
+          "files": {
+            "passport": [
+              {
+                "filename": "1763977163081_brazil_passport_1.jpg",
+                "originalname": "brazil passport 1.jpg",
+                "path": "uploads\\1763977163081_brazil_passport_1.jpg",
+                "size": 325357,
+                "mimetype": "image/jpeg"
+              }
+            ]
+          },
+          "status": "approved",
+          "submittedAt": "2025-11-24T09:39:23.100Z",
+          "reviewedAt": "2025-11-24T09:39:23.101Z",
+          "reviewedBy": "system",
+          "autoApproved": true
+        }
+      ],
+      [
+        "kyc-1763977253844-rtgncc4hx",
+        {
+          "id": "kyc-1763977253844-rtgncc4hx",
+          "userEmail": "admiun@tangent.com",
+          "companyType": "listed",
+          "companyName": "Sadot group inc",
+          "registrationNumber": "",
+          "country": "",
+          "address": "",
+          "contactPerson": "",
+          "phone": "",
+          "email": "admiun@tangent.com",
+          "files": {
+            "passport": [
+              {
+                "filename": "1763977253834_brazil_passport_1.jpg",
+                "originalname": "brazil passport 1.jpg",
+                "path": "uploads\\1763977253834_brazil_passport_1.jpg",
+                "size": 325357,
+                "mimetype": "image/jpeg"
+              }
+            ]
+          },
+          "status": "approved",
+          "submittedAt": "2025-11-24T09:40:53.844Z",
+          "reviewedAt": "2025-11-24T09:40:53.844Z",
+          "reviewedBy": "system",
+          "autoApproved": true
+        }
+      ],
+      [
+        "kyc-1763986929381-479cw8tob",
+        {
+          "id": "kyc-1763986929381-479cw8tob",
+          "userEmail": "admun@tangent.com",
+          "companyType": "listed",
+          "companyName": "Sadot group inc",
+          "registrationNumber": "",
+          "country": "",
+          "address": "",
+          "contactPerson": "",
+          "phone": "",
+          "email": "admun@tangent.com",
+          "files": {
+            "passport": [
+              {
+                "filename": "1763986929360_brazil_passport_1.jpg",
+                "originalname": "brazil passport 1.jpg",
+                "path": "uploads\\1763986929360_brazil_passport_1.jpg",
+                "size": 325357,
+                "mimetype": "image/jpeg"
+              }
+            ]
+          },
+          "status": "approved",
+          "submittedAt": "2025-11-24T12:22:09.381Z",
+          "reviewedAt": "2025-11-24T12:22:09.381Z",
+          "reviewedBy": "system",
+          "autoApproved": true
+        }
+      ],
+      [
+        "kyc-1764011687632-vr3ufebda",
+        {
+          "id": "kyc-1764011687632-vr3ufebda",
+          "userEmail": "admun@tangent.com",
+          "companyType": "listed",
+          "companyName": "Sadot group inc",
+          "registrationNumber": "",
+          "country": "",
+          "address": "",
+          "contactPerson": "",
+          "phone": "",
+          "email": "admun@tangent.com",
+          "files": {
+            "passport": [
+              {
+                "filename": "1764011687623_brazil_passport_1.jpg",
+                "originalname": "brazil passport 1.jpg",
+                "path": "uploads\\1764011687623_brazil_passport_1.jpg",
+                "size": 325357,
+                "mimetype": "image/jpeg"
+              }
+            ]
+          },
+          "status": "approved",
+          "submittedAt": "2025-11-24T19:14:47.632Z",
+          "reviewedAt": "2025-11-24T19:14:47.633Z",
+          "reviewedBy": "system",
+          "autoApproved": true
+        }
+      ]
+    ],
+    "wallets": [
+      [
+        "pool-wallet",
+        {
+          "userId": "system-pool",
+          "tgtBalance": 5000000,
+          "address": "tgt_pool_wallet_main",
+          "createdAt": "2025-11-24T09:24:04.066Z",
+          "type": "pool",
+          "transactions": [
+            {
+              "type": "initial_pool_allocation",
+              "amount": 5000000,
+              "description": "Initial Pool Wallet Capital",
+              "timestamp": "2025-11-24T09:24:04.066Z"
+            }
+          ]
+        }
+      ],
+      [
+        "fee-wallet",
+        {
+          "userId": "system-fees",
+          "tgtBalance": 0,
+          "address": "tgt_fee_wallet_main",
+          "createdAt": "2025-11-24T09:24:04.066Z",
+          "type": "fee_collection",
+          "transactions": []
+        }
+      ],
+      [
+        "buyer-001",
+        {
+          "userId": "buyer-001",
+          "tgtBalance": 100000,
+          "address": "tgt_buyer-001_test",
+          "createdAt": "2025-11-24T09:24:04.072Z"
+        }
+      ],
+      [
+        "supplier-001",
+        {
+          "userId": "supplier-001",
+          "tgtBalance": 5000,
+          "address": "tgt_supplier-001_test",
+          "createdAt": "2025-11-24T09:24:04.072Z"
+        }
+      ],
+      [
+        "trader-001",
+        {
+          "userId": "trader-001",
+          "tgtBalance": 100000,
+          "address": "tgt_trader-001_test",
+          "createdAt": "2025-11-24T09:24:04.072Z"
+        }
+      ],
+      [
+        "insurer-001",
+        {
+          "userId": "insurer-001",
+          "tgtBalance": 8000,
+          "address": "tgt_insurer-001_test",
+          "createdAt": "2025-11-24T09:24:04.072Z"
+        }
+      ],
+      [
+        "wallet-admiun@tangent.com",
+        {
+          "id": "wallet-admiun@tangent.com",
+          "userEmail": "admiun@tangent.com",
+          "address": "0x1234567890123456789012345678901234567890",
+          "type": "Demo",
+          "createdAt": "2025-11-24T09:39:56.641Z",
+          "updatedAt": "2025-11-24T09:39:56.641Z"
+        }
+      ],
+      [
+        "wallet-admun@tangent.com",
+        {
+          "id": "wallet-admun@tangent.com",
+          "userEmail": "admun@tangent.com",
+          "address": "0x1234567890123456789012345678901234567890",
+          "type": "Demo",
+          "createdAt": "2025-11-24T19:16:48.924Z",
+          "updatedAt": "2025-11-24T19:16:48.924Z"
+        }
+      ]
+    ],
+    "auctions": [],
+    "transactions": [],
+    "documents": [],
+    "pendingContracts": [],
+    "notifications": [],
+    "complianceReports": [
+      [
+        "compliance-1763977163101-qrzx1jxv6",
+        {
+          "id": "compliance-1763977163101-qrzx1jxv6",
+          "kycId": "kyc-1763977163100-p585to7lg",
+          "userId": "admiun@tangent.com",
+          "companyName": "Sadot group inc",
+          "contactPerson": "",
+          "screeningDate": "2025-11-24T09:39:23.101Z",
+          "ofacMatch": false,
+          "matches": [],
+          "riskLevel": "low",
+          "totalChecked": 0,
+          "status": "completed"
+        }
+      ],
+      [
+        "compliance-1763977253844-89mkecpwo",
+        {
+          "id": "compliance-1763977253844-89mkecpwo",
+          "kycId": "kyc-1763977253844-rtgncc4hx",
+          "userId": "admiun@tangent.com",
+          "companyName": "Sadot group inc",
+          "contactPerson": "",
+          "screeningDate": "2025-11-24T09:40:53.844Z",
+          "ofacMatch": false,
+          "matches": [],
+          "riskLevel": "low",
+          "totalChecked": 0,
+          "status": "completed"
+        }
+      ],
+      [
+        "compliance-1763986929381-nn9mlt9sp",
+        {
+          "id": "compliance-1763986929381-nn9mlt9sp",
+          "kycId": "kyc-1763986929381-479cw8tob",
+          "userId": "admun@tangent.com",
+          "companyName": "Sadot group inc",
+          "contactPerson": "",
+          "screeningDate": "2025-11-24T12:22:09.381Z",
+          "ofacMatch": false,
+          "matches": [],
+          "riskLevel": "low",
+          "totalChecked": 0,
+          "status": "completed"
+        }
+      ],
+      [
+        "compliance-1764011687632-73qcgm8b9",
+        {
+          "id": "compliance-1764011687632-73qcgm8b9",
+          "kycId": "kyc-1764011687632-vr3ufebda",
+          "userId": "admun@tangent.com",
+          "companyName": "Sadot group inc",
+          "contactPerson": "",
+          "screeningDate": "2025-11-24T19:14:47.632Z",
+          "ofacMatch": false,
+          "matches": [],
+          "riskLevel": "low",
+          "totalChecked": 0,
+          "status": "completed"
+        }
+      ]
+    ],
+    "auditLogs": [
+      [
+        "audit-1763976244068-qw34rgu9v",
+        {
+          "id": "audit-1763976244068-qw34rgu9v",
+          "action": "backup_created",
+          "userId": "system",
+          "timestamp": "2025-11-24T09:24:04.068Z",
+          "details": {
+            "backupFile": "C:\\Dev\\Tangent-PLatform\\backups\\backup-2025-11-24T09-24-04-067Z.json"
+          },
+          "ip": "unknown",
+          "userAgent": "unknown"
+        }
+      ],
+      [
+        "audit-1763977163102-wcxn01eqa",
+        {
+          "id": "audit-1763977163102-wcxn01eqa",
+          "action": "kyc_submitted",
+          "userId": "admiun@tangent.com",
+          "timestamp": "2025-11-24T09:39:23.102Z",
+          "details": {
+            "kycId": "kyc-1763977163100-p585to7lg",
+            "companyType": "listed",
+            "fileCount": 1,
+            "ofacScreened": true,
+            "ofacMatch": false,
+            "autoApproved": true,
+            "status": "approved"
+          },
+          "ip": "unknown",
+          "userAgent": "unknown"
+        }
+      ],
+      [
+        "audit-1763977196641-990t0avc5",
+        {
+          "id": "audit-1763977196641-990t0avc5",
+          "action": "wallet_created",
+          "userId": "admiun@tangent.com",
+          "timestamp": "2025-11-24T09:39:56.641Z",
+          "details": {
+            "walletAddress": "0x1234567890123456789012345678901234567890",
+            "walletType": "Demo"
+          },
+          "ip": "unknown",
+          "userAgent": "unknown"
+        }
+      ],
+      [
+        "audit-1763977253845-v9y89dhwl",
+        {
+          "id": "audit-1763977253845-v9y89dhwl",
+          "action": "kyc_submitted",
+          "userId": "admiun@tangent.com",
+          "timestamp": "2025-11-24T09:40:53.845Z",
+          "details": {
+            "kycId": "kyc-1763977253844-rtgncc4hx",
+            "companyType": "listed",
+            "fileCount": 1,
+            "ofacScreened": true,
+            "ofacMatch": false,
+            "autoApproved": true,
+            "status": "approved"
+          },
+          "ip": "unknown",
+          "userAgent": "unknown"
+        }
+      ],
+      [
+        "audit-1763986929381-7dc5r3zfk",
+        {
+          "id": "audit-1763986929381-7dc5r3zfk",
+          "action": "kyc_submitted",
+          "userId": "admun@tangent.com",
+          "timestamp": "2025-11-24T12:22:09.381Z",
+          "details": {
+            "kycId": "kyc-1763986929381-479cw8tob",
+            "companyType": "listed",
+            "fileCount": 1,
+            "ofacScreened": true,
+            "ofacMatch": false,
+            "autoApproved": true,
+            "status": "approved"
+          },
+          "ip": "unknown",
+          "userAgent": "unknown"
+        }
+      ],
+      [
+        "audit-1763987012539-n71i1qupp",
+        {
+          "id": "audit-1763987012539-n71i1qupp",
+          "action": "wallet_created",
+          "userId": "admun@tangent.com",
+          "timestamp": "2025-11-24T12:23:32.539Z",
+          "details": {
+            "walletAddress": "0x1234567890123456789012345678901234567890",
+            "walletType": "Demo"
+          },
+          "ip": "unknown",
+          "userAgent": "unknown"
+        }
+      ],
+      [
+        "audit-1763987369773-wjl4iaqw2",
+        {
+          "id": "audit-1763987369773-wjl4iaqw2",
+          "action": "contract_created",
+          "userId": "admun@tangent.com",
+          "timestamp": "2025-11-24T12:29:29.773Z",
+          "details": {
+            "contractId": "contract-1763987369773-l6oo8rvxr",
+            "product": "Wheat",
+            "totalValue": "14000.00",
+            "counterparty": "buyer@test.com",
+            "creditAssessed": false
+          },
+          "ip": "unknown",
+          "userAgent": "unknown"
+        }
+      ],
+      [
+        "audit-1764008054929-kju70rpse",
+        {
+          "id": "audit-1764008054929-kju70rpse",
+          "action": "backup_created",
+          "userId": "system",
+          "timestamp": "2025-11-24T18:14:14.930Z",
+          "details": {
+            "backupFile": "C:\\Dev\\Tangent-PLatform\\backups\\backup-2025-11-24T18-14-14-748Z.json"
+          },
+          "ip": "unknown",
+          "userAgent": "unknown"
+        }
+      ],
+      [
+        "audit-1764011687633-u0nlmo89f",
+        {
+          "id": "audit-1764011687633-u0nlmo89f",
+          "action": "kyc_submitted",
+          "userId": "admun@tangent.com",
+          "timestamp": "2025-11-24T19:14:47.633Z",
+          "details": {
+            "kycId": "kyc-1764011687632-vr3ufebda",
+            "companyType": "listed",
+            "fileCount": 1,
+            "ofacScreened": true,
+            "ofacMatch": false,
+            "autoApproved": true,
+            "status": "approved"
+          },
+          "ip": "unknown",
+          "userAgent": "unknown"
+        }
+      ],
+      [
+        "audit-1764011808924-g6e7f37t7",
+        {
+          "id": "audit-1764011808924-g6e7f37t7",
+          "action": "wallet_created",
+          "userId": "admun@tangent.com",
+          "timestamp": "2025-11-24T19:16:48.924Z",
+          "details": {
+            "walletAddress": "0x1234567890123456789012345678901234567890",
+            "walletType": "Demo"
+          },
+          "ip": "unknown",
+          "userAgent": "unknown"
+        }
+      ],
+      [
+        "audit-1764052052644-ww4bq2mgi",
+        {
+          "id": "audit-1764052052644-ww4bq2mgi",
+          "action": "backup_created",
+          "userId": "system",
+          "timestamp": "2025-11-25T06:27:32.644Z",
+          "details": {
+            "backupFile": "C:\\Dev\\Tangent-PLatform\\backups\\backup-2025-11-25T06-27-32-639Z.json"
+          },
+          "ip": "unknown",
+          "userAgent": "unknown"
+        }
+      ]
+    ],
+    "sessions": [],
+    "admin": {
+      "fees": {
+        "tradingFee": 0.5,
+        "platformFee": 1
+      },
+      "interestRates": {
+        "deposit": 2.5,
+        "lending": 5
+      },
+      "voyageTimes": {
+        "short": 30,
+        "medium": 60,
+        "long": 90
+      },
+      "basisPoints": 100
+    }
+  }
+}

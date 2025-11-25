@@ -894,53 +894,53 @@ function initializePoolWallet() {
 
 // Initialize test users function (called after usersDB is defined)
 function initializeTestUsers() {
-    // Default admin user
+// Default admin user
     // Initialize test users (will sync to PostgreSQL if available)
     usersDB.set('admin@tangent.com', {
-        id: 'admin-001',
-        email: 'admin@tangent.com',
-        password: bcrypt.hashSync('TangentAdmin2024!', 10),
-        role: 'admin',
-        verified: true,
-        kycStatus: 'approved'
-    });
+    id: 'admin-001',
+    email: 'admin@tangent.com',
+    password: bcrypt.hashSync('TangentAdmin2024!', 10),
+    role: 'admin',
+    verified: true,
+    kycStatus: 'approved'
+});
 
-    // Test approved users for each role
+// Test approved users for each role
     usersDB.set('buyer@test.com', {
-        id: 'buyer-001',
-        email: 'buyer@test.com',
-        password: bcrypt.hashSync('TestUser2024!', 10),
-        role: 'buyer',
-        verified: true,
-        kycStatus: 'approved'
-    });
+    id: 'buyer-001',
+    email: 'buyer@test.com',
+    password: bcrypt.hashSync('TestUser2024!', 10),
+    role: 'buyer',
+    verified: true,
+    kycStatus: 'approved'
+});
 
     usersDB.set('supplier@test.com', {
-        id: 'supplier-001',
-        email: 'supplier@test.com',
-        password: bcrypt.hashSync('TestUser2024!', 10),
-        role: 'supplier',
-        verified: true,
-        kycStatus: 'approved'
-    });
+    id: 'supplier-001',
+    email: 'supplier@test.com',
+    password: bcrypt.hashSync('TestUser2024!', 10),
+    role: 'supplier',
+    verified: true,
+    kycStatus: 'approved'
+});
 
     usersDB.set('trader@test.com', {
-        id: 'trader-001',
-        email: 'trader@test.com',
-        password: bcrypt.hashSync('TestUser2024!', 10),
-        role: 'trader',
-        verified: true,
-        kycStatus: 'approved'
-    });
+    id: 'trader-001',
+    email: 'trader@test.com',
+    password: bcrypt.hashSync('TestUser2024!', 10),
+    role: 'trader',
+    verified: true,
+    kycStatus: 'approved'
+});
 
     usersDB.set('insurer@test.com', {
-        id: 'insurer-001',
-        email: 'insurer@test.com',
-        password: bcrypt.hashSync('TestUser2024!', 10),
-        role: 'insurer',
-        verified: true,
-        kycStatus: 'approved'
-    });
+    id: 'insurer-001',
+    email: 'insurer@test.com',
+    password: bcrypt.hashSync('TestUser2024!', 10),
+    role: 'insurer',
+    verified: true,
+    kycStatus: 'approved'
+});
 }
 
 // Create sample test contracts for demonstration
@@ -1280,42 +1280,44 @@ function processPendingContractsForUser(userEmail) {
 // ================================
 // AUTHENTICATION MIDDLEWARE
 // ================================
-const authenticateToken = (req, res, next) => {
-    // Reduced logging - only log errors to prevent terminal flickering
+const authenticateToken = async (req, res, next) => {
     // Try multiple ways to get the token
     let token = null;
     
-    // 1. Check Authorization header (for API calls)
-    const authHeader = req.headers['authorization'];
-    if (authHeader && authHeader.split(' ')[1]) {
-        token = authHeader.split(' ')[1];
+    // 1. Check HTTP-only cookie (primary method for web)
+    if (req.cookies && req.cookies.auth_token) {
+        token = req.cookies.auth_token;
     }
     
-    // 2. Check query parameter (for dashboard redirects)
+    // 2. Check Authorization header (for API calls)
+    if (!token) {
+        const authHeader = req.headers['authorization'];
+        if (authHeader && authHeader.split(' ')[1]) {
+            token = authHeader.split(' ')[1];
+        }
+    }
+    
+    // 3. Check query parameter (for dashboard redirects)
     if (!token && req.query.token) {
         token = req.query.token;
     }
     
-    // 3. Check cookies (if we implement cookie auth later)
-    if (!token && req.cookies && req.cookies.token) {
-        token = req.cookies.token;
-    }
-    
     if (!token) {
         // Only log if it's not a public route (to reduce noise)
-        const publicRoutes = ['/static', '/uploads', '/terms', '/privacy', '/user-agreement', '/favicon.ico', '/health', '/test', '/tools', '/'];
+        const publicRoutes = ['/static', '/uploads', '/terms', '/privacy', '/user-agreement', '/favicon.ico', '/health', '/test', '/tools', '/', '/signin', '/signup', '/landing-two'];
         const isPublicRoute = publicRoutes.some(route => req.path.startsWith(route) || req.path === route);
         
         if (!isPublicRoute) {
-            // Don't log - too noisy
+            console.log('[AUTH] No token or invalid token');
         }
-        // For dashboard routes, redirect to login instead of JSON error
+        
+        // For dashboard routes, redirect to login
         if (req.path.startsWith('/dashboard')) {
-            return res.redirect('/landing-two');
+            return res.redirect('/signin');
         }
         // For settings routes, redirect to login
         if (req.path.startsWith('/settings')) {
-            return res.redirect('/landing-two');
+            return res.redirect('/signin');
         }
         // For public routes, don't require auth
         if (isPublicRoute) {
@@ -1328,34 +1330,86 @@ const authenticateToken = (req, res, next) => {
         return res.status(401).json({ error: 'Access token required' });
     }
     
-    jwt.verify(token, process.env.JWT_SECRET || 'tangent-secret-key', (err, user) => {
-        if (err) {
-            console.error('[ERROR] AUTH - Token verification failed:', err.message);
-            // For dashboard routes, redirect to login instead of JSON error
-            if (req.path.startsWith('/dashboard')) {
-                return res.redirect('/landing-two');
+    try {
+        // Verify JWT token
+        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'tangent-secret-key');
+        
+        // Load user from PostgreSQL
+        let user;
+        if (usePostgreSQL && tangentDB && decoded.userId) {
+            // Load full user data from PostgreSQL
+            const dbUser = await tangentDB.users.get(decoded.email);
+            if (!dbUser) {
+                console.error('[AUTH] Invalid token - user not found in DB:', decoded.email);
+                res.clearCookie('auth_token');
+                if (req.path.startsWith('/dashboard')) {
+                    return res.redirect('/signin');
+                }
+                return res.status(403).json({ error: 'Invalid token' });
             }
-            return res.status(403).json({ error: 'Invalid token' });
+            user = {
+                id: dbUser.id.toString(),
+                userId: parseInt(dbUser.id),
+                email: dbUser.email,
+                role: dbUser.role,
+                kycStatus: dbUser.kycStatus,
+                verified: dbUser.verified,
+                twoFactorEnabled: dbUser.twoFactorEnabled,
+                twoFactorMethod: dbUser.twoFactorMethod,
+                hasWallet: dbUser.hasWallet,
+                walletAddress: dbUser.walletAddress
+            };
+        } else {
+            // Fallback to in-memory or token data
+            if (decoded.userId) {
+                user = {
+                    id: decoded.userId.toString(),
+                    userId: decoded.userId,
+                    email: decoded.email,
+                    role: decoded.role
+                };
+            } else {
+                // Legacy token format
+                user = {
+                    id: decoded.id,
+                    userId: decoded.id ? parseInt(decoded.id.replace('user-', '')) : null,
+                    email: decoded.email,
+                    role: decoded.role
+                };
+            }
         }
         
         // Update session activity if session exists
-        if (user.sessionId) {
-            updateSessionActivity(user.sessionId);
+        if (decoded.sessionId) {
+            updateSessionActivity(decoded.sessionId);
         }
         
         // Only log successful auth for important routes (reduce noise)
         if (req.path.startsWith('/api/admin') || req.path.startsWith('/dashboard/admin')) {
-            console.log('[OK] AUTH - Admin access:', user.email);
+            console.log('[AUTH] Admin access:', user.email);
         }
+        
         req.user = user;
         next();
-    });
+    } catch (err) {
+        console.error('[AUTH] Invalid token:', err.message);
+        res.clearCookie('auth_token');
+        // For dashboard routes, redirect to login instead of JSON error
+        if (req.path.startsWith('/dashboard')) {
+            return res.redirect('/signin');
+        }
+        return res.status(403).json({ error: 'Invalid token' });
+    }
 };
 
-const requireRole = (roles) => {
+const requireRole = (...roles) => {
     return (req, res, next) => {
-        if (!roles.includes(req.user.role)) {
-            return res.status(403).json({ error: 'Insufficient permissions' });
+        if (!req.user || !roles.includes(req.user.role)) {
+            console.log('[AUTH] Access denied - insufficient role. Required:', roles, 'User role:', req.user?.role);
+            if (req.path.startsWith('/api/')) {
+                return res.status(403).json({ error: 'Forbidden', message: 'Insufficient permissions' });
+            }
+            return res.status(403).send('<h1>Access Denied</h1><p>Insufficient permissions.</p><a href="/dashboard">Back to Dashboard</a>');
         }
         next();
     };
@@ -2159,20 +2213,54 @@ app.post('/api/auth/register', async (req, res) => {
         const normalizedRole = (role || 'buyer').toLowerCase();
         
         // Validate role
-        if (!['buyer', 'supplier', 'trader', 'insurer'].includes(normalizedRole)) {
+        if (!['buyer', 'supplier', 'trader', 'insurer', 'admin'].includes(normalizedRole)) {
             return res.status(400).json({ error: 'Invalid role' });
         }
         
-        // Check if user already exists
-        if (usersDB.has(email)) {
+        // Check if user already exists (PostgreSQL)
+        if (usePostgreSQL && tangentDB) {
+            const existing = await tangentDB.users.has(email.toLowerCase());
+            if (existing) {
+                console.log('[AUTH] Registration attempt with existing email:', email);
             return res.status(400).json({ error: 'Email already registered' });
+            }
+        } else {
+            // Fallback to in-memory check
+            if (usersDB.has(email)) {
+                console.log('[AUTH] Registration attempt with existing email:', email);
+                return res.status(400).json({ error: 'Email already registered' });
+            }
         }
         
         // Hash password
         const hashedPassword = await bcrypt.hash(password, 10);
         
-        // Create user
-        const user = {
+        // Create user in PostgreSQL
+        let user;
+        if (usePostgreSQL && tangentDB) {
+            // Create user in PostgreSQL
+            user = await tangentDB.users.set(email.toLowerCase(), {
+                email: email.toLowerCase(),
+                password: hashedPassword,
+                hashedPassword: hashedPassword,
+                role: normalizedRole,
+                verified: false,
+                kycStatus: 'pending'
+            });
+            
+            console.log('[AUTH] New user registered: userId=' + user.id + ', email=' + user.email + ', role=' + user.role);
+            
+            // Auto-create wallet for this user
+            const walletAddress = '0xDEMO_WALLET_' + user.id;
+            const wallet = await tangentDB.wallets.create(
+                parseInt(user.id),
+                walletAddress,
+                false
+            );
+            console.log('[AUTH] Wallet auto-created for user: userId=' + user.id + ', address=' + walletAddress);
+        } else {
+            // Fallback to in-memory
+            user = {
             id: 'user-' + Date.now(),
             email: email,
             password: hashedPassword,
@@ -2181,23 +2269,37 @@ app.post('/api/auth/register', async (req, res) => {
             kycStatus: 'pending',
             createdAt: new Date().toISOString()
         };
-        
-        usersDB.set(email, user);
+            usersDB.set(email, user);
         saveDatabase();
+            console.log('[AUTH] New user registered (in-memory): userId=' + user.id + ', email=' + user.email);
+        }
         
         // Generate JWT token
         const token = jwt.sign(
-            { id: user.id, email: user.email, role: user.role },
+            { userId: parseInt(user.id), email: user.email, role: user.role },
             process.env.JWT_SECRET || 'tangent-secret-key',
             { expiresIn: '7d' }
         );
         
+        // Set JWT as HTTP-only cookie
+        res.cookie('auth_token', token, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'lax',
+            maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+        });
+        
         // Return success (don't include password)
-        const { password: _, ...safeUser } = user;
+        const { password: _, hashedPassword: __, ...safeUser } = user;
+        
+        // Redirect based on role
+        const dashboardPath = `/dashboard/${normalizedRole}`;
+        
         res.status(201).json({
             success: true,
             token: token,
-            user: safeUser
+            user: safeUser,
+            redirect: dashboardPath
         });
     } catch (error) {
         console.error('[ERROR] Registration error:', error);
@@ -2219,16 +2321,31 @@ app.post('/api/auth/login', async (req, res) => {
             return res.status(400).json({ error: 'Email and password are required' });
         }
         
-        // Find user
-        const user = usersDB.get(email);
+        // Find user (PostgreSQL)
+        let user;
+        if (usePostgreSQL && tangentDB) {
+            user = await tangentDB.users.get(email.toLowerCase());
+        } else {
+            // Fallback to in-memory
+            user = usersDB.get(email);
+        }
+        
         if (!user) {
-            return res.status(401).json({ error: 'Invalid credentials' });
+            console.log('[AUTH] Login attempt failed: user not found:', email);
+            return res.status(401).json({ error: 'Invalid email or password' });
         }
         
         // Verify password
-        const passwordMatch = await bcrypt.compare(password, user.password);
+        const passwordHash = user.password || user.hashedPassword;
+        if (!passwordHash) {
+            console.log('[AUTH] Login attempt failed: no password hash for user:', email);
+            return res.status(401).json({ error: 'Invalid email or password' });
+        }
+        
+        const passwordMatch = await bcrypt.compare(password, passwordHash);
         if (!passwordMatch) {
-            return res.status(401).json({ error: 'Invalid credentials' });
+            console.log('[AUTH] Login attempt failed: invalid password for user:', email);
+            return res.status(401).json({ error: 'Invalid email or password' });
         }
         
         // Check 2FA if enabled
@@ -2244,24 +2361,67 @@ app.post('/api/auth/login', async (req, res) => {
             // For now, just check if token is provided
         }
         
+        // Ensure user has wallet (auto-create if missing)
+        if (usePostgreSQL && tangentDB) {
+            let wallet = await tangentDB.wallets.getByUserId(parseInt(user.id));
+            if (!wallet) {
+                const walletAddress = '0xDEMO_WALLET_' + user.id;
+                wallet = await tangentDB.wallets.create(
+                    parseInt(user.id),
+                    walletAddress,
+                    false
+                );
+                console.log('[AUTH] Wallet auto-created on login: userId=' + user.id + ', address=' + walletAddress);
+            }
+        }
+        
         // Generate JWT token
         const token = jwt.sign(
-            { id: user.id, email: user.email, role: user.role },
+            { userId: parseInt(user.id), email: user.email, role: user.role },
             process.env.JWT_SECRET || 'tangent-secret-key',
             { expiresIn: '7d' }
         );
         
+        // Set JWT as HTTP-only cookie
+        res.cookie('auth_token', token, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'lax',
+            maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+        });
+        
+        console.log('[AUTH] User logged in: userId=' + user.id + ', email=' + user.email + ', role=' + user.role);
+        
         // Return success (don't include password)
-        const { password: _, ...safeUser } = user;
+        const { password: _, hashedPassword: __, ...safeUser } = user;
+        
+        // Redirect based on role
+        const dashboardPath = `/dashboard/${user.role}`;
+        
         res.json({
             success: true,
             token: token,
-            user: safeUser
+            user: safeUser,
+            redirect: dashboardPath
         });
     } catch (error) {
         console.error('[ERROR] Login error:', error);
+        console.error('[ERROR] Login error stack:', error.stack);
         res.status(500).json({ error: 'Login failed' });
     }
+});
+
+// Logout route
+app.post('/logout', (req, res) => {
+    console.log('[AUTH] User logged out');
+    res.clearCookie('auth_token');
+    res.redirect('/signin');
+});
+
+app.get('/logout', (req, res) => {
+    console.log('[AUTH] User logged out');
+    res.clearCookie('auth_token');
+    res.redirect('/signin');
 });
 
 // ================================
@@ -5634,57 +5794,99 @@ app.get('/dashboard/kyc', (req, res) => {
     }
 });
 
-app.get('/dashboard/:role', authenticateToken, (req, res) => {
+app.get('/dashboard/:role', authenticateToken, async (req, res) => {
     const { role } = req.params;
     
-    // Admin access
-    if (role === 'admin') {
-        if (req.user.role !== 'admin') {
-            return res.status(403).send('<h1>Access Denied</h1><p>Admin access required.</p>');
+    try {
+        // Load real user and wallet data from PostgreSQL
+        let dbUser = req.user;
+        let wallet = null;
+        
+        if (usePostgreSQL && tangentDB && req.user.userId) {
+            // Load full user data from PostgreSQL
+            dbUser = await tangentDB.users.get(req.user.email);
+            if (!dbUser) {
+                console.error('[DASHBOARD] User not found in DB:', req.user.email);
+                return res.redirect('/signin');
+            }
+            
+            // Load wallet data
+            wallet = await tangentDB.wallets.getByUserId(req.user.userId);
+            if (!wallet) {
+                // Auto-create wallet if missing (safety net)
+                const walletAddress = '0xDEMO_WALLET_' + req.user.userId;
+                wallet = await tangentDB.wallets.create(
+                    req.user.userId,
+                    walletAddress,
+                    false
+                );
+                console.log('[DASHBOARD] Wallet auto-created: userId=' + req.user.userId + ', address=' + walletAddress);
+            }
+            
+            console.log('[DASHBOARD] Loaded user from DB: userId=' + dbUser.id + ', email=' + dbUser.email + ', role=' + dbUser.role);
+            console.log('[DASHBOARD] Loaded wallet from DB: address=' + (wallet ? wallet.address : 'none'));
         }
-        return res.send(createDashboard('admin', req.user, req.query.token || req.headers.authorization?.replace('Bearer ', '') || ''));
-    }
-    
-    // Check if user needs KYC
-    console.log('[KYC] KYC CHECK - User:', req.user.email, 'KYC Status:', req.user.kycStatus, 'Role:', req.user.role);
-    if (req.user.kycStatus !== 'approved' && req.user.role !== 'admin') {
-        // Client-side redirect to KYC with token handling
-        return res.send(`
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <!-- Google tag (gtag.js) -->
-            <script async src="https://www.googletagmanager.com/gtag/js?id=G-C1FN7FSX06"></script>
-            <script>
-              window.dataLayer = window.dataLayer || [];
-              function gtag(){dataLayer.push(arguments);}
-              gtag('js', new Date());
+        
+        // Merge wallet data into user object for template
+        const userWithWallet = {
+            ...dbUser,
+            wallet: wallet,
+            walletAddress: wallet ? wallet.address : null,
+            hasWallet: !!wallet
+        };
+        
+        // Admin access
+        if (role === 'admin') {
+            if (userWithWallet.role !== 'admin') {
+                return res.status(403).send('<h1>Access Denied</h1><p>Admin access required.</p>');
+            }
+            return res.send(createDashboard('admin', userWithWallet, req.query.token || req.headers.authorization?.replace('Bearer ', '') || ''));
+        }
+        
+        // Check if user needs KYC
+        console.log('[KYC] KYC CHECK - User:', userWithWallet.email, 'KYC Status:', userWithWallet.kycStatus, 'Role:', userWithWallet.role);
+        if (userWithWallet.kycStatus !== 'approved' && userWithWallet.role !== 'admin') {
+            // Client-side redirect to KYC with token handling
+            return res.send(`
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <!-- Google tag (gtag.js) -->
+                <script async src="https://www.googletagmanager.com/gtag/js?id=G-C1FN7FSX06"></script>
+                <script>
+                  window.dataLayer = window.dataLayer || [];
+                  function gtag(){dataLayer.push(arguments);}
+                  gtag('js', new Date());
 
-              gtag('config', 'G-C1FN7FSX06');
+                  gtag('config', 'G-C1FN7FSX06');
+                </script>
+                <title>Redirecting to KYC...</title>
+            </head>
+            <body>
+            <script>
+            // Redirect to KYC page - client-side redirect preserves localStorage token
+            console.log('KYC verification required, redirecting...');
+            // Get token from URL parameter and pass it to KYC page
+            const urlParams = new URLSearchParams(window.location.search);
+            const token = urlParams.get('token') || localStorage.getItem('token');
+            window.location.href = '/dashboard/kyc?token=' + encodeURIComponent(token);
             </script>
-            <title>Redirecting to KYC...</title>
-        </head>
-        <body>
-        <script>
-        // Redirect to KYC page - client-side redirect preserves localStorage token
-        console.log('KYC verification required, redirecting...');
-        // Get token from URL parameter and pass it to KYC page
-        const urlParams = new URLSearchParams(window.location.search);
-        const token = urlParams.get('token') || localStorage.getItem('token');
-        window.location.href = '/dashboard/kyc?token=' + encodeURIComponent(token);
-        </script>
-        </body>
-        </html>
-        `);
+            </body>
+            </html>
+            `);
+        }
+        
+        // Role-specific routing
+        if (role === 'insurer') {
+            return res.send(createDashboard('insurer', userWithWallet, req.query.token || req.headers.authorization?.replace('Bearer ', '') || ''));
+        }
+        
+        // All other roles go to unified dashboard
+        res.send(createDashboard('unified', userWithWallet, req.query.token || req.headers.authorization?.replace('Bearer ', '') || ''));
+    } catch (error) {
+        console.error('[DASHBOARD] Error loading dashboard:', error);
+        res.status(500).send('<h1>Error</h1><p>Failed to load dashboard. Please try again.</p>');
     }
-    
-    // Role-specific routing
-    if (role === 'insurer') {
-        return res.send(createDashboard('insurer', req.user, req.query.token || req.headers.authorization?.replace('Bearer ', '') || ''));
-    }
-    
-    // All other roles go to unified dashboard
-    res.send(createDashboard('unified', req.user, req.query.token || req.headers.authorization?.replace('Bearer ', '') || ''));
 });
 
 // Helper function to ensure UTF-8 encoding
@@ -5838,14 +6040,14 @@ if (require.main === module) {
             initializeTestUsers();
             
             // Start server after database is initialized
-            app.listen(PORT, '0.0.0.0', () => {
-                console.log(`[INFO] traidefi Complete Production Platform running on port ${PORT}`);
-                console.log(`[INFO] Landing Page: http://localhost:${PORT}/`);
+    app.listen(PORT, '0.0.0.0', () => {
+        console.log(`[INFO] traidefi Complete Production Platform running on port ${PORT}`);
+        console.log(`[INFO] Landing Page: http://localhost:${PORT}/`);
                 console.log(`[INFO] Database mode: ${usePostgreSQL ? 'PostgreSQL ✅' : 'In-Memory Maps ⚠️'}`);
                 if (usePostgreSQL) {
                     console.log('[INFO] All user operations will be persisted to PostgreSQL');
                 }
-            });
+    });
         } catch (error) {
             console.error('[ERROR] Failed to start server:', error.message);
             process.exit(1);
