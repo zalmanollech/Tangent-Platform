@@ -1291,6 +1291,9 @@ const authenticateToken = async (req, res, next) => {
     // 1. Check HTTP-only cookie (primary method for web)
     if (req.cookies && req.cookies.auth_token) {
         token = req.cookies.auth_token;
+        console.log('[AUTH] Token found in cookie');
+    } else {
+        console.log('[AUTH] No cookie found. Cookies:', req.cookies ? Object.keys(req.cookies) : 'none');
     }
     
     // 2. Check Authorization header (for API calls from external clients)
@@ -2297,8 +2300,12 @@ app.post('/api/auth/register', async (req, res) => {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
             sameSite: 'lax',
+            path: '/', // Ensure cookie is available for all paths
             maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
         });
+        
+        console.log('[AUTH] User registered: userId=' + user.id + ', email=' + user.email + ', role=' + user.role);
+        console.log('[AUTH] Cookie set: auth_token (HttpOnly, path=/)');
         
         // Return success WITHOUT token (token is in HttpOnly cookie only)
         res.status(201).json({
@@ -2391,10 +2398,12 @@ app.post('/api/auth/login', async (req, res) => {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
             sameSite: 'lax',
+            path: '/', // Ensure cookie is available for all paths
             maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
         });
         
         console.log('[AUTH] User logged in: userId=' + user.id + ', email=' + user.email + ', role=' + user.role);
+        console.log('[AUTH] Cookie set: auth_token (HttpOnly, path=/)');
         
         // Return success WITHOUT token (token is in HttpOnly cookie only)
         res.json({
