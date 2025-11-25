@@ -5711,9 +5711,15 @@ async function loadUsersFromDatabase() {
 // Initialize database - MUST complete before server starts
 let dbInitialized = false;
 async function initializeDatabase() {
+    // Log DATABASE_URL at startup (for debugging)
+    console.log('[INFO] ========================================');
+    console.log('[INFO] DATABASE_URL:', process.env.DATABASE_URL || 'NOT SET');
+    console.log('[INFO] ========================================');
+    
     if (tangentDB && process.env.DATABASE_URL) {
         try {
             console.log('[INFO] Initializing PostgreSQL database...');
+            console.log('[INFO] Using connection string from process.env.DATABASE_URL');
             await tangentDB.initDatabase();
             usePostgreSQL = true;
             console.log('[INFO] ✅ PostgreSQL database initialized - using database instead of in-memory Maps');
@@ -5722,14 +5728,22 @@ async function initializeDatabase() {
             await loadUsersFromDatabase();
             dbInitialized = true;
         } catch (error) {
-            console.error('[ERROR] Failed to initialize PostgreSQL:', error.message);
-            console.error('[ERROR] Stack:', error.stack);
+            console.error('[ERROR] ========================================');
+            console.error('[ERROR] Postgres init error:', error);
+            console.error('[ERROR] Error message:', error.message);
+            console.error('[ERROR] Error stack:', error.stack);
+            console.error('[ERROR] Full error object:', JSON.stringify(error, Object.getOwnPropertyNames(error)));
+            console.error('[ERROR] ========================================');
             console.warn('[WARN] Falling back to in-memory Maps');
             usePostgreSQL = false;
             dbInitialized = true; // Mark as initialized even if failed (to allow server to start)
         }
     } else {
-        console.log('[INFO] DATABASE_URL not set or database module unavailable - using in-memory Maps');
+        if (!tangentDB) {
+            console.log('[INFO] Tangent database module not available - using in-memory Maps');
+        } else {
+            console.log('[INFO] DATABASE_URL not set - using in-memory Maps');
+        }
         dbInitialized = true;
     }
 }
