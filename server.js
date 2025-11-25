@@ -892,53 +892,56 @@ function initializePoolWallet() {
     }
 }
 
-// Default admin user
-// Initialize test users (will sync to PostgreSQL if available)
-usersDB.set('admin@tangent.com', {
-    id: 'admin-001',
-    email: 'admin@tangent.com',
-    password: bcrypt.hashSync('TangentAdmin2024!', 10),
-    role: 'admin',
-    verified: true,
-    kycStatus: 'approved'
-});
+// Initialize test users function (called after usersDB is defined)
+function initializeTestUsers() {
+    // Default admin user
+    // Initialize test users (will sync to PostgreSQL if available)
+    usersDB.set('admin@tangent.com', {
+        id: 'admin-001',
+        email: 'admin@tangent.com',
+        password: bcrypt.hashSync('TangentAdmin2024!', 10),
+        role: 'admin',
+        verified: true,
+        kycStatus: 'approved'
+    });
 
-// Test approved users for each role
-usersDB.set('buyer@test.com', {
-    id: 'buyer-001',
-    email: 'buyer@test.com',
-    password: bcrypt.hashSync('TestUser2024!', 10),
-    role: 'buyer',
-    verified: true,
-    kycStatus: 'approved'
-});
+    // Test approved users for each role
+    usersDB.set('buyer@test.com', {
+        id: 'buyer-001',
+        email: 'buyer@test.com',
+        password: bcrypt.hashSync('TestUser2024!', 10),
+        role: 'buyer',
+        verified: true,
+        kycStatus: 'approved'
+    });
 
-usersDB.set('supplier@test.com', {
-    id: 'supplier-001',
-    email: 'supplier@test.com',
-    password: bcrypt.hashSync('TestUser2024!', 10),
-    role: 'supplier',
-    verified: true,
-    kycStatus: 'approved'
-});
+    usersDB.set('supplier@test.com', {
+        id: 'supplier-001',
+        email: 'supplier@test.com',
+        password: bcrypt.hashSync('TestUser2024!', 10),
+        role: 'supplier',
+        verified: true,
+        kycStatus: 'approved'
+    });
 
-usersDB.set('trader@test.com', {
-    id: 'trader-001',
-    email: 'trader@test.com',
-    password: bcrypt.hashSync('TestUser2024!', 10),
-    role: 'trader',
-    verified: true,
-    kycStatus: 'approved'
-});
+    usersDB.set('trader@test.com', {
+        id: 'trader-001',
+        email: 'trader@test.com',
+        password: bcrypt.hashSync('TestUser2024!', 10),
+        role: 'trader',
+        verified: true,
+        kycStatus: 'approved'
+    });
 
-usersDB.set('insurer@test.com', {
-    id: 'insurer-001',
-    email: 'insurer@test.com',
-    password: bcrypt.hashSync('TestUser2024!', 10),
-    role: 'insurer',
-    verified: true,
-    kycStatus: 'approved'
-});
+    usersDB.set('insurer@test.com', {
+        id: 'insurer-001',
+        email: 'insurer@test.com',
+        password: bcrypt.hashSync('TestUser2024!', 10),
+        role: 'insurer',
+        verified: true,
+        kycStatus: 'approved'
+    });
+}
 
 // Create sample test contracts for demonstration
 database.contracts.set('contract_test_001', {
@@ -5726,6 +5729,10 @@ async function initializeDatabase() {
             
             // Load existing users from database into Map cache
             await loadUsersFromDatabase();
+            
+            // Initialize test users (after usersDB is ready)
+            initializeTestUsers();
+            
             dbInitialized = true;
         } catch (error) {
             console.error('[ERROR] ========================================');
@@ -5830,6 +5837,9 @@ if (require.main === module) {
     (async () => {
         try {
             await initializeDatabase();
+            
+            // Initialize test users (after usersDB is defined and database is initialized)
+            initializeTestUsers();
             
             // Start server after database is initialized
             app.listen(PORT, '0.0.0.0', () => {
