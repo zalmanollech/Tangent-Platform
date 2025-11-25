@@ -5809,8 +5809,8 @@ app.get('/dashboard/kyc', authenticateToken, async (req, res) => {
         if (dbUser) {
             fullUser = { ...user, ...dbUser };
         }
-    }
-    
+        }
+        
     console.log('[OK] KYC page access granted for:', fullUser.email);
     // IMPORTANT: Do not pass token - authentication is handled by HttpOnly cookie
     return res.send(getFullKYCPageHTML(fullUser.email, ''));
