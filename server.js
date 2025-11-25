@@ -5729,10 +5729,6 @@ async function initializeDatabase() {
             
             // Load existing users from database into Map cache
             await loadUsersFromDatabase();
-            
-            // Initialize test users (after usersDB is ready)
-            initializeTestUsers();
-            
             dbInitialized = true;
         } catch (error) {
             console.error('[ERROR] ========================================');
