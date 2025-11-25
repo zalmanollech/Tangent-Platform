@@ -3721,8 +3721,9 @@ app.get('/api/contracts', authenticateToken, (req, res) => {
 });
 
 // Get all contracts for admin
-app.get('/api/admin/contracts', authenticateToken, requireRole(['admin']), (req, res) => {
+app.get('/api/admin/contracts', authenticateToken, requireRole('admin'), async (req, res) => {
     try {
+        console.log('[ADMIN] Loading contracts for admin:', req.user.email, 'Role:', req.user.role);
         const allContracts = [];
         for (const [contractId, contract] of database.contracts.entries()) {
             allContracts.push({
@@ -3731,6 +3732,7 @@ app.get('/api/admin/contracts', authenticateToken, requireRole(['admin']), (req,
             });
         }
         
+        console.log('[ADMIN] Returning', allContracts.length, 'contracts');
         res.json({
             success: true,
             contracts: allContracts
