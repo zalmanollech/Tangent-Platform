@@ -7,6 +7,7 @@ const nodemailer = require('nodemailer');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const session = require('express-session');
+const cookieParser = require('cookie-parser');
 const { spawn } = require('child_process');
 const axios = require('axios');
 const speakeasy = require('speakeasy');
@@ -345,6 +346,9 @@ app.use(cors({
 
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+
+// Cookie parser middleware - REQUIRED for HttpOnly cookie authentication
+app.use(cookieParser());
 
 // Session middleware for demo password protection
 app.use(session({
