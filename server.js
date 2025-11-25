@@ -1351,7 +1351,7 @@ const authenticateToken = async (req, res, next) => {
                 id: dbUser.id.toString(),
                 userId: parseInt(dbUser.id),
                 email: dbUser.email,
-                role: dbUser.role,
+                role: dbUser.role || decoded.role, // Fallback to token role if DB role is missing
                 kycStatus: dbUser.kycStatus,
                 verified: dbUser.verified,
                 twoFactorEnabled: dbUser.twoFactorEnabled,
@@ -1359,6 +1359,12 @@ const authenticateToken = async (req, res, next) => {
                 hasWallet: dbUser.hasWallet,
                 walletAddress: dbUser.walletAddress
             };
+            console.log('[AUTH] User loaded from PostgreSQL:', {
+                userId: user.userId,
+                email: user.email,
+                role: user.role,
+                path: req.path
+            });
         } else {
             // Fallback to in-memory or token data
             if (decoded.userId) {
@@ -1404,13 +1410,38 @@ const authenticateToken = async (req, res, next) => {
 
 const requireRole = (...roles) => {
     return (req, res, next) => {
-        if (!req.user || !roles.includes(req.user.role)) {
-            console.log('[AUTH] Access denied - insufficient role. Required:', roles, 'User role:', req.user?.role);
+        // Enhanced logging for debugging
+        console.log('[AUTH] requireRole check:', {
+            path: req.path,
+            hasUser: !!req.user,
+            userRole: req.user?.role,
+            requiredRoles: roles,
+            userEmail: req.user?.email,
+            userId: req.user?.userId || req.user?.id
+        });
+        
+        if (!req.user) {
+            console.log('[AUTH] Access denied - no user object');
             if (req.path.startsWith('/api/')) {
-                return res.status(403).json({ error: 'Forbidden', message: 'Insufficient permissions' });
+                return res.status(403).json({ error: 'Forbidden', message: 'Authentication required' });
+            }
+            return res.status(403).send('<h1>Access Denied</h1><p>Authentication required.</p><a href="/signin">Sign In</a>');
+        }
+        
+        if (!roles.includes(req.user.role)) {
+            console.log('[AUTH] Access denied - insufficient role. Required:', roles, 'User role:', req.user.role, 'User email:', req.user.email);
+            if (req.path.startsWith('/api/')) {
+                return res.status(403).json({ 
+                    error: 'Forbidden', 
+                    message: 'Insufficient permissions',
+                    required: roles,
+                    actual: req.user.role
+                });
             }
             return res.status(403).send('<h1>Access Denied</h1><p>Insufficient permissions.</p><a href="/dashboard">Back to Dashboard</a>');
         }
+        
+        console.log('[AUTH] Role check passed:', req.user.role);
         next();
     };
 };
