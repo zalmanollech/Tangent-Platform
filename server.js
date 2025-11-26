@@ -281,7 +281,7 @@ try {
 console.log('[INFO] Starting traidefi Complete Production Platform...');
 
 const app = express();
-const PORT = process.env.PORT || 4000;
+const PORT = process.env.PORT || 3000;
 
 // Initialize database (creates tables automatically) - Non-blocking
 (async () => {
@@ -332,15 +332,24 @@ try {
 // ================================
 // MIDDLEWARE & SECURITY
 // ================================
+// Enable trusted proxy for Railway/Heroku/etc
+app.enable("trust proxy");
+
+// HTTPS redirection middleware (only when behind proxy)
+app.use((req, res, next) => {
+    if (req.headers["x-forwarded-proto"] && req.headers["x-forwarded-proto"] !== "https") {
+        return res.redirect("https://" + req.headers.host + req.url);
+    }
+    next();
+});
+
+const allowed = [
+    "https://traidefi.ai",
+    "https://www.traidefi.ai",
+];
+
 app.use(cors({
-    origin: [
-        'http://localhost:3000', 
-        'http://localhost:4000', 
-        'https://tangent-platform.up.railway.app',
-        'https://tangent-protocol.com',
-        'https://www.tangent-protocol.com',
-        ...(process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : [])
-    ],
+    origin: allowed,
     credentials: true
 }));
 
@@ -1090,7 +1099,7 @@ database.wallets.set('insurer-001', {
 // Send contract notification email
 async function sendContractNotificationEmail(toEmail, contractData, notificationType) {
     try {
-        const baseUrl = process.env.RAILWAY_PUBLIC_DOMAIN || 'http://localhost:4000';
+        const baseUrl = process.env.API_BASE_URL || 'http://localhost:3000';
         let subject, htmlContent;
         
         switch (notificationType) {
@@ -6493,13 +6502,14 @@ if (require.main === module) {
             initializeTestUsers();
             
             // Start server after database is initialized
-    app.listen(PORT, '0.0.0.0', () => {
+    app.listen(PORT, () => {
+        console.log(`Server running on port ${PORT}`);
         console.log(`[INFO] traidefi Complete Production Platform running on port ${PORT}`);
         console.log(`[INFO] Landing Page: http://localhost:${PORT}/`);
-                console.log(`[INFO] Database mode: ${usePostgreSQL ? 'PostgreSQL ✅' : 'In-Memory Maps ⚠️'}`);
-                if (usePostgreSQL) {
-                    console.log('[INFO] All user operations will be persisted to PostgreSQL');
-                }
+        console.log(`[INFO] Database mode: ${usePostgreSQL ? 'PostgreSQL ✅' : 'In-Memory Maps ⚠️'}`);
+        if (usePostgreSQL) {
+            console.log('[INFO] All user operations will be persisted to PostgreSQL');
+        }
     });
         } catch (error) {
             console.error('[ERROR] Failed to start server:', error.message);
