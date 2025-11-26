@@ -333,24 +333,34 @@ try {
 // MIDDLEWARE & SECURITY
 // ================================
 // Enable trusted proxy for Railway/Heroku/etc
-app.enable("trust proxy");
+app.enable('trust proxy');
 
-// HTTPS redirection middleware (only when behind proxy)
+// HTTPS redirection middleware - safe and non-blocking
 app.use((req, res, next) => {
-    if (req.headers["x-forwarded-proto"] && req.headers["x-forwarded-proto"] !== "https") {
-        return res.redirect("https://" + req.headers.host + req.url);
-    }
-    next();
+  // Only force HTTPS in production, and only when header exists
+  const proto = req.headers['x-forwarded-proto'];
+
+  if (process.env.NODE_ENV === 'production' && proto && proto !== 'https') {
+    return res.redirect('https://' + req.headers.host + req.url);
+  }
+
+  // IMPORTANT: continue request normally
+  return next();
 });
 
-const allowed = [
-    "https://traidefi.ai",
-    "https://www.traidefi.ai",
+const allowedOrigins = [
+  'https://traidefi.ai',
+  'https://www.traidefi.ai',
+  'https://www.tangent-protocol.com',
 ];
 
 app.use(cors({
-    origin: allowed,
-    credentials: true
+  origin: function (origin, callback) {
+    if (!origin) return callback(null, true); // allow non-browser tools
+    if (allowedOrigins.includes(origin)) return callback(null, true);
+    return callback(new Error('Not allowed by CORS: ' + origin));
+  },
+  credentials: true,
 }));
 
 app.use(express.json({ limit: '50mb' }));
@@ -1476,12 +1486,7 @@ app.get('/landing-two', (req, res) => {
 
 // Health check endpoint for Railway deployment
 app.get('/health', (req, res) => {
-    res.status(200).json({ 
-        status: 'healthy', 
-        timestamp: new Date().toISOString(),
-        service: 'tangent-platform',
-        version: '1.0.0'
-    });
+  res.status(200).json({ status: 'ok', time: new Date().toISOString() });
 });
 
 // Root route - serve landing page with feature boxes and explanations
@@ -6503,13 +6508,7 @@ if (require.main === module) {
             
             // Start server after database is initialized
     app.listen(PORT, () => {
-        console.log(`Server running on port ${PORT}`);
-        console.log(`[INFO] traidefi Complete Production Platform running on port ${PORT}`);
-        console.log(`[INFO] Landing Page: http://localhost:${PORT}/`);
-        console.log(`[INFO] Database mode: ${usePostgreSQL ? 'PostgreSQL ✅' : 'In-Memory Maps ⚠️'}`);
-        if (usePostgreSQL) {
-            console.log('[INFO] All user operations will be persisted to PostgreSQL');
-        }
+        console.log(`[SERVER] Listening on port ${PORT}`);
     });
         } catch (error) {
             console.error('[ERROR] Failed to start server:', error.message);
