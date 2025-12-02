@@ -11,3 +11,4 @@ config.env
 # Keep example file for reference
 !config.env.example
 !.env.example
+backups/*.json
