@@ -128,7 +128,7 @@ try {
     console.log('[INFO] Credit Integration loaded successfully');
     
     // Auto-start the Python credit service
-    startCreditService();
+    // startCreditService();  // disabled for Railway
     
     // Verify credit service is reachable (don't block startup)
     setTimeout(async () => {
@@ -225,7 +225,7 @@ try {
     console.log('[INFO] Insurance Integration loaded successfully');
     
     // Auto-start the Python service
-    startInsuranceService();
+    // startInsuranceService();  // disabled for Railway
     
     // Wait a bit longer for service to start, then check health
     setTimeout(async () => {
@@ -250,7 +250,7 @@ try {
 console.log('[INFO] Starting traidefi Complete Production Platform...');
 
 const app = express();
-const PORT = process.env.PORT || 4000;
+const PORT = process.env.PORT || 8080;
 
 // Initialize database (creates tables automatically) - Non-blocking
 (async () => {
@@ -1331,6 +1331,11 @@ const requireRole = (roles) => {
 // CRITICAL: All explicit routes defined here take precedence over static file serving
 // Use app.get() for exact match - this takes precedence over app.use() middleware
 // Routes are matched in order, so explicit routes will be handled before static files
+
+// Health check route for Railway deployment
+app.get('/health', (req, res) => {
+    res.status(200).send('OK');
+});
 
 // Landing Two Page - Access Portal
 app.get('/landing-two', (req, res) => {
