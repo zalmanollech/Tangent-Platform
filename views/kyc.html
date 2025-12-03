@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>KYC Verification</title>
+</head>
+<body>
+  <h1>KYC Verification</h1>
+
+  <!-- Container where the Sumsub widget will appear -->
+  <div id="sumsub-container" style="min-height:600px;"></div>
+
+  <!-- Load the official Sumsub WebSDK builder -->
+  <script src="https://static.sumsub.com/idensic/static/sns-websdk-builder.js"></script>
+
+  <script>
+    (async function () {
+      try {
+        // Get token from localStorage or URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const token = urlParams.get('token') || localStorage.getItem('token');
+        
+        if (!token) {
+          console.error('No authentication token found');
+          window.location.href = '/landing-two';
+          return;
+        }
+        
+        // 1) Get an access token from your backend (requires authentication)
+        const res = await fetch('/api/sumsub/token', {
+          headers: {
+            'Authorization': 'Bearer ' + token
+          }
+        });
+        const data = await res.json();
+
+        if (!data.token) {
+          console.error('No Sumsub token returned');
+          return;
+        }
+
+        // 2) Initialize Sumsub WebSDK builder
+        const builder = snsWebSdk
+          .init(
+            data.token,
+            function updateToken() {
+              const token = new URLSearchParams(window.location.search).get('token') || localStorage.getItem('token');
+              return fetch('/api/sumsub/token', {
+                headers: {
+                  'Authorization': 'Bearer ' + token
+                }
+              })
+                .then(r => r.json())
+                .then(d => d.token);
+            }
+          )
+          .withConf({
+            lang: 'en'
+          })
+          .onMessage((type, payload) => {
+            console.log('Sumsub message', type, payload);
+          })
+          .on('onError', (error) => {
+            console.error('Sumsub WebSDK error', error);
+          });
+
+        // 3) Build the SDK instance and LAUNCH it into the container
+        const sdk = builder.build();
+        sdk.launch('#sumsub-container');
+      } catch (err) {
+        console.error('Error initializing Sumsub WebSDK', err);
+      }
+    })();
+  </script>
+</body>
+</html>

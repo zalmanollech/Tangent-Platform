@@ -27,6 +27,9 @@ const storageService = require('./lib/storage-service');
 // Email service
 const emailService = require('./lib/email-service');
 
+// Sumsub integration
+const sumsubRoutes = require('./routes/sumsub');
+
 // PDF Contract Extractor (optional - lazy-loaded internally)
 let contractExtractor;
 try {
@@ -344,13 +347,17 @@ app.use((req, res, next) => {
         return originalSend.call(this, body);
     };
     
-    res.setHeader('Content-Security-Policy', 
-        "default-src 'self'; " +
-        "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com https://www.googletagmanager.com; " +
-        "style-src 'self' 'unsafe-inline'; " +
-        "img-src 'self' data: https:; " +
-        "connect-src 'self' https:; " +
-        "frame-src 'self';"
+    res.setHeader(
+        'Content-Security-Policy',
+        [
+            "default-src 'self'",
+            "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com https://www.googletagmanager.com https://static.sumsub.com",
+            "style-src 'self' 'unsafe-inline'",
+            "img-src 'self' data:",
+            "connect-src 'self' https://api.sumsub.com",
+            "frame-src 'self' https://static.sumsub.com https://api.sumsub.com",
+            "frame-ancestors 'self'"
+        ].join('; ')
     );
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('X-Frame-Options', 'DENY');
@@ -420,6 +427,7 @@ const database = {
     creditAssessments: new Map(), // Credit risk assessments
     auditLogs: new Map(), // Audit trail system
     sessions: new Map(), // Session management
+    earlyRegistrations: new Map(), // Early registration/interest forms
     admin: {
         fees: { tradingFee: 0.5, platformFee: 1.0 },
         interestRates: { deposit: 2.5, lending: 5.0 },
@@ -867,7 +875,9 @@ database.users.set('admin@tangent.com', {
     password: bcrypt.hashSync('TangentAdmin2024!', 10),
     role: 'admin',
     verified: true,
-    kycStatus: 'approved'
+    kycStatus: 'approved', // Legacy field
+    kyc_status: 'approved', // New KYC status field
+    sumsub_applicant_id: null
 });
 
 // Test approved users for each role
@@ -877,7 +887,9 @@ database.users.set('buyer@test.com', {
     password: bcrypt.hashSync('TestUser2024!', 10),
     role: 'buyer',
     verified: true,
-    kycStatus: 'approved'
+    kycStatus: 'approved', // Legacy field
+    kyc_status: 'approved', // New KYC status field
+    sumsub_applicant_id: null
 });
 
 database.users.set('supplier@test.com', {
@@ -886,7 +898,9 @@ database.users.set('supplier@test.com', {
     password: bcrypt.hashSync('TestUser2024!', 10),
     role: 'supplier',
     verified: true,
-    kycStatus: 'approved'
+    kycStatus: 'approved', // Legacy field
+    kyc_status: 'approved', // New KYC status field
+    sumsub_applicant_id: null
 });
 
 database.users.set('trader@test.com', {
@@ -895,7 +909,9 @@ database.users.set('trader@test.com', {
     password: bcrypt.hashSync('TestUser2024!', 10),
     role: 'trader',
     verified: true,
-    kycStatus: 'approved'
+    kycStatus: 'approved', // Legacy field
+    kyc_status: 'approved', // New KYC status field
+    sumsub_applicant_id: null
 });
 
 database.users.set('insurer@test.com', {
@@ -904,15 +920,19 @@ database.users.set('insurer@test.com', {
     password: bcrypt.hashSync('TestUser2024!', 10),
     role: 'insurer',
     verified: true,
-    kycStatus: 'approved'
+    kycStatus: 'approved', // Legacy field
+    kyc_status: 'approved', // New KYC status field
+    sumsub_applicant_id: null
 });
 
 // Create sample test contracts for demonstration
 database.contracts.set('contract_test_001', {
     id: 'contract_test_001',
+    contract_id: 'contract_test_001',
     buyerEmail: 'buyer@test.com',
     supplierEmail: 'supplier@test.com',
     productDetails: 'Wheat',
+    product: 'Wheat',
     quantity: 5000,
     unit: 'tons',
     pricePerUnit: 525.50,
@@ -927,6 +947,9 @@ database.contracts.set('contract_test_001', {
     createdAt: new Date().toISOString(),
     depositAmount: 5255, // 20% deposit (reduced for demo)
     depositPaid: false,
+    buyerDepositPaid: false,
+    documentsUploaded: false,
+    deliveryDocsUploaded: false,
     documents: [],
     buyerFlag: null,
     supplierFlag: null,
@@ -942,9 +965,11 @@ database.contracts.set('contract_test_001', {
 
 database.contracts.set('contract_test_002', {
     id: 'contract_test_002',
+    contract_id: 'contract_test_002',
     buyerEmail: 'trader@test.com',
     supplierEmail: 'supplier@test.com',
     productDetails: 'Crude Oil (WTI)',
+    product: 'Crude Oil (WTI)',
     quantity: 10000,
     unit: 'barrels',
     pricePerUnit: 75.50,
@@ -955,10 +980,13 @@ database.contracts.set('contract_test_002', {
     destination: 'Rotterdam, Netherlands',
     specifications: 'WTI Crude Oil, API 39.6',
     contractRole: 'buyer',
-    status: 'active',
+    status: 'AWAITING_DOCUMENTS', // Updated to new status
     createdAt: new Date(Date.now() - 86400000).toISOString(), // 1 day ago
     depositAmount: 1510, // 20% deposit (reduced for demo)
     depositPaid: true,
+    buyerDepositPaid: true,
+    documentsUploaded: false,
+    deliveryDocsUploaded: false,
     documents: [],
     buyerFlag: null,
     supplierFlag: { message: 'Documents ready for upload', timestamp: new Date().toISOString() },
@@ -980,9 +1008,11 @@ database.contracts.set('contract_test_002', {
 
 database.contracts.set('contract_test_003', {
     id: 'contract_test_003',
+    contract_id: 'contract_test_003',
     buyerEmail: 'buyer@test.com',
     supplierEmail: 'trader@test.com',
     productDetails: 'Coffee C',
+    product: 'Coffee C',
     quantity: 100,
     unit: 'tons',
     pricePerUnit: 165.50,
@@ -997,6 +1027,9 @@ database.contracts.set('contract_test_003', {
     createdAt: new Date(Date.now() - 172800000).toISOString(), // 2 days ago
     depositAmount: 331, // 20% deposit (reduced for demo)
     depositPaid: false,
+    buyerDepositPaid: false,
+    documentsUploaded: false,
+    deliveryDocsUploaded: false,
     documents: [],
     buyerFlag: { message: 'Deposit payment required', timestamp: new Date().toISOString() },
     supplierFlag: null,
@@ -1242,6 +1275,60 @@ function processPendingContractsForUser(userEmail) {
 }
 
 // ================================
+// USER HELPER FUNCTIONS
+// ================================
+// Ensure user has KYC fields (backward compatibility)
+function ensureUserKYCFields(user) {
+    if (!user) return user;
+    
+    // Set default kyc_status if missing
+    if (!user.kyc_status) {
+        // Use legacy kycStatus if available, otherwise default to 'not_started'
+        user.kyc_status = user.kycStatus || 'not_started';
+    }
+    
+    // Ensure sumsub_applicant_id exists (can be null)
+    if (user.sumsub_applicant_id === undefined) {
+        user.sumsub_applicant_id = null;
+    }
+    
+    return user;
+}
+
+// ================================
+// CONTRACT HELPER FUNCTIONS
+// ================================
+// Ensure contract has all required fields (backward compatibility)
+function ensureContractFields(contract) {
+    if (!contract) return contract;
+    
+    // Ensure buyerDepositPaid exists (use depositPaid as fallback)
+    if (contract.buyerDepositPaid === undefined) {
+        contract.buyerDepositPaid = contract.depositPaid || false;
+    }
+    
+    // Ensure deliveryDocsUploaded exists
+    if (contract.deliveryDocsUploaded === undefined) {
+        contract.deliveryDocsUploaded = contract.documentsUploaded || false;
+    }
+    
+    // Ensure status exists
+    if (!contract.status) {
+        contract.status = 'pending_buyer_confirmation';
+    }
+    
+    // Ensure required identifiers exist
+    if (!contract.id && contract.contract_id) {
+        contract.id = contract.contract_id;
+    }
+    if (!contract.contract_id && contract.id) {
+        contract.contract_id = contract.id;
+    }
+    
+    return contract;
+}
+
+// ================================
 // AUTHENTICATION MIDDLEWARE
 // ================================
 const authenticateToken = (req, res, next) => {
@@ -1332,9 +1419,51 @@ const requireRole = (roles) => {
 // Use app.get() for exact match - this takes precedence over app.use() middleware
 // Routes are matched in order, so explicit routes will be handled before static files
 
-// Health check route for Railway deployment
+// Simple healthcheck endpoint for Railway and monitoring
 app.get('/health', (req, res) => {
-    res.status(200).send('OK');
+    res.status(200).json({
+        status: 'ok',
+        service: 'Tangent-Platform',
+        env: process.env.NODE_ENV || 'development',
+        timestamp: new Date().toISOString(),
+    });
+});
+
+// Sumsub KYC integration routes - requires authentication
+// Middleware to pass database and saveDatabase to routes
+app.use('/api/sumsub', authenticateToken, (req, res, next) => {
+    req.database = database;
+    req.saveDatabase = saveDatabase;
+    next();
+}, sumsubRoutes);
+
+// KYC Status API - returns current user's KYC status
+app.get('/api/kyc/status', authenticateToken, (req, res) => {
+    try {
+        const userEmail = req.user.email;
+        const user = ensureUserKYCFields(database.users.get(userEmail));
+        
+        if (!user) {
+            // Return safe default if user not found
+            return res.json({
+                kyc_status: 'not_started',
+                sumsub_applicant_id: null
+            });
+        }
+        
+        // Return KYC status (ensureUserKYCFields already normalized it)
+        res.json({
+            kyc_status: user.kyc_status || 'not_started',
+            sumsub_applicant_id: user.sumsub_applicant_id || null
+        });
+    } catch (error) {
+        console.error('[ERROR] KYC status error:', error);
+        res.status(500).json({
+            kyc_status: 'not_started',
+            sumsub_applicant_id: null,
+            error: 'Failed to retrieve KYC status'
+        });
+    }
 });
 
 // Landing Two Page - Access Portal
@@ -1348,7 +1477,7 @@ app.get('/landing-two', (req, res) => {
 // Root route - serve landing page with feature boxes and explanations
 app.get('/', (req, res) => {
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-    const html = '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>traidefi - Get Started</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;background:#000;min-height:100vh;color:#fff;padding:2rem}.container{max-width:1200px;margin:0 auto}.header{text-align:center;margin-bottom:3rem}h1{color:#fff;font-size:3rem;margin-bottom:1rem}.subtitle{color:#ccc;font-size:1.3rem;margin-bottom:3rem}.features-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:2rem;margin-bottom:3rem}.feature-box{background:#1a1a1a;padding:2rem;border-radius:15px;border:1px solid #333}.feature-box h3{color:#fff;font-size:1.5rem;margin-bottom:1rem}.feature-box p{color:#ccc;line-height:1.6;margin-bottom:1rem}.feature-list{list-style:none;padding:0}.feature-list li{color:#ccc;padding:0.5rem 0;padding-left:1.5rem;position:relative}.feature-list li:before{content:"✓";position:absolute;left:0;color:#667eea;font-weight:bold}.btn-container{display:flex;gap:1rem;justify-content:center;flex-wrap:wrap;margin-top:3rem}.btn{padding:15px 30px;background:#fff;color:#000;border:none;border-radius:8px;font-size:1.1rem;font-weight:600;cursor:pointer;text-decoration:none;display:inline-block}.btn:hover{background:#ccc}.btn-secondary{background:#667eea;color:#fff}.btn-secondary:hover{background:#5a6fd8}</style></head><body><div class="container"><div class="header"><h1>Welcome to traidefi</h1><p class="subtitle">The Future of Commodity Trading</p></div><div class="features-grid"><div class="feature-box"><h3>Secure Trading Platform</h3><p>Trade commodities with confidence using our secure, blockchain-powered platform.</p><ul class="feature-list"><li>End-to-end encryption</li><li>Smart contract automation</li><li>Real-time trade tracking</li><li>Secure payment processing</li></ul></div><div class="feature-box"><h3>TGT Stablecoin</h3><p>Use TGT (Tangent Gold Token) for fast, secure, and low-cost transactions.</p><ul class="feature-list"><li>Stable value backed by gold</li><li>Instant settlements</li><li>Low transaction fees</li><li>Global accessibility</li></ul></div><div class="feature-box"><h3>Complete Workflow</h3><p>From contract creation to payment release, manage your entire trade lifecycle.</p><ul class="feature-list"><li>Contract management</li><li>KYC compliance</li><li>Document verification</li><li>Automated payments</li></ul></div></div><div class="btn-container"><a href="/landing-two" class="btn">Register Interest (Early Access)</a><a href="/landing-two" class="btn btn-secondary">Team Portal</a></div></div></body></html>';
+    const html = '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>traidefi - Get Started</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;background:#000;min-height:100vh;color:#fff;padding:2rem}.container{max-width:1200px;margin:0 auto}.header{text-align:center;margin-bottom:3rem}h1{color:#fff;font-size:3rem;margin-bottom:1rem}.subtitle{color:#ccc;font-size:1.3rem;margin-bottom:3rem}.features-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:2rem;margin-bottom:3rem}.feature-box{background:#1a1a1a;padding:2rem;border-radius:15px;border:1px solid #333}.feature-box h3{color:#fff;font-size:1.5rem;margin-bottom:1rem}.feature-box p{color:#ccc;line-height:1.6;margin-bottom:1rem}.feature-list{list-style:none;padding:0}.feature-list li{color:#ccc;padding:0.5rem 0;padding-left:1.5rem;position:relative}.feature-list li:before{content:"✓";position:absolute;left:0;color:#667eea;font-weight:bold}.btn-container{display:flex;gap:1rem;justify-content:center;flex-wrap:wrap;margin-top:3rem}.btn{padding:15px 30px;background:#fff;color:#000;border:none;border-radius:8px;font-size:1.1rem;font-weight:600;cursor:pointer;text-decoration:none;display:inline-block}.btn:hover{background:#ccc}.btn-secondary{background:#667eea;color:#fff}.btn-secondary:hover{background:#5a6fd8}</style></head><body><div class="container"><div class="header"><h1>Welcome to traidefi</h1><p class="subtitle">The Future of Commodity Trading</p></div><div class="features-grid"><div class="feature-box"><h3>Secure Trading Platform</h3><p>Trade commodities with confidence using our secure, blockchain-powered platform.</p><ul class="feature-list"><li>End-to-end encryption</li><li>Smart contract automation</li><li>Real-time trade tracking</li><li>Secure payment processing</li></ul></div><div class="feature-box"><h3>TGT Stablecoin</h3><p>Use TGT (Tangent Gold Token) for fast, secure, and low-cost transactions.</p><ul class="feature-list"><li>Stable value backed by gold</li><li>Instant settlements</li><li>Low transaction fees</li><li>Global accessibility</li></ul></div><div class="feature-box"><h3>Complete Workflow</h3><p>From contract creation to payment release, manage your entire trade lifecycle.</p><ul class="feature-list"><li>Contract management</li><li>KYC compliance</li><li>Document verification</li><li>Automated payments</li></ul></div></div><div class="btn-container"><a href="/early-registration" class="btn">Register Interest (Early Access)</a><a href="/landing-two" class="btn btn-secondary">Team Portal</a></div></div></body></html>';
     res.end(html, 'utf8');
 });
 
@@ -1367,6 +1496,88 @@ app.get('/signup', (req, res) => {
     // Use plain text strings - no HTML entities, no corrupted characters
     const html = '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Sign Up - traidefi</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;background:#000;min-height:100vh;display:flex;align-items:center;justify-content:center;color:#fff}.container{background:#1a1a1a;padding:3rem;border-radius:15px;box-shadow:0 20px 40px rgba(0,0,0,0.5);max-width:500px;width:90%}h1{color:#fff;font-size:2.2rem;margin-bottom:1rem;text-align:center}.journey{background:#2a2a2a;padding:1.5rem;border-radius:8px;margin-bottom:2rem}.journey h3{color:#fff;margin-bottom:1rem;font-size:1.1rem}.steps{display:flex;justify-content:space-between;margin-bottom:1rem}.step{flex:1;text-align:center;padding:0.5rem;background:#333;border-radius:6px;margin:0 0.25rem;color:#ccc;font-size:0.9rem}.step.active{background:#667eea;color:#fff}.step-desc{color:#888;font-size:0.85rem;text-align:center}.form-group{margin-bottom:1.5rem}label{display:block;margin-bottom:0.5rem;color:#fff;font-weight:600}input,select{width:100%;padding:12px;background:#333;border:1px solid #555;border-radius:8px;font-size:1rem;color:#fff}input:focus,select:focus{outline:none;border-color:#667eea}.btn{width:100%;padding:15px;background:#667eea;color:#fff;border:none;border-radius:8px;font-size:1.1rem;font-weight:600;cursor:pointer;margin-top:1rem}.btn:hover{background:#5a6fd8}.links{text-align:center;margin-top:2rem}.links a{color:#667eea;text-decoration:none}.message{padding:1rem;margin-bottom:1rem;border-radius:8px;display:none}.success{background:#d4edda;color:#155724;border:1px solid #c3e6cb}.error{background:#f8d7da;color:#721c24;border:1px solid #f5c6cb}</style></head><body><div class="container"><h1>Create Your Account</h1><div class="journey"><h3>Your Registration Journey</h3><div class="steps"><div class="step active">1. Sign Up</div><div class="step">2. KYC Docs</div><div class="step">3. Wallet Setup</div><div class="step">4. Dashboard</div></div><p class="step-desc">Complete basic info - Upload KYC documents - Set up your wallet - Start trading!</p></div><div id="message" class="message"></div><form id="signupForm"><div class="form-group"><label for="email">Email Address *</label><input type="email" id="email" required></div><div class="form-group"><label for="password">Password *</label><input type="password" id="password" required></div><div class="form-group"><label for="role">Your Role *</label><select id="role" required><option value="">Select your trading role</option><option value="buyer">Buyer</option><option value="supplier">Supplier</option><option value="trader">Trader</option><option value="insurer">Insurer</option></select></div><button type="submit" class="btn" id="submitBtn">Create Account</button></form><div class="links"><a href="/signin">Already have an account? Sign In</a><br><a href="/landing-two">Back to Home</a></div></div><script>console.log("[OK] Signup page loaded");document.getElementById("signupForm").addEventListener("submit",async function(e){e.preventDefault();const email=document.getElementById("email").value;const password=document.getElementById("password").value;const role=document.getElementById("role").value;const messageDiv=document.getElementById("message");try{const response=await fetch("/api/auth/register",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email,password,role})});const data=await response.json();if(data.success){localStorage.setItem("token",data.token);localStorage.setItem("user",JSON.stringify(data.user));window.location.href="/dashboard/kyc?token=" + encodeURIComponent(data.token)}else{messageDiv.textContent=data.error||"Registration failed";messageDiv.className="message error";messageDiv.style.display="block"}}catch(error){messageDiv.textContent="Network error. Please try again.";messageDiv.className="message error";messageDiv.style.display="block"}});</script></body></html>';
     res.end(html, 'utf8');
+});
+
+// Early Registration Form (Interest Form)
+app.get('/early-registration', (req, res) => {
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+    const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Early Registration - traidefi</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;background:#000;min-height:100vh;display:flex;align-items:center;justify-content:center;color:#fff;padding:2rem}.container{background:#1a1a1a;padding:3rem;border-radius:15px;box-shadow:0 20px 40px rgba(0,0,0,0.5);max-width:600px;width:90%}h1{color:#fff;font-size:2.2rem;margin-bottom:1rem;text-align:center}.subtitle{color:#ccc;font-size:1rem;margin-bottom:2rem;text-align:center}.form-group{margin-bottom:1.5rem}label{display:block;margin-bottom:0.5rem;color:#fff;font-weight:600}input,textarea,select{width:100%;padding:12px;background:#333;border:1px solid #555;border-radius:8px;font-size:1rem;color:#fff;font-family:Arial,sans-serif}input:focus,textarea:focus,select:focus{outline:none;border-color:#667eea}textarea{min-height:100px;resize:vertical}.btn{width:100%;padding:15px;background:#667eea;color:#fff;border:none;border-radius:8px;font-size:1.1rem;font-weight:600;cursor:pointer;margin-top:1rem}.btn:hover{background:#5a6fd8}.btn:disabled{background:#666;cursor:not-allowed}.message{padding:1rem;margin-bottom:1rem;border-radius:8px;display:none}.success{background:#d4edda;color:#155724;border:1px solid #c3e6cb}.error{background:#f8d7da;color:#721c24;border:1px solid #f5c6cb}.back-link{text-align:center;margin-top:2rem}.back-link a{color:#667eea;text-decoration:none}.back-link a:hover{text-decoration:underline}</style></head><body><div class="container"><h1>Early Registration</h1><p class="subtitle">Express your interest in joining traidefi</p><div id="message" class="message"></div><form id="registrationForm"><div class="form-group"><label for="email">Email Address *</label><input type="email" id="email" name="email" required placeholder="your.email@example.com"></div><div class="form-group"><label for="name">Full Name *</label><input type="text" id="name" name="name" required placeholder="John Doe"></div><div class="form-group"><label for="company">Company Name *</label><input type="text" id="company" name="company" required placeholder="Your Company Ltd."></div><div class="form-group"><label for="interest">What is your interest in traidefi? *</label><textarea id="interest" name="interest" required placeholder="Tell us what interests you about our platform, what you'd like to use it for, or any questions you have..."></textarea></div><button type="submit" class="btn" id="submitBtn">Submit Registration</button></form><div class="back-link"><a href="/">← Back to Home</a></div></div><script>document.getElementById('registrationForm').addEventListener('submit',async function(e){e.preventDefault();const submitBtn=document.getElementById('submitBtn');const messageDiv=document.getElementById('message');submitBtn.disabled=true;submitBtn.textContent='Submitting...';const formData={email:document.getElementById('email').value.trim(),name:document.getElementById('name').value.trim(),company:document.getElementById('company').value.trim(),interest:document.getElementById('interest').value.trim()};try{const response=await fetch('/api/early-registration',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(formData)});const data=await response.json();if(response.ok&&data.success){messageDiv.textContent='Thank you! Your registration has been submitted successfully. We will contact you soon.';messageDiv.className='message success';messageDiv.style.display='block';document.getElementById('registrationForm').reset();setTimeout(()=>{window.location.href='/'},3000)}else{messageDiv.textContent=data.error||'Failed to submit registration. Please try again.';messageDiv.className='message error';messageDiv.style.display='block'}}catch(error){console.error('Registration error:',error);messageDiv.textContent='Network error. Please check your connection and try again.';messageDiv.className='message error';messageDiv.style.display='block'}finally{submitBtn.disabled=false;submitBtn.textContent='Submit Registration'}});</script></body></html>`;
+    res.end(html, 'utf8');
+});
+
+// KYC Verification Page
+// KYC page route - accessible to any logged-in user regardless of KYC status
+// Note: This route requires authentication but does NOT check KYC status (bypasses KYC gate)
+app.get('/kyc', authenticateToken, (req, res) => {
+    res.sendFile(path.join(__dirname, 'views', 'kyc.html'));
+});
+
+// Contract Detail View Route
+app.get('/contracts/:contractId', authenticateToken, (req, res) => {
+    try {
+        const { contractId } = req.params;
+        const userEmail = req.user.email;
+        const userRole = req.user.role;
+        
+        const contract = ensureContractFields(database.contracts.get(contractId));
+        
+        if (!contract) {
+            return res.status(404).send(`
+                <h1>Contract Not Found</h1>
+                <p>The contract you're looking for doesn't exist.</p>
+                <a href="/dashboard/authenticated?token=${req.query.token || ''}">Back to Dashboard</a>
+            `);
+        }
+        
+        // Authorization check: user must be buyer, supplier, or admin
+        const isAuthorized = userRole === 'admin' || 
+                            contract.buyerEmail === userEmail || 
+                            contract.supplierEmail === userEmail ||
+                            (userRole === 'trader' && (contract.buyerEmail === userEmail || contract.supplierEmail === userEmail));
+        
+        if (!isAuthorized) {
+            return res.status(403).send(`
+                <h1>Access Denied</h1>
+                <p>You are not authorized to view this contract.</p>
+                <a href="/dashboard/authenticated?token=${req.query.token || ''}">Back to Dashboard</a>
+            `);
+        }
+        
+        res.sendFile(path.join(__dirname, 'views', 'contract-detail.html'));
+    } catch (error) {
+        console.error('[ERROR] Contract detail view error:', error);
+        res.status(500).send('Error loading contract details');
+    }
+});
+
+// Contract Detail API Endpoint
+app.get('/api/contracts/:contractId', authenticateToken, (req, res) => {
+    try {
+        const { contractId } = req.params;
+        const userEmail = req.user.email;
+        const userRole = req.user.role;
+        
+        const contract = ensureContractFields(database.contracts.get(contractId));
+        
+        if (!contract) {
+            return res.status(404).json({ error: 'Contract not found' });
+        }
+        
+        // Authorization check
+        const isAuthorized = userRole === 'admin' || 
+                            contract.buyerEmail === userEmail || 
+                            contract.supplierEmail === userEmail ||
+                            (userRole === 'trader' && (contract.buyerEmail === userEmail || contract.supplierEmail === userEmail));
+        
+        if (!isAuthorized) {
+            return res.status(403).json({ error: 'Not authorized to view this contract' });
+        }
+        
+        res.json(contract);
+    } catch (error) {
+        console.error('[ERROR] Contract detail API error:', error);
+        res.status(500).json({ error: 'Failed to retrieve contract details' });
+    }
 });
 
 // Wallet Setup Page
@@ -2099,14 +2310,16 @@ app.post('/api/auth/register', async (req, res) => {
         // Hash password
         const hashedPassword = await bcrypt.hash(password, 10);
         
-        // Create user
+        // Create user with KYC fields
         const user = {
             id: 'user-' + Date.now(),
             email: email,
             password: hashedPassword,
             role: normalizedRole,
             verified: false,
-            kycStatus: 'pending',
+            kycStatus: 'pending', // Legacy field for backward compatibility
+            kyc_status: 'not_started', // New KYC status field
+            sumsub_applicant_id: null, // Sumsub applicant ID
             createdAt: new Date().toISOString()
         };
         
@@ -2139,6 +2352,71 @@ app.post('/api/auth/register', async (req, res) => {
 });
 
 // User Login API
+// Early Registration API Endpoint
+app.post('/api/early-registration', async (req, res) => {
+    try {
+        const { email, name, company, interest } = req.body;
+        
+        // Validate required fields
+        if (!email || !name || !company || !interest) {
+            return res.status(400).json({ 
+                error: 'All fields are required',
+                message: 'Please fill in email, name, company name, and your interest'
+            });
+        }
+        
+        // Validate email format
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+            return res.status(400).json({ 
+                error: 'Invalid email format',
+                message: 'Please provide a valid email address'
+            });
+        }
+        
+        // Check if email already registered
+        const existingRegistration = Array.from(database.earlyRegistrations.values())
+            .find(reg => reg.email.toLowerCase() === email.toLowerCase());
+        
+        if (existingRegistration) {
+            return res.status(400).json({ 
+                error: 'Email already registered',
+                message: 'This email has already been registered for early access'
+            });
+        }
+        
+        // Create registration record
+        const registrationId = `early-reg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        const registration = {
+            id: registrationId,
+            email: email.trim().toLowerCase(),
+            name: name.trim(),
+            company: company.trim(),
+            interest: interest.trim(),
+            submittedAt: new Date().toISOString(),
+            status: 'pending'
+        };
+        
+        database.earlyRegistrations.set(registrationId, registration);
+        saveDatabase();
+        
+        console.log(`[EARLY REG] New early registration: ${email} from ${company}`);
+        
+        res.status(200).json({
+            success: true,
+            message: 'Registration submitted successfully',
+            registrationId: registrationId
+        });
+        
+    } catch (error) {
+        console.error('[ERROR] Early registration error:', error);
+        res.status(500).json({ 
+            error: 'Failed to submit registration',
+            message: error.message || 'An unexpected error occurred'
+        });
+    }
+});
+
 app.post('/api/auth/login', async (req, res) => {
     try {
         const { email, password, twoFactorToken } = req.body;
@@ -2474,10 +2752,17 @@ app.post('/api/contracts/:contractId/documents', authenticateToken, upload.array
                 uploadedDocs.push(document);
             });
             
-            // Update contract status
+            // Update contract status - ensure fields exist first
+            contract = ensureContractFields(contract);
             contract.documentsUploaded = true;
+            contract.deliveryDocsUploaded = true;
             contract.documentsUploadedAt = new Date().toISOString();
+            
+            // Update status to next stage
+            contract.status = 'AWAITING_BUYER_FINAL_PAYMENT';
+            
             database.contracts.set(contractId, contract);
+            saveDatabase();
             
             // Log audit event
             logAuditEvent('documents_uploaded', userEmail, {
@@ -2597,6 +2882,17 @@ app.post('/api/contracts', authenticateToken, async (req, res) => {
     try {
         const userEmail = req.user.email;
         const userRole = req.user.role;
+        
+        // Log received data for debugging (remove in production if needed)
+        console.log('[CONTRACT CREATE] Received data:', {
+            product: req.body.product,
+            quantity: req.body.quantity,
+            unit: req.body.unit,
+            price: req.body.price,
+            counterparty: req.body.counterparty,
+            userRole: userRole
+        });
+        
         const {
             product,
             quantity,
@@ -2611,15 +2907,48 @@ app.post('/api/contracts', authenticateToken, async (req, res) => {
             depositAmount
         } = req.body;
         
-        // Validate required fields
-        if (!product || !quantity || !unit || !price || !counterparty) {
-            return res.status(400).json({ error: 'Missing required fields: product, quantity, unit, price, and counterparty are required' });
+        // Validate required fields (check for empty strings and null/undefined)
+        const missingFields = [];
+        if (!product || (typeof product === 'string' && product.trim() === '')) {
+            missingFields.push('product');
+        }
+        if (!quantity || quantity === 0 || isNaN(parseFloat(quantity))) {
+            missingFields.push('quantity');
+        }
+        if (!unit || (typeof unit === 'string' && unit.trim() === '')) {
+            missingFields.push('unit');
+        }
+        if (!price || price === 0 || isNaN(parseFloat(price))) {
+            missingFields.push('price');
+        }
+        if (!counterparty || (typeof counterparty === 'string' && counterparty.trim() === '')) {
+            missingFields.push('counterparty');
+        }
+        
+        if (missingFields.length > 0) {
+            console.error('[CONTRACT CREATE] Validation failed. Missing fields:', missingFields);
+            console.error('[CONTRACT CREATE] Received body:', JSON.stringify(req.body, null, 2));
+            return res.status(400).json({ 
+                error: 'Missing or invalid required fields',
+                missingFields: missingFields,
+                message: `Please provide valid values for: ${missingFields.join(', ')}`,
+                received: {
+                    product: req.body.product,
+                    quantity: req.body.quantity,
+                    unit: req.body.unit,
+                    price: req.body.price,
+                    counterparty: req.body.counterparty
+                }
+            });
         }
         
         // Validate counterparty exists
-        const counterpartyUser = database.users.get(counterparty);
+        const counterpartyUser = database.users.get(counterparty.trim());
         if (!counterpartyUser) {
-            return res.status(400).json({ error: 'Counterparty email not found. Please ensure the user is registered.' });
+            return res.status(400).json({ 
+                error: 'Counterparty email not found',
+                message: 'Please ensure the user is registered on the platform. The counterparty email must match an existing user account.'
+            });
         }
         
         // Determine buyer and supplier based on user role
@@ -2642,11 +2971,13 @@ app.post('/api/contracts', authenticateToken, async (req, res) => {
         const calculatedTotalValue = parseFloat(quantity) * parseFloat(price);
         const calculatedDepositAmount = (calculatedTotalValue * parseFloat(depositPercent)) / 100;
         
-        // Create contract
+        // Create contract with all required fields
         const contractId = `contract-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
         const contract = {
             id: contractId,
+            contract_id: contractId, // Alias for compatibility
             product: product,
+            productDetails: product, // Alias for compatibility
             quantity: parseFloat(quantity),
             unit: unit,
             pricePerUnit: parseFloat(price),
@@ -2660,7 +2991,9 @@ app.post('/api/contracts', authenticateToken, async (req, res) => {
             description: description,
             status: userRole === 'supplier' ? 'pending_buyer_confirmation' : 'pending_supplier_confirmation',
             depositPaid: false,
+            buyerDepositPaid: false, // New field
             documentsUploaded: false,
+            deliveryDocsUploaded: false, // New field
             createdAt: new Date().toISOString(),
             createdBy: userEmail
         };
@@ -2887,10 +3220,11 @@ app.post('/api/contracts/:contractId/deposit', authenticateToken, async (req, re
         const userEmail = req.user.email;
         const { useBlockchain = false } = req.body;
         
-        const contract = database.contracts.get(contractId);
-        if (!contract) {
+        const contractFromDb = database.contracts.get(contractId);
+        if (!contractFromDb) {
             return res.status(404).json({ error: 'Contract not found' });
         }
+        let contract = ensureContractFields(contractFromDb);
         
         // Verify user is the buyer
         if (contract.buyerEmail !== userEmail && req.user.role !== 'admin' && req.user.role !== 'trader') {
@@ -2995,14 +3329,16 @@ app.post('/api/contracts/:contractId/deposit', authenticateToken, async (req, re
             database.wallets.set(walletId, wallet);
         }
         
-        // Update contract
+        // Mark deposit as paid
         contract.depositPaid = true;
+        contract.buyerDepositPaid = true;
         contract.depositPaidAt = new Date().toISOString();
-        contract.status = contract.status === 'pending_deposit' ? 'active' : 'active';
-        if (contract.supplierEmail && database.users.get(contract.supplierEmail)) {
-            // Contract is active, supplier can now upload documents
-        }
+        
+        // Update status to AWAITING_DOCUMENTS so supplier can upload
+        contract.status = 'AWAITING_DOCUMENTS';
+        
         database.contracts.set(contractId, contract);
+        saveDatabase();
         
         // Create transaction record
         const transactionId = `tx-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -3063,10 +3399,14 @@ app.post('/api/contracts/:contractId/confirm', authenticateToken, async (req, re
             return res.status(403).json({ error: 'Only the supplier can confirm the contract' });
         }
         
+        // Ensure contract fields exist
+        contract = ensureContractFields(contract);
+        
         // Update contract status
         if (contract.status === 'pending_supplier_confirmation') {
             contract.status = 'pending_deposit';
             database.contracts.set(contractId, contract);
+            saveDatabase();
             
             // Log audit event
             logAuditEvent('contract_confirmed', userEmail, {
@@ -3218,13 +3558,19 @@ app.get('/api/contracts', authenticateToken, (req, res) => {
         // Get all contracts where user is involved
         const userContracts = [];
         for (const [contractId, contract] of database.contracts.entries()) {
-            if (contract.buyerEmail === userEmail || 
-                contract.supplierEmail === userEmail ||
-                (userRole === 'trader' && (contract.buyerEmail || contract.supplierEmail))) {
-                userContracts.push({
+            // Check if user is buyer, supplier, or trader involved in this contract
+            const isBuyer = contract.buyerEmail === userEmail;
+            const isSupplier = contract.supplierEmail === userEmail;
+            const isTrader = userRole === 'trader' && (contract.buyerEmail === userEmail || contract.supplierEmail === userEmail);
+            const isAdmin = userRole === 'admin';
+            
+            if (isBuyer || isSupplier || isTrader || isAdmin) {
+                // Normalize contract fields for backward compatibility
+                const normalizedContract = ensureContractFields({
                     ...contract,
                     id: contractId
                 });
+                userContracts.push(normalizedContract);
             }
         }
         
@@ -3243,10 +3589,12 @@ app.get('/api/admin/contracts', authenticateToken, requireRole(['admin']), (req,
     try {
         const allContracts = [];
         for (const [contractId, contract] of database.contracts.entries()) {
-            allContracts.push({
+            // Normalize contract fields for backward compatibility
+            const normalizedContract = ensureContractFields({
                 ...contract,
                 id: contractId
             });
+            allContracts.push(normalizedContract);
         }
         
         res.json({
@@ -4010,6 +4358,7 @@ function getFullKYCPageHTML(userEmail, token) {
                     <li id="check5" style="margin: 10px 0;">Final compliance assessment...</li>
                 </ul>
             </div>
+            <div id="sumsub-container" style="min-height:600px;"></div>
         </div>
         
     </div>
@@ -4349,6 +4698,48 @@ function getFullKYCPageHTML(userEmail, token) {
         }
 
     </script>
+    
+    <script>
+    (function () {
+      fetch('/api/sumsub/token', {
+        headers: {
+          'Authorization': 'Bearer ' + (localStorage.getItem('token') || '${token}')
+        }
+      })
+        .then(res => res.json())
+        .then(data => {
+          if (!data.token) {
+            console.error('No Sumsub token');
+            return;
+          }
+
+          window.snsWebSdk
+            .init(
+              data.token,
+              function updateToken() {
+                return fetch('/api/sumsub/token', {
+                  headers: {
+                    'Authorization': 'Bearer ' + (localStorage.getItem('token') || '${token}')
+                  }
+                })
+                  .then(r => r.json())
+                  .then(d => d.token);
+              }
+            )
+            .withConf({ lang: 'en' })
+            .on('message', function(type, payload) {
+              console.log('Sumsub event:', type, payload);
+            })
+            .on('error', function(err) {
+              console.error('Sumsub error:', err);
+            })
+            .mount('#sumsub-container');
+        })
+        .catch(err => {
+          console.error('Error loading Sumsub token:', err);
+        });
+    })();
+    </script>
 </body>
 </html>
     `;
@@ -4589,6 +4980,15 @@ app.get('/dashboard/authenticated', (req, res) => {
         </div>
         `}
         
+        <!-- KYC Status Indicator -->
+        <div id="kyc-status-banner" class="security-banner" style="margin-bottom: 20px;">
+            <div class="content">
+                <h3 id="kyc-status-text">KYC Status: Loading...</h3>
+                <p id="kyc-status-message">Checking verification status...</p>
+            </div>
+            <a href="/kyc?token=${token}" class="btn" id="kyc-action-btn" style="display: none;">Complete KYC</a>
+        </div>
+        
         <div class="header">
             <h1>My Contracts Dashboard</h1>
             <div style="display: flex; align-items: center; gap: 15px; flex-direction: row;">
@@ -4625,7 +5025,68 @@ app.get('/dashboard/authenticated', (req, res) => {
         // Verify payDeposit function is defined
         console.log('payDeposit function defined:', typeof payDeposit !== 'undefined');
         
+        // Load KYC status
+        loadKYCStatus();
+        
         loadContracts();
+        
+        // Load and display KYC status
+        async function loadKYCStatus() {
+            try {
+                const response = await fetch('/api/kyc/status', {
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    displayKYCStatus(data);
+                } else {
+                    // Default to not_started if API fails
+                    displayKYCStatus({ kyc_status: 'not_started', sumsub_applicant_id: null });
+                }
+            } catch (error) {
+                console.error('Error loading KYC status:', error);
+                displayKYCStatus({ kyc_status: 'not_started', sumsub_applicant_id: null });
+            }
+        }
+        
+        function displayKYCStatus(data) {
+            const status = data.kyc_status || 'not_started';
+            const banner = document.getElementById('kyc-status-banner');
+            const statusText = document.getElementById('kyc-status-text');
+            const statusMessage = document.getElementById('kyc-status-message');
+            const actionBtn = document.getElementById('kyc-action-btn');
+            
+            if (!banner || !statusText || !statusMessage) return;
+            
+            // Update banner styling and content based on status
+            if (status === 'approved') {
+                banner.className = 'security-banner enabled';
+                statusText.innerHTML = 'KYC Status: Approved ✅';
+                statusMessage.textContent = 'Your identity verification has been completed and approved.';
+                actionBtn.style.display = 'none';
+            } else if (status === 'pending') {
+                banner.className = 'security-banner';
+                statusText.innerHTML = 'KYC Status: Pending ⏳';
+                statusMessage.textContent = 'Your documents are being reviewed. This may take a few business days.';
+                actionBtn.style.display = 'none';
+            } else if (status === 'rejected') {
+                banner.className = 'security-banner';
+                statusText.innerHTML = 'KYC Status: Rejected ❌';
+                statusMessage.textContent = 'Your verification was rejected. Please contact support or resubmit via the KYC page.';
+                actionBtn.textContent = 'Resubmit KYC';
+                actionBtn.href = '/kyc?token=' + encodeURIComponent(token);
+                actionBtn.style.display = 'inline-block';
+            } else {
+                // not_started
+                banner.className = 'security-banner';
+                statusText.innerHTML = 'KYC Status: Not started';
+                statusMessage.textContent = 'Please complete identity verification to use the platform.';
+                actionBtn.textContent = 'Complete KYC';
+                actionBtn.href = '/kyc?token=' + encodeURIComponent(token);
+                actionBtn.style.display = 'inline-block';
+            }
+        }
         
         async function loadContracts() {
             try {
@@ -4717,41 +5178,57 @@ app.get('/dashboard/authenticated', (req, res) => {
             const token = localStorage.getItem('token');
             let buttons = '';
             
+            // Normalize contract fields for backward compatibility
+            const buyerDepositPaid = contract.buyerDepositPaid !== undefined ? contract.buyerDepositPaid : (contract.depositPaid || false);
+            const deliveryDocsUploaded = contract.deliveryDocsUploaded !== undefined ? contract.deliveryDocsUploaded : (contract.documentsUploaded || false);
+            const status = contract.status || 'pending_buyer_confirmation';
+            
+            // Add View button for all contracts
+            buttons += '<a href="/contracts/' + contract.id + '?token=' + encodeURIComponent(token) + '" class="btn secondary small" style="background: #3b82f6;">View</a> ';
+            
             if (userRole === 'buyer') {
                 // Allow cancellation only before deposit is paid
-                if (contract.status === 'pending_supplier_confirmation' || contract.status === 'pending_deposit' || contract.status === 'pending_buyer_confirmation') {
-                    buttons += '<button class="btn secondary small" onclick="cancelContract(\\''+contract.id+'\\')" style="background: #dc2626;">Cancel Contract</button>';
+                if (status === 'pending_supplier_confirmation' || status === 'pending_deposit' || status === 'pending_buyer_confirmation') {
+                    buttons += '<button class="btn secondary small" onclick="cancelContract(\\''+contract.id+'\\')" style="background: #dc2626;">Cancel</button> ';
                 }
-                // Step 1: Pay Deposit (10-30% of total value)
-                if (contract.status === 'pending_deposit' || contract.status === 'pending_buyer_confirmation') {
-                    const depositAmount = Math.round(contract.totalValue * 0.20); // 20% deposit
-                    buttons += '<button class="btn secondary small" onclick="payDeposit(\\''+contract.id+'\\', '+depositAmount+')" style="background: #666666;">Pay Deposit ($'+depositAmount.toLocaleString()+')</button>';
+                // Step 1: Pay Deposit - only show if not paid yet
+                if (!buyerDepositPaid && (status === 'pending_deposit' || status === 'pending_buyer_confirmation')) {
+                    const depositAmount = contract.depositAmount || Math.round(contract.totalValue * 0.20);
+                    buttons += '<button class="btn secondary small" onclick="payDeposit(\\''+contract.id+'\\', '+depositAmount+')" style="background: #666666;">Pay Deposit ($'+depositAmount.toLocaleString()+')</button> ';
+                }
+                // Show status when deposit is paid but docs not uploaded
+                if (buyerDepositPaid && status === 'AWAITING_DOCUMENTS') {
+                    buttons += '<span class="btn small" style="background: #6b7280; cursor: default;">Deposit paid - awaiting documents</span> ';
                 }
                 // Step 4: Release Remaining Payment (Against Documents)
-                if (contract.status === 'active' && contract.depositPaid && contract.documentsUploaded) {
+                if (status === 'AWAITING_BUYER_FINAL_PAYMENT' && deliveryDocsUploaded) {
                     const remainingAmount = contract.totalValue - (contract.depositAmount || Math.round(contract.totalValue * 0.20));
-                    buttons += '<button class="btn secondary small" onclick="releasePayment(\\''+contract.id+'\\', '+remainingAmount+')" style="background: #666666;">Release Payment ($'+remainingAmount.toLocaleString()+')</button>';
+                    buttons += '<button class="btn secondary small" onclick="releasePayment(\\''+contract.id+'\\', '+remainingAmount+')" style="background: #666666;">Release Payment ($'+remainingAmount.toLocaleString()+')</button> ';
                 }
-                // Show waiting status
-                if (contract.status === 'active' && contract.depositPaid && !contract.documentsUploaded) {
-                    buttons += '<span class="btn small" style="background: #6b7280; cursor: default;">Awaiting Shipping Docs</span>';
+                // Legacy status handling
+                if (status === 'active' && buyerDepositPaid && !deliveryDocsUploaded) {
+                    buttons += '<span class="btn small" style="background: #6b7280; cursor: default;">Awaiting Shipping Docs</span> ';
                 }
             } else if (userRole === 'supplier') {
                 // Allow cancellation only before deposit is paid
-                if (contract.status === 'pending_supplier_confirmation' || contract.status === 'pending_deposit') {
-                    buttons += '<button class="btn secondary small" onclick="cancelContract(\\''+contract.id+'\\')" style="background: #dc2626;">Cancel Contract</button>';
+                if (status === 'pending_supplier_confirmation' || (status === 'pending_deposit' && !buyerDepositPaid)) {
+                    buttons += '<button class="btn secondary small" onclick="cancelContract(\\''+contract.id+'\\')" style="background: #dc2626;">Cancel</button> ';
                 }
                 // Step 2: Confirm Contract
-                if (contract.status === 'pending_supplier_confirmation') {
-                    buttons += '<button class="btn secondary small" onclick="confirmContract(\\''+contract.id+'\\')">Confirm Contract</button>';
+                if (status === 'pending_supplier_confirmation') {
+                    buttons += '<button class="btn secondary small" onclick="confirmContract(\\''+contract.id+'\\')">Confirm</button> ';
                 }
-                // Step 3: Upload Shipping Documents (after deposit received) - Use Manage button for this
-                if (contract.status === 'active' && contract.depositPaid && !contract.documentsUploaded) {
-                    buttons += '<a href="/manage-contract/' + contract.id + '?token=' + encodeURIComponent(token) + '" class="btn secondary small">Upload Shipping Docs</a>';
+                // Step 3: Upload Documents - NEW: Show for AWAITING_DOCUMENTS status
+                if (status === 'AWAITING_DOCUMENTS' && buyerDepositPaid && !deliveryDocsUploaded) {
+                    buttons += '<a href="/manage-contract/' + contract.id + '?token=' + encodeURIComponent(token) + '" class="btn secondary small" style="background: #22c55e;">Upload Documents</a> ';
+                }
+                // Legacy: Upload Shipping Documents (after deposit received)
+                if (status === 'active' && buyerDepositPaid && !deliveryDocsUploaded) {
+                    buttons += '<a href="/manage-contract/' + contract.id + '?token=' + encodeURIComponent(token) + '" class="btn secondary small">Upload Shipping Docs</a> ';
                 }
                 // Show waiting for deposit
-                if (contract.status === 'pending_deposit') {
-                    buttons += '<span class="btn small" style="background: #6b7280; cursor: default;">Awaiting Buyer Deposit</span>';
+                if (status === 'pending_deposit' && !buyerDepositPaid) {
+                    buttons += '<span class="btn small" style="background: #6b7280; cursor: default;">Awaiting Buyer Deposit</span> ';
                 }
             } else if (userRole === 'trader') {
                 // Determine trader's role in this contract
@@ -4764,21 +5241,31 @@ app.get('/dashboard/authenticated', (req, res) => {
                 }
                 
                 // Supplier actions
-                if (isSupplier && contract.status === 'pending_supplier_confirmation') {
-                    buttons += '<button class="btn secondary small" onclick="confirmContract(\\''+contract.id+'\\')">Confirm as Supplier</button>';
+                if (isSupplier && status === 'pending_supplier_confirmation') {
+                    buttons += '<button class="btn secondary small" onclick="confirmContract(\\''+contract.id+'\\')">Confirm as Supplier</button> ';
                 }
-                if (isSupplier && contract.status === 'active' && contract.depositPaid && !contract.documentsUploaded) {
-                    buttons += '<a href="/manage-contract/' + contract.id + '?token=' + encodeURIComponent(token) + '" class="btn secondary small">Upload Shipping Docs</a>';
+                // NEW: Upload Documents for AWAITING_DOCUMENTS
+                if (isSupplier && status === 'AWAITING_DOCUMENTS' && buyerDepositPaid && !deliveryDocsUploaded) {
+                    buttons += '<a href="/manage-contract/' + contract.id + '?token=' + encodeURIComponent(token) + '" class="btn secondary small" style="background: #22c55e;">Upload Documents</a> ';
+                }
+                // Legacy: Upload Shipping Documents
+                if (isSupplier && status === 'active' && buyerDepositPaid && !deliveryDocsUploaded) {
+                    buttons += '<a href="/manage-contract/' + contract.id + '?token=' + encodeURIComponent(token) + '" class="btn secondary small">Upload Shipping Docs</a> ';
                 }
                 
                 // Buyer actions
-                if (isBuyer && (contract.status === 'pending_deposit' || contract.status === 'pending_buyer_confirmation')) {
-                    const depositAmount = Math.round(contract.totalValue * 0.20);
-                    buttons += '<button class="btn secondary small" onclick="payDeposit(\\''+contract.id+'\\', '+depositAmount+')" style="background: #666666;">Pay Deposit ($'+depositAmount.toLocaleString()+')</button>';
+                if (isBuyer && !buyerDepositPaid && (status === 'pending_deposit' || status === 'pending_buyer_confirmation')) {
+                    const depositAmount = contract.depositAmount || Math.round(contract.totalValue * 0.20);
+                    buttons += '<button class="btn secondary small" onclick="payDeposit(\\''+contract.id+'\\', '+depositAmount+')" style="background: #666666;">Pay Deposit ($'+depositAmount.toLocaleString()+')</button> ';
                 }
-                if (isBuyer && contract.status === 'active' && contract.depositPaid && contract.documentsUploaded) {
+                if (isBuyer && status === 'AWAITING_BUYER_FINAL_PAYMENT' && deliveryDocsUploaded) {
                     const remainingAmount = contract.totalValue - (contract.depositAmount || Math.round(contract.totalValue * 0.20));
-                    buttons += '<button class="btn secondary small" onclick="releasePayment(\\''+contract.id+'\\', '+remainingAmount+')" style="background: #666666;">Release Payment ($'+remainingAmount.toLocaleString()+')</button>';
+                    buttons += '<button class="btn secondary small" onclick="releasePayment(\\''+contract.id+'\\', '+remainingAmount+')" style="background: #666666;">Release Payment ($'+remainingAmount.toLocaleString()+')</button> ';
+                }
+                // Legacy status handling
+                if (isBuyer && status === 'active' && buyerDepositPaid && deliveryDocsUploaded) {
+                    const remainingAmount = contract.totalValue - (contract.depositAmount || Math.round(contract.totalValue * 0.20));
+                    buttons += '<button class="btn secondary small" onclick="releasePayment(\\''+contract.id+'\\', '+remainingAmount+')" style="background: #666666;">Release Payment ($'+remainingAmount.toLocaleString()+')</button> ';
                 }
                 
                 // Dual Contract button - create opposite contract
@@ -5261,9 +5748,15 @@ app.get('/dashboard/:role', authenticateToken, (req, res) => {
         return res.send(createDashboard('admin', req.user, req.query.token || req.headers.authorization?.replace('Bearer ', '') || ''));
     }
     
-    // Check if user needs KYC
-    console.log('[KYC] KYC CHECK - User:', req.user.email, 'KYC Status:', req.user.kycStatus, 'Role:', req.user.role);
-    if (req.user.kycStatus !== 'approved' && req.user.role !== 'admin') {
+    // Get full user object from database to check KYC status
+    const userEmail = req.user.email;
+    const user = ensureUserKYCFields(database.users.get(userEmail));
+    const kycStatus = user?.kyc_status || 'not_started';
+    
+    // KYC Gate: Redirect to /kyc if not approved (except for admin)
+    // Allow access to /kyc route itself regardless of status
+    console.log('[KYC] KYC CHECK - User:', userEmail, 'KYC Status:', kycStatus, 'Role:', req.user.role);
+    if (kycStatus !== 'approved' && req.user.role !== 'admin') {
         // Client-side redirect to KYC with token handling
         return res.send(`
         <!DOCTYPE html>
