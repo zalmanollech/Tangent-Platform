@@ -351,11 +351,12 @@ app.use((req, res, next) => {
         'Content-Security-Policy',
         [
             "default-src 'self'",
-            "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com https://www.googletagmanager.com https://static.sumsub.com",
+            "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com https://www.googletagmanager.com https://static.sumsub.com https://websdk.sumsub.com",
             "style-src 'self' 'unsafe-inline'",
-            "img-src 'self' data:",
-            "connect-src 'self' https://api.sumsub.com",
-            "frame-src 'self' https://static.sumsub.com https://api.sumsub.com",
+            "img-src 'self' data: https://static.sumsub.com",
+            "connect-src 'self' https://api.sumsub.com https://websdk.sumsub.com https://static.sumsub.com",
+            "frame-src 'self' https://websdk.sumsub.com https://static.sumsub.com https://api.sumsub.com",
+            "worker-src 'self' blob:",
             "frame-ancestors 'self'"
         ].join('; ')
     );
