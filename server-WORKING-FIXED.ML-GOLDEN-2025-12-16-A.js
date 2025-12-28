@@ -1342,180 +1342,80 @@ function ensureUserKYCFields(user) {
 function ensureContractFields(contract) {
     if (!contract) return contract;
     
-    // CRITICAL: Capture original status BEFORE creating copy
-    const statusBefore = contract.status;
-    
-    // CRITICAL: Work on a shallow copy to avoid mutating the original object
-    const contractCopy = { ...contract };
-    
     // Data consistency fix: Normalize depositPercent - if missing/null, set to 0
-    if (contractCopy.depositPercent === undefined || contractCopy.depositPercent === null) {
-        contractCopy.depositPercent = contractCopy.deposit_percent || 0;
+    if (contract.depositPercent === undefined || contract.depositPercent === null) {
+        contract.depositPercent = contract.deposit_percent || 0;
     }
-    contractCopy.depositPercent = Number(contractCopy.depositPercent) || 0;
+    contract.depositPercent = Number(contract.depositPercent) || 0;
     
     // Data consistency fix: If depositPercent === 0, set depositPaid = true (no deposit required)
-    if (contractCopy.depositPercent === 0) {
-        contractCopy.depositPaid = true;
-        contractCopy.buyerDepositPaid = true;
+    if (contract.depositPercent === 0) {
+        contract.depositPaid = true;
+        contract.buyerDepositPaid = true;
     }
     
     // Ensure buyerDepositPaid exists (use depositPaid as fallback)
-    if (contractCopy.buyerDepositPaid === undefined) {
-        contractCopy.buyerDepositPaid = contractCopy.depositPaid || false;
+    if (contract.buyerDepositPaid === undefined) {
+        contract.buyerDepositPaid = contract.depositPaid || false;
     }
     
     // Ensure deliveryDocsUploaded exists
-    if (contractCopy.deliveryDocsUploaded === undefined) {
-        contractCopy.deliveryDocsUploaded = contractCopy.documentsUploaded || false;
+    if (contract.deliveryDocsUploaded === undefined) {
+        contract.deliveryDocsUploaded = contract.documentsUploaded || false;
     }
     
-    // CRITICAL: Status is SOURCE OF TRUTH - ONLY set default if missing/empty, NEVER overwrite existing status
-    // ensureContractFields MUST NOT set or downgrade status - only fill missing non-workflow fields
-    // Rule: If status exists (truthy string), keep it. Only set default if missing/empty.
-    // Do NOT normalize by reassigning status to PENDING_* based on other fields.
-    // Do NOT mutate status based on buyer/supplier role.
-    // If status exists, preserve it exactly (except optional normalization to uppercase of the SAME value).
-    
-    if (!contractCopy.status || contractCopy.status === null || contractCopy.status === undefined || contractCopy.status === '') {
-        // Only set default if status is truly missing/empty
-        contractCopy.status = ContractState.PENDING_BUYER_CONFIRMATION;
-    } else {
-        // CRITICAL: Status exists - preserve it exactly, only normalize case to uppercase
-        // Store original value before normalization
-        const originalStatusValue = String(contractCopy.status);
-        // Normalize to uppercase (same value, different case only)
-        contractCopy.status = normalizeStatus(contractCopy.status);
-        // Verify normalization didn't change the value (only case)
-        const normalizedValue = String(contractCopy.status);
-        if (originalStatusValue.toUpperCase() !== normalizedValue) {
-            // If normalization changed more than case, restore original
-            console.error("[ENSURE_STATUS_NORMALIZATION_ERROR] Normalization changed value", {
-                original: originalStatusValue,
-                normalized: normalizedValue,
-                id: contractCopy.contract_id || contractCopy.id
-            });
-            contractCopy.status = originalStatusValue;
-        }
+    // Ensure status exists
+    if (!contract.status) {
+        contract.status = 'pending_buyer_confirmation';
     }
-    
-    // CRITICAL: Final assertion - status must not have changed value (only case normalization allowed)
-    const statusAfter = contractCopy.status;
-    const beforeUpper = normalizeStatus(statusBefore || '');
-    const afterUpper = normalizeStatus(statusAfter || '');
-    
-    // If original status existed and was changed (not just case), restore it
-    if (statusBefore && statusBefore !== '' && beforeUpper !== afterUpper) {
-        console.error("[ENSURE_STATUS_VIOLATION] ensureContractFields changed status value (not just case)", {
-            before: statusBefore,
-            after: statusAfter,
-            beforeUpper,
-            afterUpper,
-            id: contractCopy.contract_id || contractCopy.id
-        });
-        // Restore original status exactly as it was
-        contractCopy.status = statusBefore;
-    }
-    
-    // CRITICAL: Log status preservation (required log)
-    console.log("[ENSURE_STATUS]", { 
-        before: statusBefore,  // Original status from contract parameter
-        after: contractCopy.status, 
-        id: contractCopy.contract_id || contractCopy.id 
-    });
     
     // Ensure required identifiers exist
-    if (!contractCopy.id && contractCopy.contract_id) {
-        contractCopy.id = contractCopy.contract_id;
+    if (!contract.id && contract.contract_id) {
+        contract.id = contract.contract_id;
     }
-    if (!contractCopy.contract_id && contractCopy.id) {
-        contractCopy.contract_id = contractCopy.id;
+    if (!contract.contract_id && contract.id) {
+        contract.contract_id = contract.id;
     }
     
     // STEP 1: Risk engine fields - ensure they exist but remain null/undefined (no logic applied)
     // These fields are added for future risk engine integration
-    if (contractCopy.riskScore === undefined) {
-        contractCopy.riskScore = null;
+    if (contract.riskScore === undefined) {
+        contract.riskScore = null;
     }
-    if (contractCopy.riskBand === undefined) {
-        contractCopy.riskBand = null;
+    if (contract.riskBand === undefined) {
+        contract.riskBand = null;
     }
-    if (contractCopy.maxFinancingPercent === undefined) {
-        contractCopy.maxFinancingPercent = null;
+    if (contract.maxFinancingPercent === undefined) {
+        contract.maxFinancingPercent = null;
     }
-    if (contractCopy.requiredDepositPercent === undefined) {
-        contractCopy.requiredDepositPercent = null;
+    if (contract.requiredDepositPercent === undefined) {
+        contract.requiredDepositPercent = null;
     }
     
     // A4 REG-01: Ensure all invariant fields exist with safe defaults
-    if (contractCopy.settlementStatus === undefined) {
-        contractCopy.settlementStatus = 'locked';
+    if (contract.settlementStatus === undefined) {
+        contract.settlementStatus = 'locked';
     }
-    if (contractCopy.finalPaymentPaid === undefined) {
-        contractCopy.finalPaymentPaid = false;
+    if (contract.finalPaymentPaid === undefined) {
+        contract.finalPaymentPaid = false;
     }
-    // GOLDEN PATH FREEZE: buyerApprovedDraftDocs must never default to true
-    if (contractCopy.buyerApprovedDraftDocs === undefined) {
-        contractCopy.buyerApprovedDraftDocs = false;
+    if (contract.buyerApprovedDraftDocs === undefined) {
+        contract.buyerApprovedDraftDocs = false;
     }
-    if (contractCopy.originalDocsUploaded === undefined) {
-        contractCopy.originalDocsUploaded = false;
+    if (contract.originalDocsUploaded === undefined) {
+        contract.originalDocsUploaded = false;
     }
-    // GOLDEN PATH FREEZE: draftDocsUploaded must default to false
-    if (contractCopy.draftDocsUploaded === undefined) {
-        contractCopy.draftDocsUploaded = false;
+    if (contract.docsReleased === undefined) {
+        contract.docsReleased = false;
     }
-    if (contractCopy.docsReleased === undefined) {
-        contractCopy.docsReleased = false;
+    if (contract.docsReleaseStatus === undefined) {
+        contract.docsReleaseStatus = 'LOCKED';
     }
-    if (contractCopy.docsReleaseStatus === undefined) {
-        contractCopy.docsReleaseStatus = 'LOCKED';
-    }
-    if (contractCopy.documentsUploaded === undefined) {
-        contractCopy.documentsUploaded = false;
+    if (contract.documentsUploaded === undefined) {
+        contract.documentsUploaded = false;
     }
     
-    // B2: Ensure originalDocs and related flags exist
-    if (!contractCopy.originalDocs) {
-        contractCopy.originalDocs = {
-            status: "NONE",
-            items: [],
-            verifiedBy: null,
-            verifiedAt: null,
-            releaseStatus: "LOCKED"
-        };
-    }
-    if (contractCopy.originalDocsVerified === undefined) {
-        contractCopy.originalDocsVerified = false;
-    }
-    
-    // Original docs authentication fields
-    if (contractCopy.originalDocs.authenticationStatus === undefined) {
-        contractCopy.originalDocs.authenticationStatus = "PENDING";
-    }
-    if (contractCopy.originalDocs.authenticatedAt === undefined) {
-        contractCopy.originalDocs.authenticatedAt = null;
-    }
-    if (contractCopy.originalDocs.authenticatedBy === undefined) {
-        contractCopy.originalDocs.authenticatedBy = null;
-    }
-    if (contractCopy.originalDocs.verifiedByBuyer === undefined) {
-        contractCopy.originalDocs.verifiedByBuyer = false;
-    }
-    if (contractCopy.originalDocs.verifiedAt === undefined) {
-        contractCopy.originalDocs.verifiedAt = null;
-    }
-    
-    // Final payment and release key fields
-    if (contractCopy.finalPaymentPaid === undefined) {
-        contractCopy.finalPaymentPaid = false;
-    }
-    if (contractCopy.docsReleaseKeyIssued === undefined) {
-        contractCopy.docsReleaseKeyIssued = false;
-    }
-    
-    // CRITICAL: Return the copy, not the original (to avoid mutating the original object)
-    return contractCopy;
+    return contract;
 }
 
 /**
@@ -1527,62 +1427,11 @@ function ensureContractFields(contract) {
  *   "Pending Counterparty Confirmation" -> "PENDING_COUNTERPARTY_CONFIRMATION"
  */
 function normalizeStatus(status) {
-    // Simple helper: convert to uppercase string, never reset to initial
-    return typeof status === "string" ? status.toUpperCase() : status;
-}
-
-/**
- * Status progression order for regression detection
- * Lower index = earlier stage, higher index = later stage
- */
-const STATUS_ORDER = {
-    'PENDING_BUYER_CONFIRMATION': 0,
-    'PENDING_SUPPLIER_CONFIRMATION': 0,
-    'PENDING_COUNTERPARTY_CONFIRMATION': 0,
-    'ACTIVE': 1,
-    'CONFIRMED': 1,
-    'AWAITING_VERIFICATION_DOCS': 2,
-    'AWAITING_BUYER_DOC_VERIFICATION': 2,
-    'AWAITING_ORIGINAL_DOCS': 3,
-    'AWAITING_FINAL_SETTLEMENT': 4,
-    'AWAITING_DOCS_RELEASE_KEY': 5,
-    'SETTLED': 6,
-    'COMPLETED': 7,
-    'CANCELLED': -1
-};
-
-/**
- * Detect status regression - block backward transitions
- * @param {string} oldStatus - Previous status
- * @param {string} newStatus - New status
- * @param {string} context - Context for logging (e.g., endpoint name)
- * @returns {boolean} - true if regression detected
- */
-function detectStatusRegression(oldStatus, newStatus, context = 'unknown') {
-    const oldNormalized = normalizeStatus(oldStatus || '');
-    const newNormalized = normalizeStatus(newStatus || '');
-    
-    // Skip if either status is missing or cancelled
-    if (!oldNormalized || !newNormalized || oldNormalized === 'CANCELLED' || newNormalized === 'CANCELLED') {
-        return false;
+    if (!status || typeof status !== 'string') {
+        return status || '';
     }
-    
-    const oldOrder = STATUS_ORDER[oldNormalized] ?? 999;
-    const newOrder = STATUS_ORDER[newNormalized] ?? 999;
-    
-    if (newOrder < oldOrder) {
-        console.error('[STATUS_REGRESSION_BLOCKED]', {
-            context,
-            oldStatus: oldNormalized,
-            newStatus: newNormalized,
-            oldOrder,
-            newOrder,
-            message: `Status regression detected: ${oldNormalized} -> ${newNormalized}`
-        });
-        return true;
-    }
-    
-    return false;
+    // Rule: status.trim().toUpperCase().replace(/[^A-Z0-9]+/g, "_")
+    return status.trim().toUpperCase().replace(/[^A-Z0-9]+/g, "_");
 }
 
 // ================================
@@ -1606,7 +1455,6 @@ const ContractState = {
     // Payment states
     AWAITING_DEPOSIT: "AWAITING_DEPOSIT",
     AWAITING_VERIFICATION_DOCS: "AWAITING_VERIFICATION_DOCS", // After deposit paid
-    AWAITING_BUYER_DOC_VERIFICATION: "AWAITING_BUYER_DOC_VERIFICATION", // After supplier uploads verification docs
     
     // Document states
     AWAITING_ORIGINAL_DOCS: "AWAITING_ORIGINAL_DOCS",
@@ -1663,26 +1511,13 @@ const STATE_TRANSITIONS = {
         [ContractAction.APPROVE_VERIFICATION_DOCS]: ContractState.AWAITING_ORIGINAL_DOCS,
         [ContractAction.CANCEL]: ContractState.CANCELLED
     },
-    [ContractState.AWAITING_BUYER_DOC_VERIFICATION]: {
-        [ContractAction.APPROVE_VERIFICATION_DOCS]: ContractState.AWAITING_ORIGINAL_DOCS,
-        [ContractAction.UPLOAD_VERIFICATION_DOCS]: ContractState.AWAITING_VERIFICATION_DOCS, // Reject case: supplier re-uploads
-        [ContractAction.CANCEL]: ContractState.CANCELLED
-    },
     [ContractState.AWAITING_ORIGINAL_DOCS]: {
         [ContractAction.UPLOAD_ORIGINAL_DOCS]: ContractState.AWAITING_ORIGINAL_DOCS, // Same state, docs added
-        [ContractAction.VERIFY_ORIGINAL_DOCS]: ContractState.AWAITING_FINAL_SETTLEMENT,
+        [ContractAction.VERIFY_ORIGINAL_DOCS]: ContractState.AWAITING_SETTLEMENT,
         [ContractAction.CANCEL]: ContractState.CANCELLED
     },
     [ContractState.AWAITING_SETTLEMENT]: {
         [ContractAction.PAY_SETTLEMENT]: ContractState.SETTLED,
-        [ContractAction.CANCEL]: ContractState.CANCELLED
-    },
-    [ContractState.AWAITING_FINAL_SETTLEMENT]: {
-        [ContractAction.PAY_SETTLEMENT]: ContractState.AWAITING_DOCS_RELEASE_KEY,
-        [ContractAction.CANCEL]: ContractState.CANCELLED
-    },
-    [ContractState.AWAITING_DOCS_RELEASE_KEY]: {
-        [ContractAction.RELEASE_DOCS]: ContractState.COMPLETED,
         [ContractAction.CANCEL]: ContractState.CANCELLED
     },
     [ContractState.SETTLED]: {
@@ -1769,15 +1604,6 @@ function transitionContract(contract, action, actorEmail) {
     // Perform transition
     const fromState = currentState;
     const toState = finalToState;
-    const oldStatus = contract.status;
-    
-    // CRITICAL: Detect status regression before updating
-    if (detectStatusRegression(oldStatus, toState, 'transitionContract')) {
-        return {
-            success: false,
-            error: `Status regression blocked: ${oldStatus} -> ${toState}`
-        };
-    }
     
     // Update contract state
     contract.status = toState;
@@ -1972,21 +1798,13 @@ function computeOriginalDocsObject(contract) {
     const verifiedBy = originalDocs.verifiedBy || originalDocs.verified_by || null;
     const verifiedAt = originalDocs.verifiedAt || originalDocs.verified_at || null;
     const releaseStatus = originalDocs.releaseStatus || originalDocs.release_status || "LOCKED"; // LOCKED, RELEASED
-    const authenticationStatus = originalDocs.authenticationStatus || "PENDING"; // PENDING, AUTHENTICATED
-    const authenticatedAt = originalDocs.authenticatedAt || null;
-    const authenticatedBy = originalDocs.authenticatedBy || null;
-    const verifiedByBuyer = originalDocs.verifiedByBuyer || false;
     
     return {
         status: status.toUpperCase(), // NONE, PENDING, VERIFIED
         items: items,
         verifiedBy: verifiedBy,
         verifiedAt: verifiedAt,
-        releaseStatus: releaseStatus.toUpperCase(), // LOCKED, RELEASED
-        authenticationStatus: authenticationStatus.toUpperCase(), // PENDING, AUTHENTICATED
-        authenticatedAt: authenticatedAt,
-        authenticatedBy: authenticatedBy,
-        verifiedByBuyer: verifiedByBuyer
+        releaseStatus: releaseStatus.toUpperCase() // LOCKED, RELEASED
     };
 }
 
@@ -2295,52 +2113,8 @@ app.get('/api/contracts/:contractId', authenticateToken, async (req, res) => {
             return res.status(404).json({ error: 'Contract not found' });
         }
         
-        // CRITICAL: Capture status BEFORE ensureContractFields to prevent backward reset
-        const statusBeforeEnsure = contractRaw?.status;
-        
         // CRITICAL: Ensure we're working with the actual contract object (not a copy)
         const contract = ensureContractFields(contractRaw);
-        
-        // CRITICAL: Check if ensureContractFields reset status backward and restore if needed
-        const after = contract?.status;
-        const beforeUpper = (statusBeforeEnsure || "").toString().toUpperCase();
-        const afterUpper = (after || "").toString().toUpperCase();
-        
-        const progressed =
-            (contract?.verificationDocs?.status || "").toUpperCase() === "APPROVED" ||
-            contract?.buyerApprovedDraftDocs === true ||
-            contract?.depositPaid === true ||
-            contract?.originalDocsUploaded === true ||
-            contract?.finalPaymentPaid === true;
-        
-        if (progressed && (afterUpper === "PENDING_BUYER_CONFIRMATION" || afterUpper === "PENDING_BUYER_CONFIRMATION".toLowerCase())) {
-            console.error("[GET_STATUS_RESET_BUG] ensureContractFields reset status backward; restoring", {
-                contractId,
-                statusBeforeEnsure,
-                after,
-                verificationDocsStatus: contract?.verificationDocs?.status,
-                depositPaid: contract?.depositPaid,
-                buyerApprovedDraftDocs: contract?.buyerApprovedDraftDocs,
-                originalDocsUploaded: contract?.originalDocsUploaded,
-                finalPaymentPaid: contract?.finalPaymentPaid
-            });
-            contract.status = beforeUpper || "ACTIVE"; // restore or at minimum not pending
-        } else {
-            // CRITICAL: GET endpoints must preserve original status, never change it
-            contract.status = beforeUpper || afterUpper || "PENDING_BUYER_CONFIRMATION";
-        }
-        
-        // CRITICAL: Assert GET endpoint never changes status
-        const finalStatus = normalizeStatus(contract.status);
-        const originalStatus = normalizeStatus(statusBeforeEnsure || '');
-        if (originalStatus && finalStatus !== originalStatus && originalStatus !== '') {
-            console.error("[GET_STATUS_VIOLATION] GET endpoint changed status", {
-                contractId,
-                original: originalStatus,
-                final: finalStatus
-            });
-            contract.status = statusBeforeEnsure; // Restore original
-        }
         
         // CRITICAL: Log verificationDocs for debugging - check raw contract object
         console.log('[GET /api/contracts/:contractId] verificationDocs check (raw contract):', {
@@ -3745,63 +3519,6 @@ app.post('/api/contracts/:contractId/documents', authenticateToken, upload.array
             contract.deliveryDocsUploaded = true;
             contract.documentsUploadedAt = new Date().toISOString();
             
-            // BACKEND FIX: Populate contract.verificationDocs.items from uploadedDocs
-            // Ensure contract.verificationDocs exists
-            if (!contract.verificationDocs) {
-                contract.verificationDocs = {
-                    status: "NONE",
-                    items: [],
-                    buyerDecision: null,
-                    buyerComment: null,
-                    updatedAt: null
-                };
-            }
-            
-            // Ensure items array exists
-            if (!Array.isArray(contract.verificationDocs.items)) {
-                contract.verificationDocs.items = [];
-            }
-            
-            // Transform uploadedDocs into verificationDocs.items format
-            const verificationItems = uploadedDocs.map(doc => {
-                // Construct URL from file path (relative to uploads directory)
-                // File path is typically like "uploads/1234567890-abc123.pdf"
-                const url = doc.path ? `/uploads/${doc.filename}` : `/api/documents/${doc.id}`;
-                
-                // Infer document type from file extension if not provided
-                let docType = doc.type || 'shipping_document';
-                if (doc.originalName) {
-                    const ext = doc.originalName.split('.').pop()?.toLowerCase();
-                    if (ext === 'pdf') docType = 'invoice';
-                    else if (['jpg', 'jpeg', 'png'].includes(ext)) docType = 'packing_list';
-                }
-                
-                return {
-                    name: doc.originalName || doc.filename || `Document ${doc.id}`,
-                    url: url,
-                    type: docType,
-                    uploadedAt: doc.uploadedAt || new Date().toISOString(),
-                    uploadedBy: doc.uploadedBy || userEmail
-                };
-            });
-            
-            // Add items to verificationDocs
-            contract.verificationDocs.items.push(...verificationItems);
-            contract.verificationDocs.status = "PENDING";
-            contract.verificationDocs.updatedAt = new Date().toISOString();
-            
-            // BACKEND FIX: Invariant - if uploadedDocs.length > 0, verificationDocs.items.length must be > 0
-            if (uploadedDocs.length > 0 && contract.verificationDocs.items.length === 0) {
-                throw new Error("Invariant violation: uploadedDocs.length > 0 but verificationDocs.items.length === 0");
-            }
-            
-            console.log('[DOCS] verificationDocs populated:', {
-                contractId: contractId,
-                uploadedDocsCount: uploadedDocs.length,
-                verificationItemsCount: contract.verificationDocs.items.length,
-                verificationStatus: contract.verificationDocs.status
-            });
-            
             // MERGE LIFELINE: Update status to buyer doc verification (not final payment)
             contract.status = 'AWAITING_BUYER_DOC_VERIFICATION';
             console.log('[MERGE_LIFELINE_BUILD]', MERGE_LIFELINE_BUILD);
@@ -3816,8 +3533,7 @@ app.post('/api/contracts/:contractId/documents', authenticateToken, upload.array
                 contractId: contractId,
                 userEmail: userEmail,
                 documentCount: req.files.length,
-                newStatus: 'AWAITING_BUYER_DOC_VERIFICATION',
-                verificationItemsCount: contract.verificationDocs.items.length
+                newStatus: 'AWAITING_BUYER_DOC_VERIFICATION'
             });
             
             database.contracts.set(contractId, contract);
@@ -4697,15 +4413,6 @@ app.post('/api/contracts/:contractId/settlement/pay', authenticateToken, async (
         }
         let contract = ensureContractFields(contractFromDb);
         
-        // Guard: status must be AWAITING_FINAL_SETTLEMENT
-        const currentStatus = normalizeStatus(contract.status);
-        if (currentStatus !== ContractState.AWAITING_FINAL_SETTLEMENT) {
-            return res.status(400).json({ 
-                error: 'INVALID_STATUS',
-                message: `Contract status must be AWAITING_FINAL_SETTLEMENT. Current status: ${currentStatus}`
-            });
-        }
-        
         // Get documents for settlement computation
         const documents = contract.documents || [];
         
@@ -4767,53 +4474,29 @@ app.post('/api/contracts/:contractId/settlement/pay', authenticateToken, async (
             currentStatus: contract.status
         });
         
-        // B4: Mark settlement as paid
+        // Mark settlement as paid
         contract.settlementPaid = true;
         contract.settlementPaidAt = new Date().toISOString();
         contract.finalPaymentPaid = true;
-        contract.finalPaymentPaidAt = new Date().toISOString();
-        contract.finalPaymentPaidBy = userEmail;
-        contract.settlementStatus = "paid";
+        contract.settlementStatus = 'paid';
         
-        // B4: Transition status to AWAITING_DOCS_RELEASE_KEY
-        const oldStatus = contract.status;
-        contract.status = ContractState.AWAITING_DOCS_RELEASE_KEY;
-        
-        // CRITICAL: Detect status regression
-        if (detectStatusRegression(oldStatus, contract.status, 'FINAL_PAY')) {
-            contract.status = oldStatus; // Block regression
-            return res.status(400).json({
-                error: 'STATUS_REGRESSION_BLOCKED',
-                message: 'Status regression detected and blocked'
-            });
-        }
-        
-        // Normalize status before saving
-        contract.status = normalizeStatus(contract.status);
-        
-        console.log('[FINAL_PAY] Status transition:', {
-            contractId: contractId,
-            oldStatus: oldStatus,
-            newStatus: contract.status,
-            finalPaymentPaid: contract.finalPaymentPaid,
-            settlementStatus: contract.settlementStatus
-        });
-        
-        // B4: Invariant - if status is AWAITING_DOCS_RELEASE_KEY then finalPaymentPaid === true
-        if (contract.status === ContractState.AWAITING_DOCS_RELEASE_KEY && !contract.finalPaymentPaid) {
-            console.error('[INVARIANT] AWAITING_DOCS_RELEASE_KEY but finalPaymentPaid is false', {
+        // Update status to COMPLETED after final payment
+        if (contract.status === 'AWAITING_BUYER_FINAL_PAYMENT' || contract.status === 'AWAITING_SETTLEMENT') {
+            contract.status = 'COMPLETED';
+            console.log('[A4_GOLDEN_PATH] Contract status updated to COMPLETED', {
                 contractId: contractId,
-                status: contract.status,
-                finalPaymentPaid: contract.finalPaymentPaid
+                previousStatus: contract.status,
+                newStatus: 'COMPLETED'
             });
         }
         
-        // NOTE: Documents are NOT released yet - they will be released via /docs/release endpoint
-        // Keep releaseStatus as LOCKED until buyer explicitly releases
+        // STEP 3: Release original documents after settlement payment
         if (contract.originalDocs) {
-            contract.originalDocs.releaseStatus = "LOCKED"; // Keep locked until release
+            contract.originalDocs.releaseStatus = "RELEASED";
         }
-        contract.docsReleaseStatus = "LOCKED"; // Keep locked until release
+        // Also set on contract root for backward compatibility
+        contract.docsReleaseStatus = "RELEASED";
+        contract.docsReleasedAt = new Date().toISOString();
         
         database.contracts.set(contractId, contract);
         saveDatabase();
@@ -4823,8 +4506,7 @@ app.post('/api/contracts/:contractId/settlement/pay', authenticateToken, async (
             contractId: contractId,
             settlementAmount: settlement.amount,
             payer: settlement.payer,
-            finalPaymentPaid: contract.finalPaymentPaid,
-            status: contract.status
+            docsReleased: true
         });
         
         // Return updated contract with computed objects
@@ -5116,95 +4798,24 @@ app.post('/api/contracts/:contractId/docs/verification/decision', authenticateTo
         contract.verificationDocs.status = decision;
         contract.verificationDocs.updatedAt = new Date().toISOString();
         
-        // GOLDEN PATH: Handle verification decision transitions from AWAITING_BUYER_DOC_VERIFICATION
-        const currentStatus = normalizeStatus(contract.status);
-        const isAwaitingBuyerDocVerification = currentStatus === ContractState.AWAITING_BUYER_DOC_VERIFICATION;
-        
-        // Log current state for debugging
-        console.log('[VERIFICATION_DECISION] Current state check:', {
-            contractId: contractId,
-            rawStatus: contract.status,
-            normalizedStatus: currentStatus,
-            expectedStatus: ContractState.AWAITING_BUYER_DOC_VERIFICATION,
-            isAwaitingBuyerDocVerification: isAwaitingBuyerDocVerification,
-            decision: decision
-        });
-        
+        // CRITICAL: If approved, transition contract state to AWAITING_ORIGINAL_DOCS
         if (decision === "APPROVED") {
-            // APPROVED: Set flags and transition to AWAITING_ORIGINAL_DOCS
-            contract.buyerApprovedDraftDocs = true;
+            const transitionResult = transitionContract(contract, ContractAction.APPROVE_VERIFICATION_DOCS, userEmail);
             
-            // Always use transitionContract for AWAITING_BUYER_DOC_VERIFICATION
-            if (isAwaitingBuyerDocVerification) {
-                const transitionResult = transitionContract(contract, ContractAction.APPROVE_VERIFICATION_DOCS, userEmail);
-                
-                if (!transitionResult.success) {
-                    console.error('[VERIFICATION_DECISION] State transition failed:', {
-                        contractId: contractId,
-                        error: transitionResult.error,
-                        currentStatus: currentStatus,
-                        action: ContractAction.APPROVE_VERIFICATION_DOCS,
-                        availableTransitions: STATE_TRANSITIONS[currentStatus] ? Object.keys(STATE_TRANSITIONS[currentStatus]) : 'NONE'
-                    });
-                    return res.status(400).json({
-                        error: 'STATE_TRANSITION_FAILED',
-                        message: transitionResult.error || 'Failed to transition contract state'
-                    });
-                }
-                
-                const oldStatus = contract.status;
-                contract.status = transitionResult.newState;
-                
-                // CRITICAL: Detect status regression
-                if (detectStatusRegression(oldStatus, contract.status, 'VERIFICATION_DECISION_APPROVED')) {
-                    contract.status = oldStatus; // Block regression
-                    return res.status(400).json({
-                        error: 'STATUS_REGRESSION_BLOCKED',
-                        message: 'Status regression detected and blocked'
-                    });
-                }
-                
-                console.log('[VERIFICATION_DECISION] APPROVED ->', transitionResult.newState, {
-                    contractId: contractId,
-                    fromState: transitionResult.fromState,
-                    toState: transitionResult.newState,
-                    buyerApprovedDraftDocs: contract.buyerApprovedDraftDocs
-                });
-            } else {
-                // Fallback: set status directly if not in AWAITING_BUYER_DOC_VERIFICATION state
-                const oldStatus = contract.status;
-                contract.status = ContractState.AWAITING_ORIGINAL_DOCS;
-                
-                // CRITICAL: Detect status regression
-                if (detectStatusRegression(oldStatus, contract.status, 'VERIFICATION_DECISION_APPROVED_FALLBACK')) {
-                    contract.status = oldStatus; // Block regression
-                    return res.status(400).json({
-                        error: 'STATUS_REGRESSION_BLOCKED',
-                        message: 'Status regression detected and blocked'
-                    });
-                }
-                
-                console.log('[VERIFICATION_DECISION] APPROVED -> AWAITING_ORIGINAL_DOCS (direct, not AWAITING_BUYER_DOC_VERIFICATION)', {
-                    contractId: contractId,
-                    fromState: currentStatus,
-                    toState: contract.status,
-                    buyerApprovedDraftDocs: contract.buyerApprovedDraftDocs
+            if (!transitionResult.success) {
+                console.error('[VERIFICATION_DECISION] State transition failed:', transitionResult.error);
+                return res.status(400).json({
+                    error: 'STATE_TRANSITION_FAILED',
+                    message: transitionResult.error || 'Failed to transition contract state'
                 });
             }
-        } else if (decision === "REJECTED") {
-            // REJECTED: Reset flags and transition back to AWAITING_VERIFICATION_DOCS
-            contract.buyerApprovedDraftDocs = false;
-            contract.draftDocsUploaded = false; // Allow supplier to re-upload
             
-            // For REJECTED, always transition back to AWAITING_VERIFICATION_DOCS (supplier re-upload)
-            contract.status = ContractState.AWAITING_VERIFICATION_DOCS;
-            
-            console.log('[VERIFICATION_DECISION] REJECTED -> AWAITING_VERIFICATION_DOCS', {
+            console.log('[VERIFICATION_DECISION] State transition successful:', {
                 contractId: contractId,
-                fromState: currentStatus,
-                toState: contract.status,
-                buyerApprovedDraftDocs: contract.buyerApprovedDraftDocs,
-                draftDocsUploaded: contract.draftDocsUploaded
+                fromState: transitionResult.fromState,
+                toState: transitionResult.newState,
+                action: transitionResult.action,
+                actorEmail: transitionResult.actorEmail
             });
         }
         
@@ -5252,47 +4863,19 @@ app.post('/api/contracts/:contractId/docs/verification/decision', authenticateTo
 
 // Supplier uploads original documents (metadata)
 // POST /api/contracts/:id/docs/original
-app.post('/api/contracts/:contractId/docs/original', authenticateToken, upload.single('file'), async (req, res) => {
+app.post('/api/contracts/:contractId/docs/original', authenticateToken, async (req, res) => {
     try {
         const { contractId } = req.params;
         const userEmail = getCurrentUserEmail(req);
-        
-        // DEBUG: Log received contractId (same as GET handler)
-        console.log('[POST /api/contracts/:contractId/docs/original] Received contractId:', contractId);
         
         if (!userEmail) {
             return res.status(401).json({ error: 'Not authenticated' });
         }
         
-        // DEBUG: Log available contract IDs (same as GET handler)
-        const availableIds = Array.from(database.contracts.keys());
-        console.log('[POST /api/contracts/:contractId/docs/original] Available contract IDs:', availableIds);
-        console.log('[POST /api/contracts/:contractId/docs/original] Available IDs count:', availableIds.length);
-        
-        // Use same lookup as GET handler: database.contracts.get(contractId)
         const contractFromDb = database.contracts.get(contractId);
-        
         if (!contractFromDb) {
-            // DEBUG: Enhanced error logging (same pattern as GET handler)
-            console.log('[POST /api/contracts/:contractId/docs/original] Contract not found for ID:', contractId);
-            console.log('[POST /api/contracts/:contractId/docs/original] Sample available keys (first 5):', availableIds.slice(0, 5));
-            console.log('[POST /api/contracts/:contractId/docs/original] Requested key type:', typeof contractId, 'value:', JSON.stringify(contractId));
-            
-            return res.status(404).json({ 
-                error: 'Contract not found',
-                requestedId: contractId,
-                availableCount: availableIds.length,
-                sampleKeys: availableIds.slice(0, 5)
-            });
+            return res.status(404).json({ error: 'Contract not found' });
         }
-        
-        // DEBUG: Log successful lookup (same as GET handler)
-        console.log('[POST /api/contracts/:contractId/docs/original] Contract found:', {
-            mapKey: contractId,
-            contractId: contractId,
-            contractObjectId: contractFromDb.id,
-            contractObjectContractId: contractFromDb.contract_id
-        });
         let contract = ensureContractFields(contractFromDb);
         
         // Validate: user must be supplier
@@ -5325,41 +4908,15 @@ app.post('/api/contracts/:contractId/docs/original', authenticateToken, upload.s
             });
         }
         
-        // ORIGINAL DOC UPLOAD FIX: Guard - ensure file was received
-        if (!req.file) {
-            console.error('[ORIGINAL_DOC_UPLOAD] No file received', {
-                contractId: contractId,
-                hasFile: !!req.file,
-                body: req.body
-            });
+        // Get document metadata from request body
+        const { name, url, type } = req.body;
+        
+        if (!name || !url || !type) {
             return res.status(400).json({ 
-                error: 'NO_FILE_RECEIVED',
-                message: 'No original document file received. Please upload a file.'
+                error: 'MISSING_FIELDS',
+                message: 'name, url, and type are required'
             });
         }
-        
-        console.log('[ORIGINAL_DOC_UPLOAD] file received', {
-            contractId: contractId,
-            filename: req.file.filename,
-            originalName: req.file.originalname,
-            size: req.file.size,
-            mimetype: req.file.mimetype
-        });
-        
-        // Get document metadata from request body (type may be in body)
-        const { type } = req.body;
-        
-        // Infer document type from file extension if not provided
-        let docType = type || 'shipping_document';
-        if (req.file.originalname) {
-            const ext = req.file.originalname.split('.').pop()?.toLowerCase();
-            if (ext === 'pdf') docType = 'invoice';
-            else if (['jpg', 'jpeg', 'png'].includes(ext)) docType = 'packing_list';
-        }
-        
-        // Construct URL from file path (relative to uploads directory)
-        const url = `/uploads/${req.file.filename}`;
-        const name = req.file.originalname || req.file.filename || `Document ${Date.now()}`;
         
         // Initialize originalDocs if not exists
         if (!contract.originalDocs) {
@@ -5372,49 +4929,25 @@ app.post('/api/contracts/:contractId/docs/original', authenticateToken, upload.s
             };
         }
         
-        // Ensure items array exists
-        if (!Array.isArray(contract.originalDocs.items)) {
-            contract.originalDocs.items = [];
-        }
-        
         // Add new document item
         const newItem = {
             name: name,
             url: url,
-            type: docType,
-            uploadedAt: new Date().toISOString(),
-            uploadedBy: userEmail
+            type: type,
+            uploadedAt: new Date().toISOString()
         };
         
         contract.originalDocs.items.push(newItem);
         contract.originalDocs.status = "PENDING";
-        contract.originalDocs.authenticationStatus = "PENDING";
-        contract.originalDocs.verifiedByBuyer = false;
-        contract.originalDocsUploaded = true;
-        contract.status = ContractState.AWAITING_ORIGINAL_DOCS;
-        
-        // Normalize status before saving
-        contract.status = normalizeStatus(contract.status);
         
         // A4 GOLDEN PATH: Log original docs upload step
         console.log('[A4_GOLDEN_PATH] Original documents uploaded by supplier', {
             contractId: contractId,
             userEmail: userEmail,
             documentName: name,
-            documentType: docType,
+            documentType: type,
             currentStatus: contract.status
         });
-        
-        // Log status transition
-        const oldStatus = normalizeStatus(contractFromDb.status);
-        console.log('[ORIGINAL_DOC_UPLOAD] Status transition:', {
-            contractId: contractId,
-            oldStatus: oldStatus,
-            newStatus: contract.status
-        });
-        
-        // ORIGINAL DOC UPLOAD FIX: Success log
-        console.log('[ORIGINAL_DOC_UPLOAD] file received, contractId=' + contractId);
         
         // Save to database first
         database.contracts.set(contractId, contract);
@@ -5424,21 +4957,27 @@ app.post('/api/contracts/:contractId/docs/original', authenticateToken, upload.s
         logAuditEvent('original_doc_uploaded', userEmail, {
             contractId: contractId,
             documentName: name,
-            documentType: docType
+            documentType: type
         });
         
-        // ORIGINAL DOC UPLOAD: Auth step (skipped - no automatic authentication)
-        console.log('[ORIGINAL_DOC_UPLOAD] auth step start', {
-            contractId: contractId,
-            documentName: name,
-            documentType: docType
-        });
-        console.log('[ORIGINAL_DOC_UPLOAD] auth step skipped/ok', {
-            contractId: contractId,
-            reason: 'No automatic authentication required for original document upload'
-        });
+        // STEP 1: Automatic document authentication after upload
+        console.log('[DOC_AUTH] started', { contractId: contractId });
+        const authResult = runDocumentAuthentication(contractId);
         
-        // Re-fetch contract to get updated fields
+        if (authResult.success) {
+            console.log('[DOC_AUTH] success', {
+                contractId: contractId,
+                docsAuthStatus: contract.docsAuthStatus,
+                settlementStatus: contract.settlementStatus || 'ready'
+            });
+        } else {
+            console.error('[DOC_AUTH] failed', {
+                contractId: contractId,
+                error: authResult.error
+            });
+        }
+        
+        // Re-fetch contract after authentication to get updated fields
         const updatedContract = database.contracts.get(contractId);
         const finalContract = ensureContractFields(updatedContract);
         
@@ -5471,136 +5010,7 @@ app.post('/api/contracts/:contractId/docs/original', authenticateToken, upload.s
     }
 });
 
-// Platform authenticates original documents (demo-safe)
-// POST /api/contracts/:id/docs/original/authenticate
-app.post('/api/contracts/:contractId/docs/original/authenticate', authenticateToken, async (req, res) => {
-    try {
-        const { contractId } = req.params;
-        const userEmail = getCurrentUserEmail(req);
-        
-        if (!userEmail) {
-            return res.status(401).json({ error: 'Not authenticated' });
-        }
-        
-        const contractFromDb = database.contracts.get(contractId);
-        if (!contractFromDb) {
-            return res.status(404).json({ error: 'Contract not found' });
-        }
-        
-        // CRITICAL: Capture status BEFORE ensureContractFields to prevent reset
-        const statusBeforeEnsure = normalizeStatus(contractFromDb.status || '');
-        console.log('[AUTH_DEBUG_BEFORE]', { contractId, status: statusBeforeEnsure });
-        
-        let contract = ensureContractFields(contractFromDb);
-        
-        // CRITICAL: Preserve status - never reset to earlier stages
-        // If ensureContractFields reset it, restore the original status
-        const currentStatus = normalizeStatus(contract.status || '');
-        if (currentStatus !== statusBeforeEnsure && 
-            (currentStatus === ContractState.PENDING_BUYER_CONFIRMATION || 
-             currentStatus === 'PENDING_BUYER_CONFIRMATION' ||
-             currentStatus === 'pending_buyer_confirmation')) {
-            console.warn('[AUTH_DEBUG] Status was reset, restoring:', {
-                contractId,
-                beforeEnsure: statusBeforeEnsure,
-                afterEnsure: currentStatus,
-                restoring: statusBeforeEnsure
-            });
-            contract.status = statusBeforeEnsure;
-        }
-        
-        // Validate: user must be admin or buyer (for demo)
-        const userRole = req.user?.role || 'user';
-        const isAuthorized = userRole === 'admin' || userRole === 'trader' || contract.buyerEmail === userEmail;
-        
-        if (!isAuthorized) {
-            return res.status(403).json({ error: 'Only admin or buyer can authenticate documents' });
-        }
-        
-        // Validate: original docs must exist
-        if (!contract.originalDocs || !contract.originalDocs.items || contract.originalDocs.items.length === 0) {
-            return res.status(400).json({ 
-                error: 'NO_ORIGINAL_DOCS',
-                message: 'No original documents uploaded yet'
-            });
-        }
-        
-        // CRITICAL: Never reset status to earlier stages
-        // Authentication alone does NOT transition status forward - only verification does
-        // But we must preserve the current status (should be AWAITING_ORIGINAL_DOCS)
-        const preservedStatus = normalizeStatus(contract.status || statusBeforeEnsure);
-        
-        // Set authentication status
-        if (!contract.originalDocs) {
-            contract.originalDocs = {
-                status: "NONE",
-                items: [],
-                verifiedBy: null,
-                verifiedAt: null,
-                releaseStatus: "LOCKED"
-            };
-        }
-        
-        contract.originalDocs.authenticationStatus = "AUTHENTICATED";
-        contract.originalDocs.authenticatedAt = new Date().toISOString();
-        contract.originalDocs.authenticatedBy = userEmail;
-        
-        // CRITICAL: Preserve status - do NOT change it during authentication
-        contract.status = preservedStatus;
-        
-        // Force uppercase
-        if (typeof contract.status === "string") {
-            contract.status = contract.status.toUpperCase();
-        }
-        
-        database.contracts.set(contractId, contract);
-        saveDatabase();
-        
-        // Log audit event
-        logAuditEvent('original_doc_authenticated', userEmail, {
-            contractId: contractId,
-            authenticatedBy: userEmail
-        });
-        
-        console.log('[ORIGINAL_AUTH] Authentication completed:', {
-            contractId: contractId,
-            authenticatedBy: userEmail,
-            oldStatus: statusBeforeEnsure,
-            newStatus: contract.status
-        });
-        
-        console.log('[AUTH_DEBUG_AFTER]', { contractId, status: contract.status });
-        
-        // Return updated contract with computed objects
-        const updatedOriginalDocs = computeOriginalDocsObject(contract);
-        const updatedSettlement = computeSettlementObject(contract, contract.documents || []);
-        const deposit = computeDepositObject(contract);
-        const financing = computeFinancingObject(contract);
-        const verificationDocs = computeVerificationDocsObject(contract);
-        
-        res.json({
-            success: true,
-            message: 'Original documents authenticated successfully',
-            contract: {
-                ...contract,
-                originalDocs: updatedOriginalDocs,
-                settlement: updatedSettlement,
-                deposit: deposit,
-                financing: financing,
-                verificationDocs: verificationDocs
-            }
-        });
-        
-    } catch (error) {
-        console.error('[ERROR] Original doc authenticate error:', error);
-        res.status(500).json({ 
-            error: 'Failed to authenticate original documents',
-            message: error.message || 'Unknown error occurred'
-        });
-    }
-});
-
-// Buyer verifies original documents (after authentication)
+// Admin verifies original documents (mock verification for MVP)
 // POST /api/contracts/:id/docs/original/verify
 app.post('/api/contracts/:contractId/docs/original/verify', authenticateToken, async (req, res) => {
     try {
@@ -5615,74 +5025,19 @@ app.post('/api/contracts/:contractId/docs/original/verify', authenticateToken, a
         if (!contractFromDb) {
             return res.status(404).json({ error: 'Contract not found' });
         }
-        
-        // CRITICAL: Capture status BEFORE ensureContractFields to prevent reset
-        const statusBeforeEnsure = normalizeStatus(contractFromDb.status || '');
-        console.log('[AUTH_DEBUG_BEFORE]', { contractId, status: statusBeforeEnsure });
-        
         let contract = ensureContractFields(contractFromDb);
         
-        // CRITICAL: Preserve status - never reset to earlier stages
-        // If ensureContractFields reset it, restore the original status
-        let currentStatusAfterEnsure = normalizeStatus(contract.status || '');
-        if (currentStatusAfterEnsure !== statusBeforeEnsure && 
-            (currentStatusAfterEnsure === ContractState.PENDING_BUYER_CONFIRMATION || 
-             currentStatusAfterEnsure === 'PENDING_BUYER_CONFIRMATION' ||
-             currentStatusAfterEnsure === 'pending_buyer_confirmation')) {
-            console.warn('[VERIFY_DEBUG] Status was reset, restoring:', {
-                contractId,
-                beforeEnsure: statusBeforeEnsure,
-                afterEnsure: currentStatusAfterEnsure,
-                restoring: statusBeforeEnsure
-            });
-            contract.status = statusBeforeEnsure;
-            currentStatusAfterEnsure = statusBeforeEnsure;
-        }
+        // Validate: user must be admin (or allow mock verification for MVP)
+        // For MVP, allow any authenticated user to verify (mock)
+        // TODO: Restrict to admin role in production
         
-        // Guard: contract.status must be ACTIVE or AWAITING_ORIGINAL_DOCS (allow both)
-        const currentStatus = normalizeStatus(contract.status || currentStatusAfterEnsure || statusBeforeEnsure);
-        const allowedStatuses = [ContractState.ACTIVE, ContractState.AWAITING_ORIGINAL_DOCS];
-        if (!allowedStatuses.includes(currentStatus)) {
-            console.log('[ORIGINAL_VERIFY] Guard failed - invalid status:', {
-                contractId: contractId,
-                currentStatus: currentStatus,
-                allowedStatuses: allowedStatuses
-            });
+        // Validate: original docs must exist and be pending
+        const originalDocs = computeOriginalDocsObject(contract);
+        if (originalDocs.status !== "PENDING") {
             return res.status(400).json({ 
                 error: 'INVALID_STATUS',
-                message: `Contract status must be ACTIVE or AWAITING_ORIGINAL_DOCS. Current status: ${currentStatus}`
+                message: `Original docs status is ${originalDocs.status}, expected PENDING`
             });
-        }
-        
-        // Guard: original docs must exist and have items
-        const originalDocs = computeOriginalDocsObject(contract);
-        if (!originalDocs.items || originalDocs.items.length === 0) {
-            console.log('[ORIGINAL_VERIFY] Guard failed - no items:', {
-                contractId: contractId,
-                itemsCount: originalDocs.items?.length || 0
-            });
-            return res.status(400).json({ 
-                error: 'NO_ORIGINAL_DOCS',
-                message: 'No original documents uploaded yet'
-            });
-        }
-        
-        // Guard: authenticationStatus must be AUTHENTICATED
-        if (originalDocs.authenticationStatus !== "AUTHENTICATED") {
-            console.log('[ORIGINAL_VERIFY] Guard failed - not authenticated:', {
-                contractId: contractId,
-                authenticationStatus: originalDocs.authenticationStatus
-            });
-            return res.status(400).json({ 
-                error: 'NOT_AUTHENTICATED',
-                message: `Original docs must be authenticated first. Current status: ${originalDocs.authenticationStatus}`
-            });
-        }
-        
-        // Validate: user must be BUYER
-        const roleInfo = await getUserRoleForContract(userEmail, contract, database);
-        if (roleInfo.contractRole !== 'BUYER' && req.user.role !== 'admin') {
-            return res.status(403).json({ error: 'Only the buyer can verify original documents' });
         }
         
         // Update original docs to verified
@@ -5699,69 +5054,10 @@ app.post('/api/contracts/:contractId/docs/original/verify', authenticateToken, a
         contract.originalDocs.status = "VERIFIED";
         contract.originalDocs.verifiedBy = userEmail;
         contract.originalDocs.verifiedAt = new Date().toISOString();
-        contract.originalDocs.verifiedByBuyer = true;
-        
-        // CRITICAL: Set flags to track verification
-        contract.originalDocsUploaded = true;
-            contract.originalDocsVerified = true;
-        
         // Keep releaseStatus as LOCKED until settlement is paid
         
-        // CRITICAL: Capture status before transition for logging
-        const statusBefore = normalizeStatus(contract.status || currentStatus);
-        
-        // Transition status to AWAITING_FINAL_SETTLEMENT after buyer verification
-        // Advance forward-only: if ACTIVE or AWAITING_ORIGINAL_DOCS → AWAITING_FINAL_SETTLEMENT
-        const oldStatus = contract.status;
-        const newStatus = ContractState.AWAITING_FINAL_SETTLEMENT;
-        
-        // CRITICAL: Detect status regression before applying
-        if (detectStatusRegression(oldStatus, newStatus, 'ORIGINAL_VERIFY')) {
-            return res.status(400).json({
-                error: 'STATUS_REGRESSION_BLOCKED',
-                message: 'Status regression detected and blocked'
-            });
-        }
-        
-        // Apply status transition
-        contract.status = newStatus;
-        contract.settlementStatus = "ready"; // IMPORTANT: unlock settlement
-        
-        // Normalize status before saving
-        contract.status = normalizeStatus(contract.status);
-        
-        // Force uppercase
-        if (typeof contract.status === "string") {
-            contract.status = contract.status.toUpperCase();
-        }
-        
-        // CRITICAL: Log status transition
-        console.log('[ORIGINAL_VERIFY]', {
-            id: contractId,
-            before: statusBefore,
-            after: contract.status
-        });
-        
-        console.log('[STATUS_TRANSITION]', {
-            from: statusBefore,
-            to: contract.status,
-            reason: 'ORIGINAL_DOCS_VERIFIED',
-            contractId: contractId
-        });
-        
-        // CRITICAL: Persist to database using same method as other updates
         database.contracts.set(contractId, contract);
         saveDatabase();
-        
-        // CRITICAL: Verify persistence by reading back
-        const persistedContract = database.contracts.get(contractId);
-        if (!persistedContract || normalizeStatus(persistedContract.status || '') !== normalizeStatus(contract.status)) {
-            console.error('[ORIGINAL_VERIFY_PERSISTENCE_ERROR] Status not persisted correctly', {
-                contractId,
-                expectedStatus: contract.status,
-                persistedStatus: persistedContract?.status
-            });
-        }
         
         // Log audit event
         logAuditEvent('original_doc_verified', userEmail, {
@@ -5773,17 +5069,11 @@ app.post('/api/contracts/:contractId/docs/original/verify', authenticateToken, a
         const updatedOriginalDocs = computeOriginalDocsObject(contract);
         const updatedSettlement = computeSettlementObject(contract, contract.documents || []);
         
-        // CRITICAL: Return JSON with at least { id, status } (or full contract)
         res.json({
             success: true,
             message: 'Original documents verified successfully',
-            id: contractId,
-            status: contract.status,
             contract: {
                 ...contract,
-                id: contractId,
-                contract_id: contractId,
-                status: contract.status,
                 originalDocs: updatedOriginalDocs,
                 settlement: updatedSettlement
             }
@@ -5793,116 +5083,6 @@ app.post('/api/contracts/:contractId/docs/original/verify', authenticateToken, a
         console.error('[ERROR] Original doc verify error:', error);
         res.status(500).json({ 
             error: 'Failed to verify original documents',
-            message: error.message || 'Unknown error occurred'
-        });
-    }
-});
-
-// A4: Release Documents Key endpoint
-// POST /api/contracts/:contractId/docs/release
-app.post('/api/contracts/:contractId/docs/release', authenticateToken, async (req, res) => {
-    try {
-        const { contractId } = req.params;
-        const userEmail = getCurrentUserEmail(req);
-        
-        if (!userEmail) {
-            return res.status(401).json({ error: 'Not authenticated' });
-        }
-        
-        const contractFromDb = database.contracts.get(contractId);
-        if (!contractFromDb) {
-            return res.status(404).json({ error: 'Contract not found' });
-        }
-        let contract = ensureContractFields(contractFromDb);
-        
-        // Guard: status must be AWAITING_DOCS_RELEASE_KEY
-        const currentStatus = normalizeStatus(contract.status);
-        if (currentStatus !== ContractState.AWAITING_DOCS_RELEASE_KEY) {
-            return res.status(400).json({ 
-                error: 'INVALID_STATUS',
-                message: `Contract status must be AWAITING_DOCS_RELEASE_KEY. Current status: ${currentStatus}`
-            });
-        }
-        
-        // Guard: finalPaymentPaid must be true
-        if (!contract.finalPaymentPaid) {
-            return res.status(400).json({ 
-                error: 'FINAL_PAYMENT_REQUIRED',
-                message: 'Final payment must be paid before releasing documents'
-            });
-        }
-        
-        // Set release flags
-        contract.docsReleased = true;
-        contract.docsReleasedAt = new Date().toISOString();
-        contract.docsReleasedBy = userEmail;
-        contract.docsReleaseKeyIssued = true;
-        
-        // Update originalDocs release status
-        if (contract.originalDocs) {
-            contract.originalDocs.releaseStatus = "RELEASED";
-        }
-        contract.docsReleaseStatus = "RELEASED";
-        
-        // Transition to COMPLETED
-        const oldStatus = contract.status;
-        contract.status = ContractState.COMPLETED;
-        
-        // CRITICAL: Detect status regression
-        if (detectStatusRegression(oldStatus, contract.status, 'DOCS_RELEASE')) {
-            contract.status = oldStatus; // Block regression
-            return res.status(400).json({
-                error: 'STATUS_REGRESSION_BLOCKED',
-                message: 'Status regression detected and blocked'
-            });
-        }
-        
-        // Normalize status before saving
-        contract.status = normalizeStatus(contract.status);
-        
-        console.log('[RELEASE_KEY] Status transition:', {
-            contractId: contractId,
-            oldStatus: oldStatus,
-            newStatus: contract.status,
-            docsReleaseKeyIssued: contract.docsReleaseKeyIssued
-        });
-        
-        // B5: Invariant - if status is COMPLETED then docsReleased === true
-        if (contract.status === ContractState.COMPLETED && !contract.docsReleased) {
-            console.error('[INVARIANT] COMPLETED but docsReleased is false', {
-                contractId: contractId,
-                status: contract.status,
-                docsReleased: contract.docsReleased
-            });
-        }
-        
-        database.contracts.set(contractId, contract);
-        saveDatabase();
-        
-        // Log audit event
-        logAuditEvent('docs_released', userEmail, {
-            contractId: contractId,
-            releasedBy: userEmail
-        });
-        
-        // Return updated contract with computed objects
-        const updatedOriginalDocs = computeOriginalDocsObject(contract);
-        const updatedSettlement = computeSettlementObject(contract, contract.documents || []);
-        
-        res.json({
-            success: true,
-            message: 'Documents released successfully',
-            contract: {
-                ...contract,
-                originalDocs: updatedOriginalDocs,
-                settlement: updatedSettlement
-            }
-        });
-        
-    } catch (error) {
-        console.error('[ERROR] Docs release error:', error);
-        res.status(500).json({ 
-            error: 'Failed to release documents',
             message: error.message || 'Unknown error occurred'
         });
     }
@@ -8840,7 +8020,6 @@ function ensureUTF8(str) {
 // Start server if this file is run directly
 if (require.main === module) {
     console.log('[SERVER_VERSION]', 'WORKING-FIXED', Date.now());
-    console.log('[MERGE_LIFELINE_BUILD]', MERGE_LIFELINE_BUILD);
     app.listen(PORT, '0.0.0.0', () => {
         console.log(`[INFO] traidefi Complete Production Platform running on port ${PORT}`);
         console.log(`[INFO] Landing Page: http://localhost:${PORT}/`);

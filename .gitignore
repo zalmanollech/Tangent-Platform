@@ -1,5 +1,5 @@
 node_modules
-
+uploads/
 # Environment variables and secrets
 config.env
 .env
