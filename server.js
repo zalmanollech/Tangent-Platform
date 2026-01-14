@@ -1489,10 +1489,296 @@ app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok', time: new Date().toISOString() });
 });
 
-// Root route - serve landing page with feature boxes and explanations
+// Root route - serve landing page matching TRAIDEFI design
 app.get('/', (req, res) => {
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-    const html = '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>traidefi - Get Started</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;background:#000;min-height:100vh;color:#fff;padding:2rem}.container{max-width:1200px;margin:0 auto}.header{text-align:center;margin-bottom:3rem}h1{color:#fff;font-size:3rem;margin-bottom:1rem}.subtitle{color:#ccc;font-size:1.3rem;margin-bottom:3rem}.features-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:2rem;margin-bottom:3rem}.feature-box{background:#1a1a1a;padding:2rem;border-radius:15px;border:1px solid #333}.feature-box h3{color:#fff;font-size:1.5rem;margin-bottom:1rem}.feature-box p{color:#ccc;line-height:1.6;margin-bottom:1rem}.feature-list{list-style:none;padding:0}.feature-list li{color:#ccc;padding:0.5rem 0;padding-left:1.5rem;position:relative}.feature-list li:before{content:"✓";position:absolute;left:0;color:#667eea;font-weight:bold}.btn-container{display:flex;gap:1rem;justify-content:center;flex-wrap:wrap;margin-top:3rem}.btn{padding:15px 30px;background:#fff;color:#000;border:none;border-radius:8px;font-size:1.1rem;font-weight:600;cursor:pointer;text-decoration:none;display:inline-block}.btn:hover{background:#ccc}.btn-secondary{background:#667eea;color:#fff}.btn-secondary:hover{background:#5a6fd8}</style></head><body><div class="container"><div class="header"><h1>Welcome to traidefi</h1><p class="subtitle">The Future of Commodity Trading</p></div><div class="features-grid"><div class="feature-box"><h3>Secure Trading Platform</h3><p>Trade commodities with confidence using our secure, blockchain-powered platform.</p><ul class="feature-list"><li>End-to-end encryption</li><li>Smart contract automation</li><li>Real-time trade tracking</li><li>Secure payment processing</li></ul></div><div class="feature-box"><h3>TGT Stablecoin</h3><p>Use TGT (Tangent Gold Token) for fast, secure, and low-cost transactions.</p><ul class="feature-list"><li>Stable value backed by gold</li><li>Instant settlements</li><li>Low transaction fees</li><li>Global accessibility</li></ul></div><div class="feature-box"><h3>Complete Workflow</h3><p>From contract creation to payment release, manage your entire trade lifecycle.</p><ul class="feature-list"><li>Contract management</li><li>KYC compliance</li><li>Document verification</li><li>Automated payments</li></ul></div></div><div class="btn-container"><a href="/landing-two" class="btn">Register Interest (Early Access)</a><a href="/landing-two" class="btn btn-secondary">Team Portal</a></div></div></body></html>';
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TRAIDEFI</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Anton&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+            background: #ffffff;
+            min-height: 100vh;
+            color: #1f2937;
+            position: relative;
+            overflow-x: hidden;
+        }
+        .font-anton {
+            font-family: 'Anton', sans-serif;
+            font-weight: 400;
+            letter-spacing: 0.5px;
+        }
+        /* Background Graphic */
+        .bg-graphic {
+            position: absolute;
+            inset: 0;
+            overflow: hidden;
+            pointer-events: none;
+            z-index: 0;
+        }
+        .bg-graphic svg {
+            position: absolute;
+            right: 0;
+            top: 0;
+            width: 50%;
+            height: 100%;
+            opacity: 0.3;
+        }
+        /* Header */
+        header {
+            position: relative;
+            z-index: 10;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 1.5rem;
+        }
+        .logo-container {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+        .logo-img {
+            width: 40px;
+            height: 40px;
+            object-fit: contain;
+        }
+        .logo-text {
+            font-size: 1.5rem;
+            font-family: 'Anton', sans-serif;
+            color: #111827;
+            letter-spacing: 0.5px;
+        }
+        .nav-links {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+        .nav-link {
+            padding: 0.5rem 1rem;
+            color: #374151;
+            text-decoration: none;
+            font-size: 0.95rem;
+            font-weight: 500;
+            transition: color 0.2s;
+        }
+        .nav-link:hover {
+            color: #111827;
+        }
+        .btn-signup {
+            padding: 0.5rem 1.5rem;
+            background: #111827;
+            color: #fff;
+            border-radius: 0.5rem;
+            text-decoration: none;
+            font-size: 0.95rem;
+            font-weight: 500;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: background-color 0.2s;
+        }
+        .btn-signup:hover {
+            background: #1f2937;
+        }
+        .btn-signup svg {
+            width: 1rem;
+            height: 1rem;
+        }
+        /* Main Content */
+        .main-content {
+            position: relative;
+            z-index: 10;
+            max-width: 1280px;
+            margin: 0 auto;
+            padding: 3rem 1.5rem;
+        }
+        .content-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 3rem;
+            align-items: center;
+        }
+        @media (min-width: 1024px) {
+            .content-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+        .content-left {
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+        }
+        .headline {
+            font-size: 3rem;
+            line-height: 1.1;
+            color: #111827;
+            margin-bottom: 1.5rem;
+            text-align: left;
+        }
+        @media (min-width: 1024px) {
+            .headline {
+                font-size: 3.75rem;
+            }
+        }
+        .description {
+            font-size: 1.125rem;
+            color: #374151;
+            line-height: 1.75;
+            max-width: 42rem;
+            text-align: left;
+        }
+        .cta-buttons {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+        .btn-primary {
+            padding: 0.75rem 2rem;
+            background: #111827;
+            color: #fff;
+            border-radius: 0.5rem;
+            text-decoration: none;
+            font-size: 1.125rem;
+            font-weight: 500;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: background-color 0.2s;
+        }
+        .btn-primary:hover {
+            background: #1f2937;
+        }
+        .btn-primary svg {
+            width: 1.25rem;
+            height: 1.25rem;
+        }
+        .btn-secondary {
+            padding: 0.75rem 2rem;
+            background: #fff;
+            border: 2px solid #111827;
+            color: #111827;
+            border-radius: 0.5rem;
+            text-decoration: none;
+            font-size: 1.125rem;
+            font-weight: 500;
+            transition: background-color 0.2s;
+        }
+        .btn-secondary:hover {
+            background: #f9fafb;
+        }
+        /* Responsive */
+        @media (max-width: 768px) {
+            .headline {
+                font-size: 2.5rem;
+            }
+            .description {
+                font-size: 1rem;
+            }
+            header {
+                padding: 1rem;
+            }
+            .main-content {
+                padding: 2rem 1rem;
+            }
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 0.6; }
+        }
+    </style>
+</head>
+<body>
+    <!-- Background Graphic -->
+    <div class="bg-graphic">
+        <svg viewBox="0 0 800 800" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+                <linearGradient id="wave1" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#3B82F6" stop-opacity="0.1" />
+                    <stop offset="100%" stop-color="#1E40AF" stop-opacity="0.2" />
+                </linearGradient>
+                <linearGradient id="wave2" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#60A5FA" stop-opacity="0.15" />
+                    <stop offset="100%" stop-color="#3B82F6" stop-opacity="0.25" />
+                </linearGradient>
+            </defs>
+            <path d="M0,400 Q200,300 400,400 T800,400 L800,800 L0,800 Z" fill="url(#wave1)" />
+            <path d="M0,500 Q300,350 600,500 T800,500 L800,800 L0,800 Z" fill="url(#wave2)" />
+            <!-- Dots -->
+        </svg>
+    </div>
+
+    <!-- Header -->
+    <header>
+        <div class="logo-container">
+            <img src="/traidefi-icon-transparent.png" alt="TRAIDEFI Logo" class="logo-img" />
+            <span class="logo-text">TRAIDEFI</span>
+        </div>
+        <nav class="nav-links">
+            <a href="https://traidefi.textime.co.il/login" class="nav-link">LOG IN</a>
+            <a href="https://traidefi.textime.co.il/signup" class="btn-signup">
+                SIGN UP
+                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+            </a>
+        </nav>
+    </header>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <div class="content-grid">
+            <div class="content-left">
+                <div>
+                    <h1 class="headline font-anton">WE ARE TRAIDEFI</h1>
+                    <p class="description">
+                        TRAIDEFI is the first AI-powered digital trading engine, structured like a bank, but where contracts, documents, and money converge. A protocolized system that authenticates every trade document, reads every contract, and triggers payment or document release automatically — eliminating bottlenecks and redefining how global trade settles.
+                    </p>
+                </div>
+                <div class="cta-buttons">
+                    <a href="https://traidefi.textime.co.il/signup" class="btn-primary">
+                        GET STARTED
+                        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                        </svg>
+                    </a>
+                    <a href="https://traidefi.textime.co.il/login" class="btn-secondary">LOG IN</a>
+                </div>
+            </div>
+            <div class="content-right"></div>
+        </div>
+    </div>
+    <script>
+        // Add animated dots to background
+        const svg = document.querySelector('.bg-graphic svg');
+        const svgNS = 'http://www.w3.org/2000/svg';
+        for (let i = 0; i < 20; i++) {
+            const circle = document.createElementNS(svgNS, 'circle');
+            circle.setAttribute('cx', Math.random() * 800);
+            circle.setAttribute('cy', Math.random() * 800);
+            circle.setAttribute('r', Math.random() * 3 + 1);
+            circle.setAttribute('fill', '#1E40AF');
+            circle.setAttribute('opacity', '0.3');
+            circle.style.animation = 'pulse 2s ease-in-out infinite';
+            circle.style.animationDelay = Math.random() * 2 + 's';
+            svg.appendChild(circle);
+        }
+    </script>
+</body>
+</html>`;
     res.end(html, 'utf8');
 });
 
